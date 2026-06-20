@@ -1,0 +1,6 @@
+{
+  "name": "야담 스토리보드 제어 엔진",
+  "description": "역사·야담 유튜브 스토리보드를 분석하고 일관성 있는 캐릭터 시트 및 씬 장면 이미지를 생성하는 제어 도구",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
