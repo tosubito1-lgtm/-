@@ -25,6 +25,10 @@ import {
   ArrowRight,
   Info,
   Edit3,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Wand2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -190,6 +194,8 @@ export default function App() {
   const [editSceneNarration, setEditSceneNarration] = useState("");
   const [editSceneVisDesc, setEditSceneVisDesc] = useState("");
   const [editScenePrompt, setEditScenePrompt] = useState("");
+  const [editSceneCharacterNames, setEditSceneCharacterNames] = useState<string[]>([]);
+  const [isTranslatingPrompt, setIsTranslatingPrompt] = useState(false);
 
   // File upload ref helper
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -879,12 +885,53 @@ export default function App() {
     );
   };
 
+  const handleDeleteCharacter = (index: number) => {
+    const charName = characters[index]?.name;
+    if (window.confirm(`포트레이트 캐릭터 [${charName}] 를 정말로 삭제하시겠습니까? 현재 완성된 관련 장면에 미칠 수 있는 영향에 주의해 주세요.`)) {
+      const updatedCh = characters.filter((_, idx) => idx !== index);
+      // Clean references in scenes
+      const updatedSc = scenes.map((s) => ({
+        ...s,
+        characterNames: s.characterNames ? s.characterNames.filter((name) => name !== charName) : []
+      }));
+      setCharacters(updatedCh);
+      setScenes(updatedSc);
+      saveSession(analysis, updatedCh, locations, updatedSc);
+      showFeedback(`${charName} 캐릭터를 정상 삭제했습니다.`, "info");
+      if (editingCharIdx === index) {
+        setEditingCharIdx(null);
+      }
+    }
+  };
+
+  const handleCreateEmptyCharacter = () => {
+    const nextIndex = characters.length;
+    const standardName = `새 인물 ${nextIndex + 1}`;
+    const newChar: CharacterItem = {
+      name: standardName,
+      gender: "남성",
+      age: "30대",
+      appearance: "조선시대 보편적인 외모 이목구비, 단정한 얼굴",
+      clothing: "수수한 옥색 선비 도포와 갓 상투 차림",
+      traits: "극적 사건에 휘말린 순박한 인물 역학",
+      characterSheetPrompt: "masterpiece, artistic rendering, detailed character portrait of a Joseon period scholar wearing traditional attire, clean studio light grey background, solo card portrait focus",
+      appearanceEnglish: "a classic young Joseon scholar, neat topknot, dark clean eyes",
+      clothingEnglish: "traditional light green silk hanbok dress and black gat hat"
+    };
+    const updated = [...characters, newChar];
+    setCharacters(updated);
+    saveSession(analysis, updated, locations, scenes);
+    startEditingCharacter(nextIndex); // Trigger editing instantly!
+    showFeedback(`새로 생성된 임시 인물 [${standardName}]의 캐릭터 카드를 바로 편집 및 구성해 보세요.`, "success");
+  };
+
   // Scene Editing Helpers
   const startEditingScene = (scene: SceneItem) => {
     setEditSceneLocation(scene.locationName);
     setEditSceneNarration(scene.narrationText);
     setEditSceneVisDesc(scene.visualDescription);
     setEditScenePrompt(scene.refinedImagePrompt);
+    setEditSceneCharacterNames(scene.characterNames || []);
     setEditingSceneId(scene.id);
   };
 
@@ -901,6 +948,7 @@ export default function App() {
       narrationText: editSceneNarration,
       visualDescription: editSceneVisDesc,
       refinedImagePrompt: editScenePrompt,
+      characterNames: editSceneCharacterNames,
     };
     setScenes(updated);
     setEditingSceneId(null);
@@ -909,6 +957,126 @@ export default function App() {
       `Scene #${updated[actualIndex].id} 설정 및 연출 프롬프트가 수정되었습니다.`,
       "success",
     );
+  };
+
+  const handleDeleteScene = (actualIndex: number) => {
+    if (actualIndex === -1) return;
+    const sceneId = scenes[actualIndex]?.id;
+    if (window.confirm(`스토리보드 장면 Scene #${sceneId} 를 삭제하시겠습니까? 전체 타임라인 일련번호가 안전하게 재배열됩니다.`)) {
+      const filtered = scenes.filter((_, idx) => idx !== actualIndex);
+      // Re-sequence scene IDs nicely
+      const resequenced = filtered.map((sc, i) => ({
+        ...sc,
+        id: i + 1
+      }));
+      setScenes(resequenced);
+      saveSession(analysis, characters, locations, resequenced);
+      showFeedback(`Scene #${sceneId} 장면이 적출된 뒤 타임라인이 온전히 재배열되었습니다.`, "info");
+      if (editingSceneId === sceneId) {
+        setEditingSceneId(null);
+      }
+    }
+  };
+
+  const handleCreateEmptyScene = () => {
+    const nextId = scenes.length + 1;
+    const newScene: SceneItem = {
+      id: nextId,
+      stage: "middle",
+      locationName: locations[0]?.name || "새로운 장소",
+      characterNames: [],
+      narrationText: "이곳에 들어올 매혹적인 야담 자막 스크립트를 작성해 주세요.",
+      visualDescription: "이곳에 들어올 인물 구도, 각도, 미장센 등의 지상 무대 연출을 명시해 주세요.",
+      refinedImagePrompt: "masterpiece, artistic painting style, traditional Korean Joseon background landscape, dramatic moody atmosphere",
+      isGenerating: false
+    };
+    const updated = [...scenes, newScene];
+    setScenes(updated);
+    saveSession(analysis, characters, locations, updated);
+    startEditingScene(newScene); // Highlight edit panel instantly!
+    showFeedback("새 스토리보드 장면이 타임라인 끝자락에 추가되었습니다. 세부 연출을 즉시 구성해 보세요.", "success");
+  };
+
+  const handleMoveSceneUp = (actualIndex: number) => {
+    if (actualIndex <= 0) return;
+    const updated = [...scenes];
+    // Swap elements
+    const temp = updated[actualIndex];
+    updated[actualIndex] = updated[actualIndex - 1];
+    updated[actualIndex - 1] = temp;
+    // Re-sequence IDs
+    const resequenced = updated.map((sc, i) => ({
+      ...sc,
+      id: i + 1
+    }));
+    setScenes(resequenced);
+    saveSession(analysis, characters, locations, resequenced);
+    showFeedback(`장면 재생 순서가 위로 한 단계 상향 조정되었습니다.`, "success");
+  };
+
+  const handleMoveSceneDown = (actualIndex: number) => {
+    if (actualIndex === -1 || actualIndex >= scenes.length - 1) return;
+    const updated = [...scenes];
+    // Swap elements
+    const temp = updated[actualIndex];
+    updated[actualIndex] = updated[actualIndex + 1];
+    updated[actualIndex + 1] = temp;
+    // Re-sequence IDs
+    const resequenced = updated.map((sc, i) => ({
+      ...sc,
+      id: i + 1
+    }));
+    setScenes(resequenced);
+    saveSession(analysis, characters, locations, resequenced);
+    showFeedback(`장면 재생 순서가 아래로 한 단계 하향 조정되었습니다.`, "success");
+  };
+
+  const handleAiPromptTranslate = async (type: "character" | "scene", indexOrId: number) => {
+    setIsTranslatingPrompt(true);
+    try {
+      let textToTranslate = "";
+      let charactersInvolved: string[] = [];
+      let locationDesc = "";
+
+      if (type === "character") {
+        textToTranslate = `${editCharName} (${editCharAge}, ${editCharGender}): ${editCharAppearance}. 의상: ${editCharClothing}. 특징: ${editCharTraits}`;
+      } else {
+        textToTranslate = `나레이션: ${editSceneNarration}. 연출: ${editSceneVisDesc}`;
+        charactersInvolved = editSceneCharacterNames;
+        const foundLoc = locations.find(l => l.name.trim().toLowerCase() === editSceneLocation.trim().toLowerCase());
+        if (foundLoc) {
+          locationDesc = foundLoc.descriptionEnglish || foundLoc.description;
+        }
+      }
+
+      const response = await fetch("/api/translate-prompt", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          text: textToTranslate,
+          type,
+          charactersInvolved,
+          locationDesc
+        })
+      });
+
+      const data = await safeParseJSON(response, "프롬프트 최적화 실패");
+      if (data.prompt) {
+        if (type === "character") {
+          setEditCharPrompt(data.prompt);
+        } else {
+          setEditScenePrompt(data.prompt);
+        }
+        showFeedback("Gemini AI를 통해 한국어 연출 설정을 정교한 영어 이미지 프롬프트로 완벽 번역 및 최적화하였습니다!", "success");
+      } else {
+        throw new Error("비어 있는 번역 프롬프트 응답");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showFeedback(`프롬프트 AI 번역 실패: ${err.message}`, "error");
+    } finally {
+      setIsTranslatingPrompt(false);
+    }
   };
 
   // Step 2-1: Generate all scenes in queue with robust recovery
@@ -2311,21 +2479,20 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="text-right hidden sm:block">
-                  <span className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
-                    Completed Portions
-                  </span>
-                  <span className="text-xs font-mono font-bold text-white/80">
-                    {charSuccessCount} / {charTotalCount} 피스 (
-                    {charProgressPercent}%)
-                  </span>
-                </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCreateEmptyCharacter}
+                  id="btn-add-character-manually"
+                  className="px-4 py-2 bg-[#1a1a24] hover:bg-[#20202e] border border-white/10 text-white font-semibold text-xs tracking-wide rounded transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 text-blue-400" />
+                  인물 수동 추가
+                </button>
                 <button
                   onClick={handleGenerateAllCharacters}
                   disabled={isGeneratingCharacters || characters.length === 0}
                   id="btn-character-batch-trigger"
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded transition-colors disabled:opacity-40"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded transition-colors disabled:opacity-40"
                 >
                   {isGeneratingCharacters ? (
                     <>
@@ -2590,9 +2757,20 @@ export default function App() {
                           </div>
 
                           <div>
-                            <span className="text-[9px] text-white/30 block mb-0.5 font-mono">
-                              PORTRAIT PROMPT
-                            </span>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[9px] text-white/30 font-mono">
+                                PORTRAIT PROMPT
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isTranslatingPrompt}
+                                onClick={() => handleAiPromptTranslate("character", index)}
+                                className="text-[9px] text-blue-400 hover:text-blue-300 font-semi-bold flex items-center gap-1 transition-colors disabled:opacity-50"
+                              >
+                                <Wand2 className="w-2.5 h-2.5" />
+                                {isTranslatingPrompt ? "AI 번역 중..." : "AI 한국어 세팅 자동번역 및 최적화"}
+                              </button>
+                            </div>
                             <textarea
                               rows={2}
                               value={editCharPrompt}
@@ -2619,7 +2797,7 @@ export default function App() {
                                 </span>
                               </h3>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => startEditingCharacter(index)}
                                 className="p-1 text-white/40 hover:text-white transition-colors"
@@ -2638,6 +2816,13 @@ export default function App() {
                                   <RefreshCw className="w-3.5 h-3.5" />
                                 </button>
                               )}
+                              <button
+                                onClick={() => handleDeleteCharacter(index)}
+                                className="p-1 text-white/40 hover:text-rose-500 transition-colors"
+                                title="Delete this character"
+                              >
+                                <Trash2 className="w-3.2 h-3.2 text-rose-400" />
+                              </button>
                             </div>
                           </div>
 
@@ -2822,6 +3007,15 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleCreateEmptyScene}
+                    id="btn-add-scene-manually"
+                    className="px-3 py-1.5 rounded text-xs font-semibold bg-[#1a1a24] hover:bg-[#20202d] text-white border border-white/10 transition-all flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-blue-400 font-bold" />
+                    장면 수동 추가
+                  </button>
+
                   <button
                     onClick={() => setFilterFailedOnly(!filterFailedOnly)}
                     id="toggle-filter-failed"
@@ -3145,8 +3339,8 @@ export default function App() {
                     <div className="p-4 flex flex-col justify-between flex-grow gap-4">
                       {editingSceneId === scene.id ? (
                         <div className="space-y-3">
-                          <div className="flex justify-between items-center pb-1 border-b border-white/5">
-                            <span className="text-[9px] text-blue-400 font-bold font-mono">
+                          <div className="flex justify-between items-center pb-1 border-b border-white/5 font-mono">
+                            <span className="text-[9px] text-blue-400 font-bold">
                               SCENE #{scene.id} EDITING
                             </span>
                             <div className="flex gap-1.5">
@@ -3179,6 +3373,45 @@ export default function App() {
                                 className="w-full bg-[#1a1a22] border border-white/10 rounded px-1.5 py-0.5 text-white text-[11px] focus:border-blue-500 focus:outline-none"
                               />
                             </div>
+                            
+                            {/* Involved Characters dynamic chips checkboxes */}
+                            <div>
+                              <span className="text-[8px] text-blue-400 font-semibold block mb-1 font-mono">
+                                INVOLVED CHARACTER PARTICIPANTS
+                              </span>
+                              <div className="flex flex-wrap gap-1 bg-[#16161f] p-1.5 rounded border border-white/5">
+                                {characters.length === 0 ? (
+                                  <span className="text-white/30 text-[9px] italic">등록된 인물이 없습니다. 먼저 인 데이터베이스에 인물을 추가하세요.</span>
+                                ) : (
+                                  characters.map((ch) => {
+                                    const isChecked = editSceneCharacterNames.includes(ch.name);
+                                    return (
+                                      <button
+                                        key={ch.name}
+                                        type="button"
+                                        onClick={() => {
+                                          if (isChecked) {
+                                            setEditSceneCharacterNames(
+                                              editSceneCharacterNames.filter((n) => n !== ch.name)
+                                            );
+                                          } else {
+                                            setEditSceneCharacterNames([...editSceneCharacterNames, ch.name]);
+                                          }
+                                        }}
+                                        className={`px-1.5 py-0.5 rounded text-[9px] border transition-colors ${
+                                          isChecked
+                                            ? "bg-blue-600/20 text-blue-400 border-blue-500/40"
+                                            : "bg-[#1f1f2a]/60 text-white/40 border-white/5 hover:text-white/60"
+                                        }`}
+                                      >
+                                        {ch.name}
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+
                             <div>
                               <span className="text-[8px] text-white/30 block mb-0.5 font-mono">
                                 NARRATION TEXT (SUBTITLE)
@@ -3206,9 +3439,20 @@ export default function App() {
                               />
                             </div>
                             <div>
-                              <span className="text-[8px] text-white/30 block mb-0.5 font-mono">
-                                SCENE-SPECIFIC VISUAL DRAWING PROMPT
-                              </span>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[8px] text-white/30 font-mono">
+                                  SCENE-SPECIFIC VISUAL DRAWING PROMPT
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={isTranslatingPrompt}
+                                  onClick={() => handleAiPromptTranslate("scene", scene.id)}
+                                  className="text-[8px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors disabled:opacity-50"
+                                >
+                                  <Wand2 className="w-2.5 h-2.5" />
+                                  {isTranslatingPrompt ? "AI 번역 중..." : "AI 한국어 세팅 프롬프트 자동 최적화"}
+                                </button>
+                              </div>
                               <textarea
                                 rows={3}
                                 value={editScenePrompt}
@@ -3279,15 +3523,51 @@ export default function App() {
                             >
                               Prompt: {scene.refinedImagePrompt}
                             </span>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
                               <button
+                                type="button"
+                                onClick={() => handleMoveSceneUp(actualIndex)}
+                                disabled={actualIndex === 0}
+                                className={`p-1 rounded transition-all ${
+                                  actualIndex === 0
+                                    ? "text-white/10 cursor-not-allowed"
+                                    : "text-white/40 hover:text-white hover:bg-[#1a1a22]"
+                                }`}
+                                title="이 장면 한 칸 앞으로 이동"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveSceneDown(actualIndex)}
+                                disabled={actualIndex === scenes.length - 1}
+                                className={`p-1 rounded transition-all ${
+                                  actualIndex === scenes.length - 1
+                                    ? "text-white/10 cursor-not-allowed"
+                                    : "text-white/40 hover:text-white hover:bg-[#1a1a22]"
+                                }`}
+                                title="이 장면 한 칸 뒤로 이동"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteScene(actualIndex)}
+                                className="p-1 hover:bg-[#1a1a22] rounded text-white/40 hover:text-rose-500 transition-all"
+                                title="장면 삭제 및 타임라인 재배열"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-455" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => startEditingScene(scene)}
                                 className="p-1 hover:bg-[#1a1a22] rounded text-white/40 hover:text-white transition-all"
-                                title="Edit this segment"
+                                title="이 구간 설정 편집"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() =>
                                   copyToClipboard(
                                     scene.refinedImagePrompt,
@@ -3295,7 +3575,7 @@ export default function App() {
                                   )
                                 }
                                 className="p-1 hover:bg-[#1a1a22] rounded text-white/40 hover:text-white transition-all"
-                                title="Copy prompt"
+                                title="프롬프트 복사"
                               >
                                 {copiedText === `scene_prompt_${scene.id}` ? (
                                   <span className="text-[8px] text-emerald-400 font-mono">
@@ -3307,11 +3587,12 @@ export default function App() {
                               </button>
                               {scene.imageUrl && (
                                 <button
+                                  type="button"
                                   onClick={() =>
                                     handleGenerateSingleScene(actualIndex)
                                   }
                                   className="p-1 hover:bg-[#1a1a22] rounded text-white/40 hover:text-blue-400 transition-all"
-                                  title="Redraw this segment only"
+                                  title="다시 렌더그림 그리기"
                                 >
                                   <RefreshCw className="w-3.5 h-3.5" />
                                 </button>

@@ -291,6 +291,55 @@ async function callGoogleGenWithRetry<T>(
 }
 
 /**
+ * Unified Translator & Prompt Optimizing Assistant
+ */
+app.post("/api/translate-prompt", async (req, res): Promise<void> => {
+  try {
+    const { text, type, charactersInvolved, locationDesc } = req.body;
+    if (!text || typeof text !== "string" || text.trim().length === 0) {
+      res.status(400).json({ error: "Text to translate is required." });
+      return;
+    }
+
+    const ai = getGenAI(req);
+
+    let systemInstruction = "";
+    if (type === "character") {
+      systemInstruction = `
+You are a translation assistant specializing in image generation prompt engineering for portraits.
+Translate the Korean portrayal details of a character into a clean, compact English visual prompt.
+Focus strictly on physical traits, clothing, gender, age, and a clean flat background. No metadata, no explanations.
+Maximum 40 words.
+`;
+    } else {
+      systemInstruction = `
+You are a translation assistant specializing in image generation prompt engineering.
+Translate the Korean storytelling narration and stage directions of a Joseon-era historical scene into a beautiful, evocative English image prompt.
+Integrate any involved characters: ${charactersInvolved ? charactersInvolved.join(", ") : "None"}.
+Integrate location vibes: ${locationDesc || "None"}.
+Do not include any text, dialogue bubbles, or modern elements. Focus strictly on visual composition, colors, lighting, gestures, and emotions. No explanations, output only the translated English prompt.
+Maximum 50 words.
+`;
+    }
+
+    const modelResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Translate and structure this into a powerful visual prompt in English:\n${text}`,
+      config: {
+        systemInstruction,
+        temperature: 0.3,
+      },
+    });
+
+    const reply = modelResponse.text?.trim() || "";
+    res.json({ prompt: reply });
+  } catch (error: any) {
+    console.error("Error in translate-prompt:", error);
+    res.status(500).json({ error: error.message || "Failed to translate and optimize prompt." });
+  }
+});
+
+/**
  * API Key Verification Endpoint
  * Validates the provided or server-side API Key with a lightweight text-completion check.
  */
