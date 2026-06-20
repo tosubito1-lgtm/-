@@ -1042,7 +1042,27 @@ export default function App() {
         textToTranslate = `${editCharName} (${editCharAge}, ${editCharGender}): ${editCharAppearance}. 의상: ${editCharClothing}. 특징: ${editCharTraits}`;
       } else {
         textToTranslate = `나레이션: ${editSceneNarration}. 연출: ${editSceneVisDesc}`;
-        charactersInvolved = editSceneCharacterNames;
+        // Gather complete metadata of involved characters to guarantee extreme visual consistency
+        const richCharacters = editSceneCharacterNames.map((name) => {
+          const matched = characters.find(
+            (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase()
+          );
+          if (matched) {
+            return {
+              name: matched.name,
+              gender: matched.gender,
+              age: matched.age,
+              appearance: matched.appearance,
+              clothing: matched.clothing,
+              traits: matched.traits,
+              appearanceEnglish: matched.appearanceEnglish,
+              clothingEnglish: matched.clothingEnglish
+            };
+          }
+          return { name };
+        });
+        charactersInvolved = richCharacters as any;
+
         const foundLoc = locations.find(l => l.name.trim().toLowerCase() === editSceneLocation.trim().toLowerCase());
         if (foundLoc) {
           locationDesc = foundLoc.descriptionEnglish || foundLoc.description;

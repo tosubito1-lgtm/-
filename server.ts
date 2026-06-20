@@ -308,17 +308,44 @@ app.post("/api/translate-prompt", async (req, res): Promise<void> => {
       systemInstruction = `
 You are a translation assistant specializing in image generation prompt engineering for portraits.
 Translate the Korean portrayal details of a character into a clean, compact English visual prompt.
-Focus strictly on physical traits, clothing, gender, age, and a clean flat background. No metadata, no explanations.
+Focus strictly on physical traits, clothing style, color, gender, age, and a clean flat background. No metadata, no explanations.
 Maximum 40 words.
 `;
     } else {
+      const formattedChars = Array.isArray(charactersInvolved)
+        ? charactersInvolved.map((c: any) => {
+            if (typeof c === "string") return c;
+            const details = [
+              c.gender ? `Gender: ${c.gender}` : "",
+              c.age ? `Age_Range: ${c.age}` : "",
+              c.appearance ? `Korean_Look: ${c.appearance}` : "",
+              c.appearanceEnglish ? `Physical/Hair/Beard: ${c.appearanceEnglish}` : "",
+              c.clothing ? `Korean_Attire: ${c.clothing}` : "",
+              c.clothingEnglish ? `Attire_Detail: ${c.clothingEnglish}` : "",
+            ].filter(Boolean).join(", ");
+            return `- Character [${c.name}]: ${details}`;
+          }).join("\n")
+        : "None";
+
       systemInstruction = `
 You are a translation assistant specializing in image generation prompt engineering.
 Translate the Korean storytelling narration and stage directions of a Joseon-era historical scene into a beautiful, evocative English image prompt.
-Integrate any involved characters: ${charactersInvolved ? charactersInvolved.join(", ") : "None"}.
-Integrate location vibes: ${locationDesc || "None"}.
-Do not include any text, dialogue bubbles, or modern elements. Focus strictly on visual composition, colors, lighting, gestures, and emotions. No explanations, output only the translated English prompt.
-Maximum 50 words.
+
+CRITICAL TASK: For the involved characters listed below, you MUST strictly inject and preserve their specific physical traits (such as face details, beard length/grooming, hairstyle, headwear) and clothing style/colors in the active scene. This is essential to enforce absolute storyboard character consistency across different images!
+Character Profiles to Enforce:
+${formattedChars}
+
+DYNAMIC EXCEPTION RULE: If the Korean narration or stage directions (the input text) explicitly describes temporary state changes, dramatic overrides, or historical age variations (such as childhood/youth memories, severe illness, being gaunt or pale, injuries, undercover disguises, or different garments), you must PRIORITIZE these contextual indicators! Keep the facial structure but adapt details logically:
+- DO NOT apply beards, mature wrinkles, or adult accessories if a character is depicted back in childhood/past memories.
+- JOSEON CHILDHOOD HAIRSTYLE RULE: When rendering a character in childhood/youth (such as a young prince/king, youth memory), **NEVER** write or generate shaved, bald, or closely cropped hair (as they are not Buddhist monks). Instead, specify traditional Korean child/youth hairstyles like neatly braided ribbon hair ("daenggi-meori braided ponytail", "long braided hair with a crimson ribbon") or classic traditional Joseon kids' hair.
+- DO NOT render them looking muscular or healthy if the narration describes them as starving, severely wounded, or sick (render pale skin, gaunt cheeks, etc. instead).
+- YOUTUBE COMPLIANCE & SAFETY RULE: If there is explicit blood, violence, or gore in the text, DO NOT describe graphic physical wounds or raw red blood splatter directly (this risks safety censorship and YouTube guidelines violations). Instead, render the violence artfully and metaphorically: use cues like "dramatic dark crimson lightning/mist", "fallen crimson petals scattered on the wet dark floor", "ominous shadow of a blade on a paper shoji screen door", "shattered porcelain cups on the ground with dark spill", or "an intense facial expression of physical shock/pain in deep shadows". Use cinematic, poetic expression to convey the tragedy.
+- Synthesize the base profile with the temporary dramatic states flawlessly.
+
+Integrated Location Profile: ${locationDesc || "None"}
+
+Ensure no text overlay or modern elements. Focus strictly on Joseon-era historical accuracy, composition, color grading, lighting, facial expressions, and dynamic postures. Output ONLY the translated visual English rendering prompt.
+Maximum 65 words.
 `;
     }
 
