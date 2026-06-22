@@ -65,3 +65,22 @@ export interface ThumbnailDirectorData {
   error?: string;
 }
 
+export interface YadamSafetyReport {
+  overallScore: number;
+  overallRisk: "SAFE" | "ATTENTION" | "CRITICAL";
+  reusedRisk: "LOW" | "MEDIUM" | "HIGH";
+  reusedScore: number;
+  reusedFlags: string[];
+  sensualRisk: "LOW" | "MEDIUM" | "HIGH";
+  sensualScore: number;
+  sensualFlags: string[];
+  violentRisk: "LOW" | "MEDIUM" | "HIGH";
+  violentScore: number;
+  violentFlags: string[];
+  metadataRisk: "LOW" | "MEDIUM" | "HIGH";
+  metadataScore: number;
+  metadataFlags: string[];
+  recommendations: string[];
+}
+
+

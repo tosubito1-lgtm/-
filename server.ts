@@ -342,6 +342,16 @@ DYNAMIC EXCEPTION RULE: If the Korean narration or stage directions (the input t
 - YOUTUBE COMPLIANCE & SAFETY RULE: If there is explicit blood, violence, or gore in the text, DO NOT describe graphic physical wounds or raw red blood splatter directly (this risks safety censorship and YouTube guidelines violations). Instead, render the violence artfully and metaphorically: use cues like "dramatic dark crimson lightning/mist", "fallen crimson petals scattered on the wet dark floor", "ominous shadow of a blade on a paper shoji screen door", "shattered porcelain cups on the ground with dark spill", or "an intense facial expression of physical shock/pain in deep shadows". Use cinematic, poetic expression to convey the tragedy.
 - Synthesize the base profile with the temporary dramatic states flawlessly.
 
+- KEY HISTORICAL OBJECTS & ARTIFACTS STABILITY RULE: If the Korean narration or stage directions refers to a narrative-crucial historical Joseon artifact or iconic object, you MUST use a highly standardized, precise English visual archetype to preserve flawless object stability across images:
+  * "뒤주" (Prince Sado's Rice Chest/Duiju) -> Translate as "a heavy, raw rectangular Joseon weathered dark-wood grain rice chest ('Duiju'), bound with thick flat black iron bands and a massive vintage dynamic padlock".
+  * "자격루" (Water Clock/Jagyeokru) -> Translate as "Jang Yeong-sil's grand mechanical water clock ('Jagyeokru'), showing hierarchical tiered bronze vessels feeding dark flowing water through detailed pipes into a main vertical metallic cylinder".
+  * "혼천의" (Celestial Globe/Honcheonui) -> Translate as "a beautiful, complex orbital bronze astronomical model ('Honcheonui') with rotating concentric metallic rings, dense brass celestial gearings, and star map engravings".
+  * "칼" (Cangue/Wooden Collar for prisoners) -> Translate as "a wide, split rectangular heavy raw-grain wooden stock collar ('Cangue') with splinters, clamped securely locked around the prisoner's neck".
+  * "거북선" / "귀선" (Turtle Ship) -> Translate as "a terrifying Joseon armored Turtle Ship ('Geobukseon') with a dark scale-plated iron roof covered in sharp spikes, a smoke-breathing dragon-head bow, and wooden oars dipping into sea".
+  * "신기전" (Rocket Launcher Cart) -> Translate as "a wooden Joseon multiple rocket launcher box ('Singijeon') holding dozens of black-powder tipped fire arrows mounted on a rugged vintage war-wagon".
+  * "마패" (Secret Inspector Seal) -> Translate as "a heavy circular bronze horse medallion inspector seal ('Mapae') with distinct deeply-engraved horse illustrations dangling on a coarse crimson silk tassels".
+  * "용포" / "곤룡포" (Dragon Robe) -> Translate as "a royal crimson-silk dragon robe ('Gonryongpo') featuring a meticulously hand-embroidered, gleaming fine-gold circular five-clawed dragon emblem on the center chest and shoulders".
+
 Integrated Location Profile: ${locationDesc || "None"}
 
 Ensure no text overlay or modern elements. Focus strictly on Joseon-era historical accuracy, composition, color grading, lighting, facial expressions, and dynamic postures. Output ONLY the translated visual English rendering prompt.
@@ -662,6 +672,122 @@ Analyze carefully and output the final choice as highly-structured JSON matching
   } catch (error: any) {
     console.error("Error in YouTube Thumbnail Director:", error);
     res.status(500).json({ error: error.message || "Failed to analyze and plan YouTube thumbnail." });
+  }
+});
+
+/**
+ * Endpoint for YouTube Monetization Policy Audit & Verification (June 2026 guidelines)
+ */
+app.post("/api/analyze-safety", async (req, res): Promise<void> => {
+  try {
+    const { script, thumbnailData } = req.body;
+    if (!script || typeof script !== "string" || script.trim().length === 0) {
+      res.status(400).json({ error: "Script text is required and cannot be empty for safety check." });
+      return;
+    }
+
+    const ai = getGenAI(req);
+
+    const systemInstruction = `
+You are an expert YouTube Monetization Compliance Officer and Video Policy Auditor specializing in Far-East Asian markets, particularly the Korean partner program for historical storytelling (Yadam, 야담) and thriller channels.
+Your target is to perform a rigorous, comprehensive policy risk assessment for a Yadam video script and metadata against June 2026 YouTube Policies (Reused Content, Repetitive Content, Advertiser-Friendly Guidelines regarding violence, murder, decapitation, and sexual scandals/sensual triggers).
+
+=== POLICIES & COMPLIANCE SPECIFICATIONS ===
+1. Reused Content Risk (재사용된 콘텐츠 위험):
+   - Flag if the generator template or plot structure is too generic, or copied word-for-word from widely published public folklore resources.
+   - Suggest detailed production advice (e.g., custom voice recording rather than standard mechanical TTS, adding original historical context, embedding educational commentary, unique dynamic zooms and transitions vs. static image slideshows).
+2. Repetitive Content Risk (반복성 위험):
+   - Assess if the visual/composition template shows zero variance. Give clear directions on varying camera angles, incorporating sound effects.
+3. Sensual, Sensational or Scandalous Triggers (선정성 및 자극성 자극요소):
+   - Korean Folk/Yadam stories often feature adultery, concubine affair drama, or intimate scenes (e.g., 동침 - sleeping together, 합방 - marital/bed union, 방사 - sexual act, 욕정 - worldly lust, 간통 - adultery, 기생 - courtesan/gisaeng element, 옷을 벗 - stripping garments).
+   - Rate the risk of these terms. Advise rewriting them under safer, subtle literary expressions (e.g., "마음을 나누다", "깊은 밤 대화를 이어가다") to avoid automatic flagging.
+4. Violent, Brutal, or Horrific Gore Depiction (잔혹성, 묘사, 폭력성 고증):
+   - Yadam stories often deal with historical executions, ghosts, decapitations (e.g., 참수, 목을 벤다, 피범벅, 시체, 고문, 능지처참).
+   - YouTube's Advertiser-Friendly policy as of June 2026 immediately flags these for yellow cards (노란딱지) or full demonetization if written literally.
+   - Scan for these and recommend translating them into safe, high-contrast, atmospheric visual metaphors (e.g., "붉은 장막이 하늘을 물들였다", "사무치게 시린 빗소리", "부서진 목검").
+5. Metadata & clickbait CTR text level (메타데이터 오도 위험):
+   - Flag clickbait keywords in titles such as incest, explicit violence, or highly taboo topics ("친딸", "목을 잘라...", "합방의 진실") that cause instant monetization suspention.
+
+=== RESPONSE FORMAT ===
+Output a strictly valid, structured JSON object containing:
+- overallScore: rating from 0 to 100 (where 100 is completely safe, 0 is full risk)
+- overallRisk: 'SAFE' (score >= 80) | 'ATTENTION' (score 50-79) | 'CRITICAL' (score < 50)
+- reusedRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- reusedScore: rating from 0 to 100
+- reusedFlags: array of strings naming specific reuse vectors in Korean (e.g., "사도세자/영조 대본의 대역 자구 변수 중복", "일반 자동 생성형 템플릿 비조정 노출")
+- sensualRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- sensualScore: rating from 0 to 100
+- sensualFlags: array of strings identifying sensual/suggestive words or sections flagged
+- violentRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- violentScore: rating from 0 to 100
+- violentFlags: array of strings of direct gore, execute, or decaptation keywords spotted
+- metadataRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- metadataScore: rating from 0 to 100
+- metadataFlags: array of strings checking clickbait safety (e.g., thumbnail captions)
+- recommendations: array of exactly 4 to 6 detailed, highly professional, actionable Korean advice on how to rewrite terms and how to produce/edit the final video to pass human review with 100% confidence.
+
+Avoid any explanatory markdown outside the JSON.
+`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      description: "Detailed YouTube monetization policy risk analysis report.",
+      properties: {
+        overallScore: { type: Type.INTEGER },
+        overallRisk: { type: Type.STRING, enum: ["SAFE", "ATTENTION", "CRITICAL"] },
+        reusedRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        reusedScore: { type: Type.INTEGER },
+        reusedFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        sensualRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        sensualScore: { type: Type.INTEGER },
+        sensualFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        violentRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        violentScore: { type: Type.INTEGER },
+        violentFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        metadataRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        metadataScore: { type: Type.INTEGER },
+        metadataFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+      },
+      required: [
+        "overallScore", "overallRisk", "reusedRisk", "reusedScore", "reusedFlags",
+        "sensualRisk", "sensualScore", "sensualFlags", "violentRisk", "violentScore",
+        "violentFlags", "metadataRisk", "metadataScore", "metadataFlags", "recommendations"
+      ]
+    };
+
+    const userPrompt = `
+Formulate a monetization guidelines compliance report:
+
+--- ACTIVE SCRIPT TO INSPECT ---
+${script}
+
+--- CURRENT ACTIVE THUMBNAIL PLAN ---
+${thumbnailData ? JSON.stringify(thumbnailData) : "None (No thumbnail metadata configured yet)"}
+`;
+
+    const modelResponse = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.2,
+        },
+      }),
+      3,
+      2000
+    );
+
+    const text = modelResponse.text?.trim() || "{}";
+    const parsed = JSON.parse(text);
+    res.json(parsed);
+
+  } catch (error: any) {
+    console.error("Error during safety audit:", error);
+    res.status(500).json({ error: error.message || "An unexpected error occurred during safety compliance check." });
   }
 });
 

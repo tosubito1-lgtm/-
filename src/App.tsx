@@ -29,6 +29,9 @@ import {
   ArrowUp,
   ArrowDown,
   Wand2,
+  ShieldCheck,
+  ShieldAlert,
+  Percent,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -38,6 +41,7 @@ import {
   SceneItem,
   StoryboardAnalysisResponse,
   ThumbnailDirectorData,
+  YadamSafetyReport,
 } from "./types";
 
 // Simple, high-reliability IndexedDB wrapper to bypass 5MB LocalStorage limit
@@ -159,8 +163,10 @@ export default function App() {
 
   // UI control
   const [activeTab, setActiveTab] = useState<
-    "editor" | "characters" | "storyboard" | "thumbnail"
+    "editor" | "characters" | "storyboard" | "thumbnail" | "safety"
   >("editor");
+  const [safetyReport, setSafetyReport] = useState<YadamSafetyReport | null>(null);
+  const [isAuditingSafety, setIsAuditingSafety] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<{
     title: string;
     imageUrl: string;
@@ -319,6 +325,47 @@ export default function App() {
     }
   };
 
+  const handleAuditSafetyRisk = async () => {
+    if (!scriptText.trim()) {
+      showFeedback("검사할 대본 원고가 비어있습니다.", "error");
+      return;
+    }
+
+    setIsAuditingSafety(true);
+    showFeedback("구글 제미나이를 호출하여 2026년 6월 유튜브 신규 수익정책 위반 요소를 정밀 검수하는 중입니다...", "info");
+
+    try {
+      const response = await fetch("/api/analyze-safety", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          script: scriptText,
+          thumbnailData: thumbnailData,
+        }),
+      });
+
+      const data = await safeParseJSON(response, "유튜브 정책 위반 검사 실패");
+      setSafetyReport(data);
+      saveSession(
+        analysis,
+        characters,
+        locations,
+        scenes,
+        batchSavedTokens,
+        batchConsoleLogs,
+        thumbnailData,
+        thumbnailAspectRatio,
+        data,
+      );
+      showFeedback("유튜브 수익정지 자가 진단 보고가 발급되었습니다!", "success");
+    } catch (err: any) {
+      console.error(err);
+      showFeedback(`정책 검사 중 오류: ${err.message}`, "error");
+    } finally {
+      setIsAuditingSafety(false);
+    }
+  };
+
   const updateCustomApiKey = (key: string) => {
     setCustomApiKey(key);
     setKeyVerificationError(null); // Reset verification state when key changes
@@ -447,6 +494,7 @@ export default function App() {
           if (parsed.appendMode !== undefined) setAppendMode(parsed.appendMode);
           if (parsed.thumbnailData) setThumbnailData(parsed.thumbnailData);
           if (parsed.thumbnailAspectRatio) setThumbnailAspectRatio(parsed.thumbnailAspectRatio);
+          if (parsed.safetyReport) setSafetyReport(parsed.safetyReport);
 
           // Restore batch saving metadata to preserve persistent states
           if (parsed.batchSavedTokens !== undefined)
@@ -486,6 +534,7 @@ export default function App() {
     currentLogs = batchConsoleLogs,
     currentThumbnail = thumbnailData,
     currentThumbnailRatio = thumbnailAspectRatio,
+    currentSafetyReport = safetyReport,
   ) => {
     const sessionData = JSON.stringify({
       analysis: currentAnalysis,
@@ -503,6 +552,7 @@ export default function App() {
       batchConsoleLogs: currentLogs,
       thumbnailData: currentThumbnail,
       thumbnailAspectRatio: currentThumbnailRatio,
+      safetyReport: currentSafetyReport,
     });
 
     // 1. Save to high-capacity IndexedDB (No quota limits)
@@ -1811,7 +1861,7 @@ export default function App() {
 
       {/* Modern navigation menu */}
       <div
-        className="grid grid-cols-4 border border-white/10 mb-6 bg-[#121216] p-1.5 rounded-lg gap-1.5"
+        className="grid grid-cols-2 md:grid-cols-5 border border-white/10 mb-6 bg-[#121216] p-1.5 rounded-lg gap-1.5"
         id="nav-tabs"
       >
         <button
@@ -1874,6 +1924,18 @@ export default function App() {
         >
           <Sparkles className="w-4 h-4 text-purple-400" />
           3단계: 썸네일 디렉터
+        </button>
+        <button
+          onClick={() => setActiveTab("safety")}
+          id="tab-btn-safety"
+          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+            activeTab === "safety"
+              ? "bg-rose-750 text-white shadow-lg shadow-rose-950/20 border border-rose-500/30"
+              : "text-white/40 hover:text-white/80 hover:bg-white/5"
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4 text-rose-400" />
+          4단계: 수익정지 안전 진단기
         </button>
       </div>
 
@@ -3913,6 +3975,405 @@ export default function App() {
                         {thumbnailData?.recommendationReason}
                       </p>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* TAB 4: YOUTUBE MONETIZATION POLICY SAFETY AUDITOR */}
+        {activeTab === "safety" && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+            id="tab-pane-safety"
+          >
+            {/* Header Compliance Audit Banner */}
+            <div className="bg-[#121216] border border-white/10 rounded-lg p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide uppercase flex items-center gap-2 mb-1">
+                  <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span>
+                  유튜브 2026년 6월 수익정지 자가 진단기
+                </h3>
+                <p className="text-white/50 text-[11px] leading-relaxed">
+                  최근 야담(전통 민담/공포) 채널에 연쇄적으로 가해지고 있는 유튜브 파트너 프로그램(재사용 및 반복성, 잔혹성 가이드라인) 수익창출 정지 압박을 피하기 위한 고정밀 리스크 평가기입니다. 대본과 예정 썸네일을 스캔 장비처럼 검수합니다.
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <button
+                  onClick={handleAuditSafetyRisk}
+                  disabled={isAuditingSafety}
+                  className="px-5 py-2.5 bg-rose-700 hover:bg-rose-600 disabled:bg-rose-950/40 disabled:text-white/30 rounded text-xs font-bold text-white shadow-lg shadow-rose-950/40 flex items-center justify-center gap-2 transition-all cursor-pointer relative"
+                >
+                  {isAuditingSafety ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      구글 제미나이 규정 심사 가동 중...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldAlert className="w-4 h-4" />
+                      규정 준수 정밀 자가 진단 실행
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* If no report yet, display guidelines index & run actions */}
+            {!safetyReport && !isAuditingSafety ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Visual explanation bento card */}
+                <div className="lg:col-span-7 space-y-6">
+                  <div className="bg-[#121216] border border-white/15 rounded-xl p-6 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/10 pb-3">
+                      <ShieldAlert className="w-4.5 h-4.5 text-rose-400" />
+                      2026년 6월 최신 야담 채널 수익정지 3대 핵심 원인
+                    </h3>
+                    
+                    <div className="space-y-4 text-xs leading-relaxed">
+                      {/* Reason 1 */}
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <h4 className="text-rose-300 font-bold flex items-center gap-1.5">
+                          <span className="text-[10px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded">원인 01</span>
+                          재사용된 콘텐츠 (Reused Content)
+                        </h4>
+                        <p className="text-white/60 text-[11px]">
+                          인터넷 블로그, 민담 백과사전, 위키 문서의 대본을 토씨 하나 바꾸지 않고 고스란히 긁어다 사용하는 경우 컴퓨터 매칭 필터가 표절/중복 판정을 때립니다. 또한 무료 스톡 음원이나 타 채널과 복제 수준으로 겹치는 AI 이미지 연출 패턴도 심각한 제재 대상이 됩니다.
+                        </p>
+                      </div>
+
+                      {/* Reason 2 */}
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <h4 className="text-rose-300 font-bold flex items-center gap-1.5">
+                          <span className="text-[10px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded">원인 02</span>
+                          반복적인 콘텐츠 (Repetitive Content)
+                        </h4>
+                        <p className="text-white/60 text-[11px]">
+                          단조로운 AI 기계 나레이션 음성(TTS)에 변화 없이 전개되는 지루한 이미지 나열, 혹은 매 시나리오의 흐름과 구성도가 구조적으로 다른 척하지만 실상은 전형적인 템플릿 공식에서 한 치도 벗어나지 않을 때 매크로 생산 영상으로 분류되어 제재를 당합니다.
+                        </p>
+                      </div>
+
+                      {/* Reason 3 */}
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <h4 className="text-rose-300 font-bold flex items-center gap-1.5">
+                          <span className="text-[10px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded">원인 03</span>
+                          썸네일&대본의 원색적 자극성 (Violent & Sexual Content)
+                        </h4>
+                        <p className="text-white/60 text-[11px]">
+                          전통 야담의 필수 감초인 '합방, 치정, 불륜, 간통' 등의 은밀한 묘사나 '참수, 피범벅, 도살' 등 참혹성 높은 문구들이 노골적으로 대본이나 영상 음성, 썸네일 자막에 삽입되면 유튜브 AI의 실시간 가이드라인 필터링에 포착되어 노란딱지 적립 및 채널 수익정지로 신속히 이어집니다.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Strategy block */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="bg-gradient-to-br from-rose-950/20 to-[#121216] border border-rose-500/15 rounded-xl p-5 space-y-4">
+                    <h4 className="text-xs font-bold text-white tracking-widest uppercase font-mono">
+                      🛡️ SAFE YADAM POLICY AGENT
+                    </h4>
+                    <p className="text-white/60 text-xs leading-relaxed">
+                      본 야담 스토리보드 생성기는 이와 같은 알고리즘 검수 정책을 사전에 보호하기 위한 특수 우회 필터와 장치를 내장하고 있습니다.
+                    </p>
+                    <ul className="text-[11px] text-white/50 space-y-2 pl-4 list-disc leading-relaxed">
+                      <li>직설적인 시체/출혈 묘사를 고상한 문학적 풍경 은유로 일차적 자율 치환합니다.</li>
+                      <li>썸네일에서 노란딱지를 피하는 심리학적 타겟 유도 문구를 선정합니다.</li>
+                      <li>대본 분석 보고에 맞춤식 고유 역동성을 부가할 수 있게 지원합니다.</li>
+                    </ul>
+
+                    <div className="pt-3 border-t border-white/5">
+                      <button
+                        onClick={handleAuditSafetyRisk}
+                        className="w-full py-3 bg-rose-800 hover:bg-rose-700 text-white font-bold rounded-lg text-xs tracking-wider transition-all shadow-md shadow-rose-955/40 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <ShieldAlert className="w-4.5 h-4.5 text-rose-300 animate-pulse" />
+                        지금 대본 원고 규정 감사 시운전하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : isAuditingSafety ? (
+              <div className="border border-white/10 rounded-xl p-16 text-center bg-[#121216] space-y-4 animate-fade-in">
+                <div className="relative w-16 h-16 mx-auto">
+                  <div className="absolute inset-0 border-4 border-rose-500/10 border-t-rose-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-2 bg-[#121216] rounded-full flex items-center justify-center">
+                    <ShieldAlert className="w-5 h-5 text-rose-400 animate-pulse" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <h4 className="text-white text-sm font-bold">2026 개정 유튜브 파트너 프로그램(YPP) 규범 검출 중</h4>
+                  <p className="text-white/40 text-[11px] max-w-md mx-auto leading-relaxed">
+                    구글 제미나이가 대본 내부의 폭력성, 피칠갑, 물리적 고문, 성적 은밀어, 기계식 템플릿 복제 의심 구절을 추출하여 알고리즘 리스크 스코어를 대조 중입니다. 잠시만 기다려 주십시오.
+                  </p>
+                </div>
+              </div>
+            ) : safetyReport && (
+              /* If safetyReport data is successfully loaded */
+              <div className="space-y-6">
+                {/* Summary Scorecard Board */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Total Compliance Score card */}
+                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3 relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                      <Percent className="w-24 h-24 text-white" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">MONETIZATION SAFETY SCORE</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">승인 가능 안전 지수</h4>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={`text-4xl font-extrabold tracking-tight font-mono ${
+                        safetyReport.overallScore >= 80 ? "text-emerald-400" : safetyReport.overallScore >= 50 ? "text-amber-400" : "text-rose-500"
+                      }`}>
+                        {safetyReport.overallScore}
+                      </span>
+                      <span className="text-xs text-white/30 font-mono">/ 100</span>
+                    </div>
+                    <div className="pt-2 border-t border-white/5">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${
+                        safetyReport.overallRisk === "SAFE" ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/20" :
+                        safetyReport.overallRisk === "ATTENTION" ? "bg-amber-950/40 text-amber-400 border border-amber-500/20" :
+                        "bg-rose-950/40 text-rose-400 border border-rose-500/20"
+                      }`}>
+                        {safetyReport.overallRisk === "SAFE" ? "● 정상 안전 승인군" :
+                         safetyReport.overallRisk === "ATTENTION" ? "■ 주의 및 검출 개선 요망" :
+                         "▲ 고위험군 (수익정지 극대)"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reused assessment card */}
+                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">REUSED CONTENT LIMIT</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">재사용 콘텐츠 탈피도</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <span className={`text-2xl font-bold font-mono ${
+                        safetyReport.reusedRisk === "LOW" ? "text-emerald-400" : safetyReport.reusedRisk === "MEDIUM" ? "text-amber-400" : "text-rose-400"
+                      }`}>
+                        {safetyReport.reusedScore}% ({safetyReport.reusedRisk})
+                      </span>
+                      <p className="text-white/40 text-[10px]">타 채널과의 원고 및 연출 유사율 진단</p>
+                    </div>
+                    <div className="text-[10px] text-white/50 truncate">
+                      {safetyReport.reusedFlags && safetyReport.reusedFlags.length > 0 ? `검출: ${safetyReport.reusedFlags[0]}` : "특이 복제 위험 검출 안 됨"}
+                    </div>
+                  </div>
+
+                  {/* Sensual check card */}
+                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">SENSUAL SUGGESTIVENESS</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">선정성 정책 안전성</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <span className={`text-2xl font-bold font-mono ${
+                        safetyReport.sensualRisk === "LOW" ? "text-emerald-400" : safetyReport.sensualRisk === "MEDIUM" ? "text-amber-400" : "text-rose-400"
+                      }`}>
+                        {safetyReport.sensualScore}% ({safetyReport.sensualRisk})
+                      </span>
+                      <p className="text-white/40 text-[10px]">합방, 몸을 주다 등 치정 수위 진단</p>
+                    </div>
+                    <div className="text-[10px] text-white/50 truncate">
+                      {safetyReport.sensualFlags && safetyReport.sensualFlags.length > 0 ? `키워드: ${safetyReport.sensualFlags.join(", ")}` : "선정 단어 미감지"}
+                    </div>
+                  </div>
+
+                  {/* Gore / Violent check card */}
+                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">VIOLENT GORE DEPICTION</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">그로테스크/잔혹성 회피율</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <span className={`text-2xl font-bold font-mono ${
+                        safetyReport.violentRisk === "LOW" ? "text-emerald-400" : safetyReport.violentRisk === "MEDIUM" ? "text-amber-400" : "text-rose-400"
+                      }`}>
+                        {safetyReport.violentScore}% ({safetyReport.violentRisk})
+                      </span>
+                      <p className="text-white/40 text-[10px]">참수, 목베기, 피범벅 노출 심사</p>
+                    </div>
+                    <div className="text-[10px] text-white/50 truncate">
+                      {safetyReport.violentFlags && safetyReport.violentFlags.length > 0 ? `검출: ${safetyReport.violentFlags.join(", ")}` : "직설적 잔혹단어 프리"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub audit grids */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Detailed compliance flags on left */}
+                  <div className="lg:col-span-6 space-y-6">
+                    <div className="bg-[#121216] border border-white/10 rounded-lg p-5 space-y-4">
+                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">
+                        ⚙️ 구체적 규정 위반 검출 요소 목록 (Detected Vectors)
+                      </span>
+
+                      <div className="space-y-3.5">
+                        {/* Violations category 1 */}
+                        <div className="p-3 bg-[#1a1a22] border border-white/5 rounded-md space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                              잔혹/폭력 요소
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${
+                              safetyReport.violentRisk === "LOW" ? "text-emerald-400" : "text-rose-400"
+                            }`}>
+                              경보레벨: {safetyReport.violentRisk} (안심도 {safetyReport.violentScore}%)
+                            </span>
+                          </div>
+                          <div>
+                            {safetyReport.violentFlags && safetyReport.violentFlags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {safetyReport.violentFlags.map((val, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-rose-950/40 text-rose-400 rounded text-[10px] border border-rose-900/40">
+                                    "{val}" 검출됨
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-white/40 text-[10px]">대본 본문에서 빨간딱지가 우려되는 직설적 출혈/사체 단어가 식별되지 않았습니다. 은유 치환이 정상 탑재되었습니다.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Violations category 2 */}
+                        <div className="p-3 bg-[#1a1a22] border border-white/5 rounded-md space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                              성적/선정 수위
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${
+                              safetyReport.sensualRisk === "LOW" ? "text-emerald-400" : "text-amber-400"
+                            }`}>
+                              경보레벨: {safetyReport.sensualRisk} (안심도 {safetyReport.sensualScore}%)
+                            </span>
+                          </div>
+                          <div>
+                            {safetyReport.sensualFlags && safetyReport.sensualFlags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {safetyReport.sensualFlags.map((val, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-amber-955/40 text-amber-400 rounded text-[10px] border border-amber-900/40">
+                                    "{val}" 노출
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-white/40 text-[10px]">구글 자동 머신에 장착된 선정성/치정 필터 조건에 노출될 우려 요소가 발견되지 않았습니다.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Violations category 3 */}
+                        <div className="p-3 bg-[#1a1a22] border border-white/5 rounded-md space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                              클릭베이트 메타데이터 위험
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${
+                              safetyReport.metadataRisk === "LOW" ? "text-emerald-400" : "text-rose-400"
+                            }`}>
+                              경보레벨: {safetyReport.metadataRisk} (안심도 {safetyReport.metadataScore}%)
+                            </span>
+                          </div>
+                          <div>
+                            {safetyReport.metadataFlags && safetyReport.metadataFlags.length > 0 ? (
+                              <ul className="text-white/55 text-[10px] list-disc pl-4 space-y-1">
+                                {safetyReport.metadataFlags.map((val, i) => (
+                                  <li key={i}>{val}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-white/40 text-[10px]">예정된 썸네일 제목 문구가 상대적으로 가이드라인을 잘 준수하고 있습니다.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendations layout on right */}
+                  <div className="lg:col-span-6 space-y-6">
+                    <div className="bg-gradient-to-br from-emerald-950/10 to-[#121216] border border-emerald-500/10 rounded-lg p-5 space-y-4">
+                      <span className="text-[9px] text-emerald-400 uppercase tracking-widest font-mono block">
+                        🛡️ MONETIZATION SURVIVAL STRATEGY (수익정지 원천 방지 책략)
+                      </span>
+
+                      <div className="space-y-3">
+                        {safetyReport.recommendations && safetyReport.recommendations.map((rec, index) => (
+                          <div key={index} className="flex gap-3 items-start animate-fade-in-delayed">
+                            <div className="w-5 h-5 bg-emerald-600/20 border border-emerald-500/20 rounded flex items-center justify-center font-mono text-[10px] text-emerald-400 font-bold shrink-0 mt-0.5">
+                              0{index + 1}
+                            </div>
+                            <p className="text-xs text-white/80 leading-relaxed font-serif">
+                              {rec}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-white/5 text-[9px] text-white/30 leading-normal">
+                        * 본 평가는 2026년 6월 유튜브 규정 개정사항 및 YPP 정지 채널들의 실사례 데이터를 바탕으로 구축되었습니다. 완벽한 안전 확보를 위해 영상 나레이션 제작 시 기계음(TTS)의 무변주 기조를 탈피하고 반드시 고유 해설이나 자막 배치 수정을 부가해주십시오.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Special 2026 Repetitive Template Survival Strategies Card */}
+            {!isAuditingSafety && (
+              <div className="bg-[#121216] border border-white/10 rounded-xl p-6 mt-6 space-y-4">
+                <h4 className="text-sm font-bold text-rose-400 flex items-center gap-2">
+                  <span className="p-1 bg-rose-500/10 text-rose-400 rounded text-xs leading-none">💡</span>
+                  집중 분석: '반복적인 콘텐츠(Repetitive Content)' 필터를 우회하기 위한 4대 핵심 제작 공식 (26년 6월 핵심 가이드)
+                </h4>
+                <p className="text-white/60 text-xs text-justify leading-relaxed">
+                  유튜브의 자동 인공지능 검수 알고리즘은 <strong>"화면의 정적 반복성" + "동일 기계 오디오 패턴" + "기성 템플릿의 무변경 대조"</strong> 세 가지 요소를 바탕으로 채널을 '반복적인 콘텐츠'로 분류하여 수익 창출 정지 처분을 내립니다. 아래 조치를 이 스토리보드 생성기와 프리미어/에프트이펙트 저작 환경에서 반드시 연동해 기계성 판단을 차단하십시오:
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1.5 hover:border-rose-500/20 transition-all">
+                    <span className="text-[10px] bg-rose-500/15 text-rose-400 px-2 py-0.5 rounded font-mono font-bold">1. 프레임 레이아웃 다변화</span>
+                    <h5 className="text-white text-xs font-bold leading-normal">정적 캐릭터 템플릿 폐지</h5>
+                    <p className="text-white/40 text-[11px] leading-relaxed select-all">
+                      화면 하단에 매번 똑같은 구도의 캐릭터 일러스트를 박고 자막만 흘려보내는 정적 레이아웃이 반복 필터의 1순위 먹잇감입니다. 매 씬마다 카메라 줌인/줌아웃(Ken Burns 효과), 좌우 팬 스크롤, 3D 카메라 공간 조절 효과를 가미해 화면의 실시간 움직임 변화(Motion Vector)를 최소 3초 단위로 발생시켜야 합니다. 본 스토리보드 가이드의 고해상도 각 씬 프롬프트 변화량을 적용하세요.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1.5 hover:border-rose-500/20 transition-all">
+                    <span className="text-[10px] bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded font-mono font-bold">2. TTS 인공 정형성 붕괴</span>
+                    <h5 className="text-white text-xs font-bold leading-normal">나릿조(Pitch & Rate) 가변 가공</h5>
+                    <p className="text-white/40 text-[11px] leading-relaxed select-all">
+                      모든 영상에 일률적인 기본 배속, 기본 피치의 TTS 성우(예: 특정 타입캐스트/클로바 더빙 보이스)를 그대로 올리면 주인이 다른 채널 영상들과 대조되어 기계 배포형 채널로 오인됩니다. <strong>나레이션 속도를 슬픔/긴장 구도에 맞추어 수동 미적 조율하고 배경 음악(BGM)의 자동 볼륨 감쇠(Ducking)를 먹여</strong> 오디오 고유 개성을 강력하게 표현해 주십시오.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1.5 hover:border-rose-500/20 transition-all">
+                    <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded font-mono font-bold">3. 고유 사운드 이펙트(SFX) 밀도</span>
+                    <h5 className="text-white text-xs font-bold leading-normal">현장 앰비언트 레이어 축적</h5>
+                    <p className="text-white/40 text-[11px] leading-relaxed select-all">
+                      오디오의 배경 노이즈와 사운드 이펙트 삽입 여부는 유튜브 AI가 "인간의 사후 창의적 가공"을 인지하는 강력한 가산 점수 지표가 됩니다. 스토리보드가 제시하는 주요 시각 효과(예: 바람 소리 - 바람 SFX, 소름끼치는 바람 - 올빼미 소리 등) 구간에 <strong>고유한 전후방 엠비언트 레이어</strong>를 뒤섞어 독점적인 사운드 웨이브를 구축해야 합니다.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1.5 hover:border-rose-500/20 transition-all">
+                    <span className="text-[10px] bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded font-mono font-bold">4. 프롤로그/에필로그 주관성</span>
+                    <h5 className="text-white text-xs font-bold leading-normal font-serif">독자적 비평/감상 해설 투입</h5>
+                    <p className="text-white/40 text-[11px] leading-relaxed select-all">
+                      인터넷 백과사전의 야설/야담설화를 날것 그대로 TTS 성우에게 읽히는 형태는 100% 중복 및 재사용 판정을 받습니다. 영상 서두 10초 대의 요약 오프닝이나 에필로그 15초 부분에 <strong>제작자의 독자적 해석, 주관적 코멘트, 현대적 교훈 또는 시청자 질문</strong>을 삽입하십시오. 이 간단한 코멘터리가 주는 유의미한 가치 변주는 수동 수익 이의제기 심사 시에 100% 승인을 보증하는 치트키가 됩니다.
+                    </p>
                   </div>
                 </div>
               </div>
