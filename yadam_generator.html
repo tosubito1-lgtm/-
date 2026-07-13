@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>역사 야담 대본 생성기 & LTX 2.3 비디오 프롬프트 빌더 V1.5.0</title>
+    <!-- 마크다운 뷰어를 위한 marked.js 라이브러리 (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* 딥 블랙(Deep Black) 테마 및 화면 6:4 기본 세팅 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #060608;
+            color: #e2e8f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* 헤더 영역 */
+        header {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #1f2937;
+        }
+        header h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        header h1 span {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            background-color: #f43f5e;
+            color: #ffffff;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .header-btn {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .header-btn:hover {
+            background-color: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+        }
+
+        /* 6:4 화면 2분할 레이아웃 */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        /* 1. 좌측 결과 출력창 (60%) */
+        .left-pane {
+            flex: 6;
+            min-width: 0; /* flex 자식의 가로 팽창 버그 완전 차단 */
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-right: 1px solid #1f2937;
+            background-color: #0a0a0f;
+            overflow: hidden;
+        }
+        .pane-header {
+            background-color: #020205;
+            padding: 12px 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .output-scroll-container {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            overflow-x: hidden; /* 가로 확장 완전 차단 및 자동 래핑 적용 */
+            word-wrap: break-word;
+            word-break: break-word;
+            line-height: 1.7;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+        }
+        
+        /* 마크다운 블랙 테마용 스타일링 및 리스트 가시성 보완 */
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #ffffff;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 0.3em;
+        }
+        .markdown-body p {
+            margin-bottom: 1em;
+        }
+        .markdown-body ul {
+            margin-bottom: 1em;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+        .markdown-body ol {
+            margin-bottom: 1em;
+            padding-left: 20px;
+            list-style-type: decimal;
+        }
+        .markdown-body li {
+            margin-bottom: 0.3em;
+        }
+        .markdown-body blockquote {
+            border-left: 4px solid #f43f5e;
+            color: #94a3b8;
+            margin: 1.5em 0;
+            background-color: #0f172a;
+            padding: 12px 18px;
+            border-radius: 0 4px 4px 0;
+        }
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5em 0;
+            background-color: #0f0f15;
+            display: block;
+            overflow-x: auto;
+        }
+        .markdown-body th, .markdown-body td {
+            border: 1px solid #334155;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .markdown-body th {
+            background-color: #1e293b;
+            color: #ffffff;
+        }
+        .markdown-body pre {
+            background-color: #000000;
+            padding: 12px;
+            border: 1px solid #334155;
+            overflow-x: auto;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            margin-bottom: 1.2em;
+        }
+        .markdown-body code {
+            font-family: monospace;
+            background-color: #1e293b;
+            color: #f43f5e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* 2. 우측 기획 입력 및 제어 패널 (40%) */
+        .right-pane {
+            flex: 4;
+            min-width: 380px; /* 우측 제어판 최소 너비 보장으로 축소 방지 */
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-color: #020205;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid #1f2937;
+        }
+
+        /* 패널 내부 카드 섹션 스타일 */
+        .section-card {
+            border: 1px solid #1f2937;
+            background-color: #0e0e14;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+        }
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 폼 컨트롤 */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .text-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #334155;
+            font-size: 0.85rem;
+            outline: none;
+            background-color: #181824;
+            color: #ffffff;
+            border-radius: 4px;
+        }
+        .text-input:focus {
+            border-color: #f43f5e;
+        }
+        
+        /* 버튼 공통 스타일 */
+        .btn {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #000000;
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .btn-secondary {
+            background-color: #1e293b;
+            color: #ffffff;
+            border: 1px solid #334155;
+        }
+        .btn-secondary:hover {
+            background-color: #2b394f;
+            border-color: #64748b;
+        }
+        .btn-warning {
+            background-color: #2a1111;
+            color: #ff9999;
+            border: 1px solid #552222;
+        }
+        .btn-warning:hover {
+            background-color: #552222;
+            color: #ffffff;
+        }
+
+        /* 그리드 버튼 배치 */
+        .stage-btn-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .stage-btn-grid button {
+            font-size: 0.8rem;
+            padding: 6px;
+        }
+        
+        /* 다음에 클릭해야 할 단계 단추용 선명한 하이라이팅 스타일 */
+        .btn-next-highlight {
+            background-color: #f43f5e !important;
+            color: #ffffff !important;
+            border-color: #f43f5e !important;
+            box-shadow: 0 0 10px rgba(244, 63, 94, 0.7);
+            font-weight: 700 !important;
+        }
+        .btn-next-highlight:hover {
+            background-color: #e11d48 !important;
+            border-color: #e11d48 !important;
+        }
+
+        /* 미저장 결과물이 존재할 때 주황색 경고 진동 애니메이션 */
+        .btn-unsaved-highlight {
+            background-color: #f97316 !important;
+            border-color: #f97316 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            animation: pulse-orange 2s infinite;
+        }
+        .btn-unsaved-highlight:hover {
+            background-color: #ea580c !important;
+            border-color: #ea580c !important;
+        }
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+        }
+
+        /* 추출 섹션 균형 조정을 위한 구조적 그리드 */
+        .extract-btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .extract-btn-grid button {
+            font-size: 0.82rem;
+            padding: 10px;
+            font-weight: 700;
+        }
+
+        /* 대화 입력창 영역 */
+        .prompt-textarea {
+            width: 100%;
+            min-height: 100px;
+            border: 1px solid #334155;
+            background-color: #0f0f15;
+            color: #ffffff;
+            padding: 12px;
+            font-size: 0.88rem;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+        .prompt-textarea:focus {
+            border-color: #f43f5e;
+        }
+
+        /* API 상태 배지 */
+        .status-badge {
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+        .status-success { color: #4ade80; }
+        .status-fail { color: #f87171; }
+        .status-warn { color: #fb923c; }
+
+        /* 로딩 처리 */
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(5, 5, 8, 0.9);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 10;
+            font-weight: 600;
+            color: #ffffff;
+            gap: 15px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(244, 63, 94, 0.1);
+            border-left-color: #f43f5e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .relative-pos {
+            position: relative;
+        }
+
+        /* 서바이벌 가이드 배너 */
+        .guide-alert {
+            background-color: #1c1917;
+            border: 1px solid #f43f5e30;
+            padding: 10px 14px;
+            font-size: 0.75rem;
+            color: #f43f5e;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <header>
+        <h1>역사 야담 대본 생성기 & LTX 2.3 프롬프트 빌더 <span>V1.5.0 PRO</span></h1>
+        <button class="header-btn" onclick="downloadSelf()">이 도구(HTML) 다운로드</button>
+    </header>
+
+    <!-- 메인 컨테이너 (6:4 분할) -->
+    <div class="main-container">
+        
+        <!-- 1. 좌측 결과 출력창 (60%) -->
+        <div class="pane left-pane relative-pos">
+            <div class="pane-header">
+                <span>결과 출력창</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <select id="stage-restore-select" onchange="switchToStage(this.value)" style="background-color: #111116; color: #f43f5e; border: 1px solid #1f2937; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; transition: all 0.2s ease;">
+                        <option value="" disabled selected>이전 기획 단계 복원/이동...</option>
+                        <option value="0단계">0단계: 주제생성</option>
+                        <option value="1단계">1단계: 목차기획</option>
+                        <option value="인트로">인트로 (S1-8)</option>
+                        <option value="사건발생">사건 발생 (S9-18)</option>
+                        <option value="의혹">의혹/갈등 (S19-28)</option>
+                        <option value="추적">진실 추적 (S29-38)</option>
+                        <option value="반전">반전 기획 (S39-48)</option>
+                        <option value="결말">결말 피날레 (S49-62)</option>
+                        <option value="썸네일">유튜브 썸네일 최적화</option>
+                        <option value="대본1">통합 대본 1부 (S1-31)</option>
+                        <option value="대본2">통합 대본 2부 (S32-62)</option>
+                        <option value="TTS1">TTS 원고 1부 (S1-31)</option>
+                        <option value="TTS2">TTS 원고 2부 (S32-62)</option>
+                        <option value="대본">통합 대본 전체 (S1-62)</option>
+                        <option value="TTS">TTS 전용 극본 전체 (S1-62)</option>
+                        <option value="LTX추출">LTX 2.3 영어 프롬프트</option>
+                        <option value="쇼츠">유튜브 쇼츠 (60초)</option>
+                        <option value="커뮤니티">커뮤니티 홍보 게시글</option>
+                    </select>
+                    <span id="step-indicator" style="font-size:0.8rem; color:#94a3b8;">대기 중</span>
+                </div>
+            </div>
+            
+            <!-- 분석 요청 대기 화면 로더 -->
+            <div id="loading" class="loading-overlay">
+                <div class="spinner"></div>
+                <span id="loading-text">제미나이 서버 분석 중... 잠시만 기다려주세요.</span>
+            </div>
+
+            <div class="output-scroll-container markdown-body" id="output-view">
+                <!-- 로컬 스토리지 복구 또는 기본 메시지 출력 -->
+            </div>
+        </div>
+
+        <!-- 2. 우측 기획 입력 및 제어 패널 (40%) -->
+        <div class="pane right-pane">
+            
+            <!-- API 연결 및 동적 모델 설정 카드 -->
+            <div class="section-card">
+                <div class="section-title">1. API 연결 및 동적 모델 설정</div>
+                <div class="input-group" style="gap:6px;">
+                    <input type="password" id="api-key" class="text-input" placeholder="Google Gemini API Key 입력 (AIzaSy...)" oninput="handleKeyInput(this.value)">
+                    
+                    <div style="display: flex; gap: 6px;">
+                        <!-- 모델 선택 퀵 드롭다운 -->
+                        <select id="model-select" class="text-input" style="flex:1;" onchange="handleModelDropdownChange(this.value)">
+                            <option value="gemini-2.5-flash" selected>gemini-2.5-flash (추천)</option>
+                            <option value="gemini-3.5-flash">gemini-3.5-flash (신규)</option>
+                            <option value="gemini-3.1-pro">gemini-3.1-pro (정밀추론)</option>
+                            <option value="custom">직접 지정 입력...</option>
+                        </select>
+                        <button class="btn" style="flex:1;" onclick="saveAndVerifyKey()">인증 테스트</button>
+                    </div>
+                    
+                    <!-- 실제 호출용 단일 모델 입력 필드 -->
+                    <div style="margin-top:2px;">
+                        <span style="font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 2px;">실제 호출용 모델 코드:</span>
+                        <input type="text" id="model-name" class="text-input" value="gemini-2.5-flash" placeholder="모델 식별자 코드 직접 수정 가능">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top:5px;">
+                    <span id="api-status" class="status-badge status-warn">API 키 입력이 필요합니다.</span>
+                </div>
+            </div>
+
+            <!-- 네이밍 버전 관리 카드 -->
+            <div class="section-card">
+                <div class="section-title">2. 프로젝트 정보 및 버전 관리</div>
+                <div class="input-group">
+                    <div style="display: flex; gap:6px;">
+                        <input type="text" id="project-title" class="text-input" placeholder="현재 기획 파일 제목 (예: 실록에서 사라진 7일)" oninput="handleTitleInput(this.value)">
+                        <button id="btn-save" class="btn btn-secondary" onclick="exportTextWithVersion()" style="white-space:nowrap;">자동 버전 저장</button>
+                    </div>
+                    <div id="version-display" style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                        버전 카운트 대기 중...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 단계 자동 인식 퀵 버튼 -->
+            <div class="section-card">
+                <div class="section-title">
+                    <span>3. 60씬 구조화 전개 명령 (LTX 2.3 대응)</span>
+                    <span style="font-size:0.7rem; color:#f43f5e; font-weight:normal;">60 SCENE SYSTEM</span>
+                </div>
+                <!-- 안전 우회 배너 추가 -->
+                <div class="guide-alert">
+                    <span>⚠️</span>
+                    <span><strong>반복콘텐츠 우회 공식 연동:</strong> 인트로 8씬(씬당 10초 이내, 일관규격, 속도변화) 및 사건/의혹/추적/반전/결말(10초 슬로우 연출) 60씬을 순차 기획하며, LTX 2.3 맞춤 영문 프롬프트(인물+동작+카메라 무빙)를 즉각 도출합니다.</span>
+                </div>
+                <div class="stage-btn-grid">
+                    <button id="btn-stage-0단계" class="btn btn-secondary" onclick="triggerStage('0단계')">0단계:주제생성</button>
+                    <button id="btn-stage-1단계" class="btn btn-secondary" onclick="triggerStage('1단계')">1단계:목차기획</button>
+                    <button id="btn-stage-인트로" class="btn btn-secondary" onclick="triggerStage('인트로')">인트로(S1-8)</button>
+                    <button id="btn-stage-사건발생" class="btn btn-secondary" onclick="triggerStage('사건발생')">사건(S9-18)</button>
+                    <button id="btn-stage-의혹" class="btn btn-secondary" onclick="triggerStage('의혹')">의혹(S19-28)</button>
+                    <button id="btn-stage-추적" class="btn btn-secondary" onclick="triggerStage('추적')">추적(S29-38)</button>
+                    <button id="btn-stage-반전" class="btn btn-secondary" onclick="triggerStage('반전')">반전(S39-48)</button>
+                    <button id="btn-stage-결말" class="btn btn-secondary" onclick="triggerStage('결말')">결말(S49-60)</button>
+                    <button id="btn-stage-썸네일" class="btn btn-secondary" onclick="triggerStage('썸네일')">유튜브최적화</button>
+                </div>
+            </div>
+
+            <!-- 추출 및 구조 분석 통계 -->
+            <div class="section-card">
+                <div class="section-title">4. 데이터 추출 및 전용 복제 도구</div>
+                <div class="extract-btn-grid">
+                    <!-- 신규: LTX 2.3 영문 프롬프트 추출 -->
+                    <button class="btn" style="background-color: #020617; color:#38bdf8; border-color:#0284c7; grid-column: span 2;" onclick="extractLtxPromptsOnly()">LTX 2.3 영문 프롬프트 일괄 추출 (복붙전용)</button>
+                    
+                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart1()">통합대본 1부 (S1-30)</button>
+                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart2()">통합대본 2부 (S31-60)</button>
+                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart1()">TTS 원고 1부 (S1-30)</button>
+                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart2()">TTS 원고 2부 (S31-60)</button>
+                    <button class="btn" style="background-color: #1e1b4b; color:#818cf8; border-color:#4f46e5;" onclick="generateShorts()">유튜브쇼츠(60초)</button>
+                    <button class="btn" style="background-color: #451a03; color:#fb923c; border-color:#f97316;" onclick="generateCommunityPost()">커뮤니티 홍보</button>
+                </div>
+            </div>
+
+            <!-- 메인 대화 제어창 -->
+            <div style="display: flex; flex-direction: column; flex: 1;">
+                <div class="pane-sub-title" style="font-size:0.8rem; font-weight:700; color:#94a3b8; margin-bottom: 5px;">5. 제미나이 명령어 피드백</div>
+                <textarea id="prompt-input" class="prompt-textarea" placeholder="선택하신 기획 단계에 대한 세부 조정을 위한 명령 피드백을 적어주세요."></textarea>
+                
+                <div style="display: flex; gap:8px; margin-bottom: 15px;">
+                    <button class="btn btn-warning" style="flex:1;" onclick="resetProject()">대화 전체 초기화</button>
+                    <button class="btn" style="flex:2;" onclick="sendPrompt()">제미나이 명령 전송</button>
+                </div>
+            </div>
+
+            <!-- 진단 콘솔 로그 -->
+            <div style="font-size: 0.75rem; font-family: monospace; color:#475569; max-height: 80px; overflow-y:auto; border-top: 1px solid #1f2937; padding-top:10px;">
+                <strong>통신 진단 로그:</strong> <span id="diagnostic-log">대기 중</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 야담 전용 시스템 지시문 탑재 (V1.5.5 PRO) -->
+    <script>
+        const systemInstructionText = `
+### 📋 [야담 프롬프트 - 최종 완성본 V1.5.5 PRO LEVEL]
+
+[역할 정의]
+너는 구독자 50만 명을 보유한 역사 이야기 전문 유튜브 채널의 메인 PD이자 전문 작가다.
+또한 시청자를 끌어들이는 마케팅 전문가로서 썸네일, 메타데이터, 시청자 소통 전략 및 "LTX 2.3 비디오 생성기" 최적화 프롬프트 기획에 완벽히 정통해있다.
+
+★ [시스템 제어 규칙: 프로젝트 제목 강제 출력] ★
+사용자가 주제를 결정하거나 유튜브 제목 중 하나를 최종 선택하여 진행할 때, 답변의 맨 첫 줄에 반드시 아래의 고유 태그를 단 한 줄 단독으로 출력하라.
+[선택된 제목: 선택된 실제 대본의 제목]
+
+★ [마크다운 출력 필수 규칙] ★
+구분선 전후에 반드시 빈 줄을 삽입하여 제목 크기 오류를 방지한다.
+
+★ [CRITICAL RULE: 단계별 전개 및 제어 규칙] ★
+1. 한 번에 한 단계씩만 진행한다.
+2. 모든 답변 마지막에 [현재 상태: X단계 완료 / 다음 요청 대기 중]을 출력한다.
+
+★ [스토리보드 엔진 & 로컬 파서 100% 초고속 호환 연동 규칙 (중요)] ★
+본 생성기로 생성되는 모든 캐릭터 명세와 씬(Scene) 정보는 '야담스토리보드 제어 엔진'의 '로컬 정밀 파서(server.ts / parseStructuredScript)'에 입력했을 때, AI 서버를 거치지 않고 브라우저와 로컬에서 0.1초 만에 즉각적이고 완벽하게 구조화(Parsing)되도록 다음의 규칙을 절대적으로 지켜라.
+
+1. **캐릭터 식별자(Ch_ID) 강제 매핑 및 인물 선언 규칙**:
+   주제와 인물이 바뀔지라도, 본 스토리보드 제어 엔진이 완벽히 인지할 수 있는 아래의 표준 캐릭터 코드(Ch_ID) 리스트 중 2~4명을 엄격하게 선택하여 주제에 매칭하고 대본을 구성하라. 다른 임의의 코드는 파서가 인식하지 못한다.
+   - **Ch_A** (또는 Ch_A_Sado / Ch_A_Adult / Ch_A_Youth): 이야기의 주역/세자/비운의 인물 (예: 사도세자, 경종, 박선비 등)
+   - **Ch_B** (또는 Ch_B_Yeongjo): 임금/절대권력자/상대역 (예: 영조, 숙종 등)
+   - **Ch_C** (또는 Ch_C_Hyegyeong): 여성 주역/정실부인 (예: 혜경궁 홍씨, 인현왕후 등)
+   - **Ch_D** (또는 Ch_D_Yeongbin): 조력자/여성/후궁/상궁 (예: 영빈 이씨, 궁녀 조씨, 장희빈 등)
+   - **Ch_E** (또는 Ch_E_Nageon): 고발자/밀고자/핵심 비밀 목격자 (예: 나경언, 은밀한 내시 등)
+   - **Ch_F** (또는 Ch_F_Noron): 권세가/대신/음모의 주동자 (예: 노론 대감, 척신 세력 등)
+   - **Ch_G** (또는 Ch_G_Hongbonghan): 중신/외척/조정 관리 (예: 홍봉한, 영의정 등)
+   - **Ch_H** (또는 Ch_H_Jeongjo): 후계자/새 임금/진실을 파헤치는 후대 왕 (예: 정조, 효종 등)
+
+   * 대본 기획 초기(1단계 및 상세기획 서두)에 등장인물을 선언해 줄 때는 반드시 아래와 같은 포맷으로 표기하라. 파서의 정규식 \`/(Ch_[A-Za-z0-9_]+)\\s*\\(([^)]+)\\)/g\`이 인지할 수 있도록 괄호 스펙을 철저히 따른다.
+   - Ch_ID(나이대 및 성별, 세부 얼굴 및 표정 묘사, Joseon dynasty traditional 한복 복색)
+   (예:
+   - Ch_A(20대 청년 남성, 병약하고 수척하여 핏기 없는 파리한 안색)
+   - Ch_B(50대 중년 임금, 냉철하고 날카로운 위엄 있는 붉은 곤룡포와 익선관 차림)
+   - Ch_D(20대 젊은 궁녀, 단아하고 기품 있으나 의혹과 공포를 품은 푸른 상궁당의 차림)
+   )
+
+2. **씬(Scene) 블록 표기 형식**:
+   인트로부터 결말까지의 모든 씬 상세 구성안은 반드시 줄바꿈 없이 아래 한 줄의 헤더와 프롬프트 한 줄로만 구성해 주어야 하며, 괄호와 따옴표, 대괄호 위치를 정확히 고수해야 한다.
+   
+   [S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] "한국어 내레이션 텍스트" (한글 카메라 연출 지시어 및 배경 속 미세모션 묘사)
+   [IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, micro environmental motion (e.g., candles flickering, dust floating inside the room, leaves falling in background), lighting, Joseon dynasty style, slow dynamic camera zoom-in/panning, hyper-realistic style.
+   
+   (예:
+   [S1.] [어둡고 고요한 침소 안, 밤 / Ch_A, Ch_D] "어둡고 고요한 경종의 침소, 그의 머리맡에 놓인 약상자에는 이미 죽음의 그림자가 짙게 드리워져 있었습니다." (수척한 경종 Ch_A이 누워 숨을 몰아쉬고 궁녀 조씨 Ch_D가 떨리는 손으로 이를 바라보는 슬로우 줌인 연출, Close-up)
+   [IMAGE GENERATION PROMPT]: A masterpiece cinematic widescreen shot of pale Joseon king Ch_A lying sick on a dark bed, a trembling young court lady Ch_D watching him in fear, dimly lit traditional bedroom backdrop, candle flame flickering quietly, ambient moody lighting, slow dynamic zoom-in, Joseon dynasty style.
+   )
+
+★ [정통 역사적 고증 및 기록 미등재 공백의 개연성 있는 재구성 규칙] ★
+1. **역사 기록(조선왕조실록, 야사, 승정원일기 등)에 대한 철저한 존중**: 모든 대본 기획과 씬 구성의 출발점은 엄연히 기록된 역사적 사실(실존 인물, 사건, 연대, 조정의 대립구도)을 정밀히 학습하고 준수해야 한다. 인위적인 역사적 왜곡이나 억지스러운 각색을 지양하며, 실록이 증명하는 실제 역사적 맥락에 탄탄하게 발을 디뎌야 한다.
+2. **기록에 존재하지 않는 공백의 '개연성 있는 추론 및 재구성'**: 공식 역사적 기록이 비어있거나 누락된 영역(예: 임금의 갑작스러운 의문사 배후, 궁궐 비사의 알려지지 않은 조력자들의 비밀 밀담, 진실을 담고 사라진 상자의 행방 등)을 메울 때는 결코 당치 않은 현대적 상상력이나 비현실적 판타지/무협 요소를 대입해서는 안 된다. 오로지 당시 조선시대의 정세(당쟁, 당파 싸움 - 노론/소론, 외척 정치), 조선의 법률 및 제도(경국대전, 의금부, 포도청), 그리고 당시의 신분적 질서와 사대부/상민들의 유교적 윤리관 및 풍습에 완벽히 부합하도록 지극히 개연성 있고 정교하게 내막을 논리적으로 재구성하고 추론해야 한다.
+3. **시대착오적 오류(Anachronism) 원천 차단 및 언어 고증**:
+   - 신분(사대부, 중인, 상민, 천민)과 관직(영의정, 판서, 참판, 현감, 사또, 이방)에 걸맞은 정확한 예법, 언행, 호칭을 사용한다.
+   - 의복(곤룡포, 도포, 당의, 군복) 및 일상 가구(서안, 문갑, 촛대, 병풍) 등을 엄격한 조선시대 고증에 의거해 묘사한다.
+   - 엽전, 상평통보 등 실제 통용되던 조선 화폐와 경제 기준을 준수한다.
+   - 나레이션 및 인물 대사에는 결코 현대적 표현, 유행어, 신조어, 한자어 오용 등을 원천 차단하고, 조선왕조의 엄숙하고 우아한 풍미가 깃든 진중하고 고전적인 어투(예: "~하옵니다", "~했사옵니다", "~의 주범이라 일컬어지던")를 전면 고수한다.
+
+★ [2026년 6월 유튜브 '반복적인 콘텐츠' 수익정지 우회 공식 탑재] ★
+유튜브의 자동 AI 심사 필터는 "동일 템플릿의 화면 반복" + "기계적인 TTS 패턴"을 감지해 수익을 원천 박탈한다. 이를 우회하기 위한 아래 4대 구성 방식을 기획안에 자동으로 반영해야 한다:
+1. **나레이션 텍스트의 인간다운 템포 가공 지시**: 기본 TTS를 그대로 얹지 않고, 긴장 부분은 속도를 낮추거나 피치를 내리고 효과음(SFX)을 겹치도록 제작 가이드를 무조건 수록하라.
+2. **시각적 움직임 다변화 (Motion Vector) 지시**: 씬마다 이미지-비디오 툴(LTX Video 2.3)에서 역동적인 카메라 모션(Ken Burns 줌인, 줌아웃, 3D 트랜지션, 횡축 패닝)을 생성할 수 있도록, 씬 상세 기획에 반드시 구체적인 카메라 모션 지시어를 포함시켜라.
+3. **주관적 교훈/비평 추가**: 프롤로그나 에필로그 단락에 단순히 설화의 나열이 아닌 '제작자의 현대적 가치 비평 및 주관적 해설'을 주입하여 가공 생산성을 증명한다.
+
+★ [60씬 구성 규칙 & 시간 배정 및 글자수 분배 전략] ★
+총 20분 가량 of 장편 야담 영상을 완성하기 위해 60개의 씬(Scene 1 ~ 60)으로 견고하게 쪼갠다.
+각 씬의 한국어 나레이션은 음독 낭독 시 자연스럽고 품격 있는 우리말 숨쉬기 및 끊어읽기 호흡(구두점, 띄어쓰기 100% 한글 맞춤법)을 빈틈없이 준수해야 한다. 띄어쓰기가 누락되면 TTS 낭독의 억양과 발음이 급격히 망가지므로 정교하게 띄어쓰기를 적용하여 작성한다. 띄어쓰기를 절대 생략하지 마라.
+
+각 파트와 씬별 재생 시간 및 한글 글자수 가이드라인:
+- **인트로 파트: Scene 1-8 (8개 씬) [재생시간: 10.5초 기준 지향]**
+  - 초반 이탈방지 및 오프닝 몰입 극대화를 위해 각 씬당 **10.5초 정도의 전체 씬 재생 시간**을 설계한다.
+  - 가이드라인 글자수: 성우 실제 낭독 시 **9.5초 정도의 실 낭독 시간**이 나오도록 각 씬당 **한글 공백 포함 약 75자 ~ 90자 내외**로 정확하게 글자수를 채워주며, 낭독 호흡과 뜸을 가미해 정밀한 10.5초가 유기적으로 흐르게 한다.
+  - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트(`[IMAGE GENERATION PROMPT]`)는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유의 몰입감을 극대화한다.
+  - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 60개 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 Scene 8에서 자아내며 마무리하도록 설계한다.
+- **서사 본론 파트: Scene 9-59 (51개 씬) [재생시간: 16초 기준 지향]**
+  - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **16초 정도의 충분한 씬 재생 시간**을 일괄 부여한다.
+  - 가이드라인 글자수: 성우 실제 낭독 시 **15초 정도의 풍부한 실 낭독 시간**이 확보될 수 있도록 각 씬당 **한글 공백 포함 약 110자 ~ 130자 내외**로 촘촘하고 호소력 짙게 작성하며, 미장센 공간 여운을 더해 자연스럽게 16초를 채운다.
+  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에 속하는 Scene 58, 59 등에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(110자~130자 내외)를 끝까지 듬직하게 유지해야 한다.
+- 모든 씬의 구조적 포맷을 완벽하게 통일해야 한다.
+- 최후의 씬(Scene 60)은 시스템 고정 규칙을 필히 따른다.
+
+★ [최후의 씬(Scene 60) 특별 클로징 규칙 - 시네마틱 브릿지(Cinematic Bridge) 구성] ★
+Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 물 흐르듯 유기적으로 이어지도록 아래의 세 가지 규칙을 무조건 100% 준수하여 고정 설계하라:
+1. **[시네마틱 브릿지 도입부]**: 본편 결말(Scene 59)이 끝난 뒤 갑자기 "오늘 영상 잘 보셨나요?"와 같이 기계적이고 뜬금없는 클로징으로 흐름이 단절되는 것을 엄격히 금지한다. 나레이션의 첫 문장은 본편의 깊은 여운이나 철학적 미스터리를 담은 읊조림(예: "진실은 깊은 어둠 속에 묻혔지만, 그날의 흔적은 여전히 전해지고 있습니다.")으로 열어, 본편과 아웃트로를 잇는 튼튼한 교량(Bridge) 역할을 해야 한다.
+2. **[자연스러운 소통 빌드업]**: 교량 멘트가 끝난 뒤 "오늘 기이한 이야기는 어떠셨나요? 여러분의 소중한 의견을 아래 댓글로 남겨주시면..." 하는 온화하고 차분한 소통 촉구 멘트와 다음 편 예고, 감사 인사를 정중히 연결한다. 길이는 약 9.5초 낭독 시간에 맞춰 한글 공백 포함 약 80자 ~ 95자 내외로 매우 우아하고 콤팩트하게 마친다.
+3. **[비주얼 스타일 / LTX 프롬프트]**: 갑작스러운 화자/장소 전환으로 시청 집중도가 하락하지 않도록, 본편 결말의 정서가 가득 남아있는 상징적 배경(예: 깊은 밤 조용히 소용돌이치는 짙은 안개와 눈발 속의 기와집 처마, 혹은 가만히 등잔불 연기가 흘러가는 서재 방 안 등)을 그대로 유지한다. 여기에 시네마틱한 극적 무브먼트(Slow cinematic tracking zoom-out, realistic drifting of smoke, embers floating in the cold wind)를 함께 지시하여, 마지막 순간까지 한 편의 완성도 높은 장편 영화를 감상한 듯한 여운 있는 페이드아웃(Fade-out)을 연출한다.
+
+★ [Camera Direction & LTX 2.3 English Prompt 빌딩 규칙] ★
+모든 씬 상세 기획에 반드시 한국어 [카메라 연출 지시어]를 추가하고, 동시에 **[IMAGE GENERATION PROMPT]** 필드를 완벽하게 독립 생성하라.
+이 영문 프롬프트는 사용자가 복사하여 즉시 LTX Video 2.3(혹은 Runway, Kling 등) 비디오 인공지능 도구에 붙여넣을 수 있게 다음과 같이 구성한다:
+- 형상(Formula): **[등장인물 성향/성별/나이/의복/자세/표정] + [배경 공간의 미미한 움직임(양초의 흔들림, 안개의 흐름, 눈발의 흩날림, 먼지의 부유 등)] + [카메라 무빙 특화 지시어(Slow dynamic zoom-in, smooth left-panning, 3D space camera tilt, dramatic Ken burns motion, hyper-realistic, joseon dynasty style)]**
+- 절대로 텍스트나 현대적 인공적 간편 프레이즈를 넣지 말 것!
+
+────────────────────────────
+■ 4단계: 유튜브 최적화 기획 (썸네일)
+사용자가 "썸네일" 또는 "4단계"를 요청하면 아래를 빠짐없이 출력한다:
+- 썸네일 핵심 비주얼 기획 (가장 흥미롭고 자극적인 상황 및 클로즈업 가이드)
+- 자극적인 썸네일 카피 5가지 후보
+- 설명란 메타데이터 가이드 (챕터 타임라인 포함)
+- SEO 최적화 해시태그 및 유선 댓글 서술안
+`;
+    </script>
+
+    <!-- 실무 제어용 프론트엔드 엔진 스크립트 -->
+    <script>
+        let chatHistory = [];
+        const fallbackDefaultTitle = "실록에서 사라진 7일";
+        const STAGE_SEQUENCE = ['0단계', '1단계', '인트로', '사건발생', '의혹', '추적', '반전', '결말', '썸네일'];
+        let lastTriggeredStage = null;
+        let isContentSaved = true;
+        let currentActiveStage = '기획';
+
+        // ⚠️ 뒤로가기 실수로 인한 유튜브 대본 기획 전체 유실 방지 장치
+        window.addEventListener('beforeunload', function (e) {
+            e.preventDefault();
+            // 브라우저 표준 명세에 오프라인 경고 컨텍스트 전송
+            e.returnValue = '작성 중인 기획안 대본이 유실될 수 있습니다. 정말 뒤로가기 하거나 페이지를 벗어나시겠습니까?';
+            return '작성 중인 기획안 대본이 유실될 수 있습니다. 정말 뒤로가기 하거나 페이지를 벗어나시겠습니까?';
+        });
+
+        function renderStageTabs(activeStageKey) {
+            // Synchronize the dropdown value of stage restoration
+            const selectEl = document.getElementById('stage-restore-select');
+            if (selectEl) {
+                const activeKey = activeStageKey || currentActiveStage;
+                if (Array.from(selectEl.options).some(opt => opt.value === activeKey)) {
+                    selectEl.value = activeKey;
+                } else {
+                    selectEl.value = "";
+                }
+            }
+        }
+
+        function switchToStage(stageKey) {
+            if (!stageKey) return;
+            const projectTitle = getProjectTitle();
+            const savedMd = localStorage.getItem('gemini_stage_markdown_' + projectTitle + '_' + stageKey);
+            
+            if (!savedMd) {
+                const names = {
+                    '0단계': '0단계: 주제생성',
+                    '1단계': '1단계: 목차기획',
+                    '인트로': '인트로 (S1-8)',
+                    '사건발생': '사건 발생 (S9-18)',
+                    '의혹': '의혹/갈등 (S19-28)',
+                    '추적': '진실 추적 (S29-38)',
+                    '반전': '반전 기획 (S39-48)',
+                    '결말': '결말 피날레 (S49-62)',
+                    '썸네일': '유튜브 썸네일 최적화',
+                    '대본': '통합 대본 전체 (S1-62)',
+                    '대본1': '통합 대본 1부 (S1-31)',
+                    '대본2': '통합 대본 2부 (S32-62)',
+                    'TTS': 'TTS 전용 극본 전체 (S1-62)',
+                    'TTS1': 'TTS 원고 1부 (S1-31)',
+                    'TTS2': 'TTS 원고 2부 (S32-62)',
+                    'LTX추출': 'LTX 2.3 영어 프롬프트',
+                    '쇼츠': '유튜브 쇼츠 (60초)',
+                    '커뮤니티': '커뮤니티 홍보 게시글'
+                };
+                const readableName = names[stageKey] || stageKey;
+                
+                if (confirm(`['${readableName}'] 단계 기획이 아직 생성되지 않았습니다. 지금 대화에 명령을 연동하여 해당 기획 대본을 새롭게 생성하시겠습니까?`)) {
+                    if (['대본', '대본1', '대본2', 'TTS', 'TTS1', 'TTS2', 'LTX추출', '쇼츠', '커뮤니티'].includes(stageKey)) {
+                        if (stageKey === '대본') extractScript();
+                        else if (stageKey === '대본1') extractScriptPart1();
+                        else if (stageKey === '대본2') extractScriptPart2();
+                        else if (stageKey === 'TTS') extractTTSOutput();
+                        else if (stageKey === 'TTS1') extractTTSOutputPart1();
+                        else if (stageKey === 'TTS2') extractTTSOutputPart2();
+                        else if (stageKey === 'LTX추출') extractLtxPromptsOnly();
+                        else if (stageKey === '쇼츠') generateShorts();
+                        else if (stageKey === '커뮤니티') generateCommunityPost();
+                    } else {
+                        triggerStage(stageKey);
+                    }
+                } else {
+                    renderStageTabs();
+                }
+                return;
+            }
+            
+            // Render from individual stage cache
+            if (typeof marked !== 'undefined' && marked.parse) {
+                document.getElementById('output-view').innerHTML = marked.parse(savedMd); 
+            } else {
+                document.getElementById('output-view').innerText = savedMd;
+            }
+            document.getElementById('output-view').scrollTop = 0;
+            currentActiveStage = stageKey;
+            
+            document.getElementById('step-indicator').innerText = `기획 히스토리 조회: [${stageKey}]`;
+            
+            // Sync dropdown value
+            const selectEl = document.getElementById('stage-restore-select');
+            if (selectEl) selectEl.value = stageKey;
+            
+            updateVersionCountLabel();
+            updateSaveButtonState();
+        }
+
+        window.onload = function() {
+            const savedKey = localStorage.getItem('gemini_api_key_3split');
+            if (savedKey) document.getElementById('api-key').value = savedKey;
+
+            // 기본 추천 모델 반영 (gemini-2.5-flash)
+            const savedModel = localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
+            document.getElementById('model-name').value = savedModel;
+            
+            const selectElement = document.getElementById('model-select');
+            const options = Array.from(selectElement.options).map(opt => opt.value);
+            if (options.includes(savedModel)) selectElement.value = savedModel;
+            else selectElement.value = 'custom';
+
+            const savedTitle = localStorage.getItem('gemini_project_title');
+            document.getElementById('project-title').value = savedTitle || fallbackDefaultTitle;
+
+            const savedHistory = localStorage.getItem('gemini_chat_history');
+            const savedOutputHtml = localStorage.getItem('gemini_output_html');
+            const savedStepIndicator = localStorage.getItem('gemini_step_indicator');
+
+            // JSON 파싱 보안 패치 (비정상 캐시 데이터 복구 오류 방지)
+            if (savedHistory) {
+                try {
+                    chatHistory = JSON.parse(savedHistory);
+                } catch (e) {
+                    console.error('채팅 히스토리 복원 중 오류:', e);
+                    chatHistory = [];
+                }
+            }
+            if (savedOutputHtml) document.getElementById('output-view').innerHTML = savedOutputHtml;
+            else renderDefaultGuide();
+            if (savedStepIndicator) document.getElementById('step-indicator').innerText = savedStepIndicator;
+
+            const savedHighlight = localStorage.getItem('gemini_next_highlight_stage');
+            if (savedHighlight && savedHighlight !== 'done') {
+                const btn = document.getElementById('btn-stage-' + savedHighlight);
+                if (btn) btn.classList.add('btn-next-highlight');
+            } else if (!savedHighlight) {
+                setNextStageHighlight(null);
+            }
+
+            const savedActiveStage = localStorage.getItem('gemini_current_active_stage');
+            if (savedActiveStage) currentActiveStage = savedActiveStage;
+            const savedIsSaved = localStorage.getItem('gemini_is_content_saved');
+            if (savedIsSaved) isContentSaved = (savedIsSaved === 'true');
+
+            // Fallback recovery: 복원된 HTML이 있으나 해당 단계의 raw markdown 캐시가 유실된 경우 보완 처리
+            const projectTitle = getProjectTitle();
+            if (savedOutputHtml && !localStorage.getItem('gemini_stage_markdown_' + projectTitle + '_' + currentActiveStage)) {
+                // innerText를 복사하여 백업 캐시 데이터 복구 개시
+                localStorage.setItem('gemini_stage_markdown_' + projectTitle + '_' + currentActiveStage, document.getElementById('output-view').innerText);
+            }
+
+            updateSaveButtonState();
+            renderStageTabs();
+            if (getActiveApiKey()) verifyKeyDirectly(getActiveApiKey());
+        };
+
+        function renderDefaultGuide() {
+            document.getElementById('output-view').innerHTML = `
+                <div style="color:#64748b; text-align:center; margin-top:100px;">
+                    <h3 style="color:#fff; margin-bottom:15px; font-size: 1.2rem;">역사스토리 대본 & LTX 2.3 빌더 준비 완료</h3>
+                    <p style="font-size:0.88rem; line-height:1.7; max-width: 500px; margin: 0 auto 20px;">
+                        우측 API 키 세팅을 점검하신 뒤, 3단계의 
+                        <strong style="color: #f43f5e;">[0단계:주제생성]</strong> 단추를 클릭해 62씬 대장정을 시작하십시오.
+                    </p>
+                    <div style="text-align: left; background-color: #0e0e14; border: 1px solid #1f2937; padding: 15px; border-radius: 6px; font-size: 0.8rem; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+                        <span style="color: #f43f5e; font-weight: bold; display: block; margin-bottom: 5px;">🔥 LTX 2.3 프롬프트 특화 설계 완료</span>
+                        1. 각 씬별 <strong>[LTX 2.3 영문 프롬프트]</strong> 자동 탑재 및 완벽 호환 규격 제공<br>
+                        2. LTX 2.3 최적화: <strong>[인물정보 & 행동] + [배경의 미세모션] + [카메라 연출 지시어]</strong> 대괄호 결합 구조<br>
+                        3. 비디오 제작 효율 극대화: 완벽하게 정밀해진 영문 프롬프트 1초 일괄 로컬 추출 도구 탑재
+                    </div>
+                </div>
+            `;
+        }
+
+        function setNextStageHighlight(completedStage) {
+            STAGE_SEQUENCE.forEach(st => {
+                const btn = document.getElementById('btn-stage-' + st);
+                if (btn) btn.classList.remove('btn-next-highlight');
+            });
+            if (!completedStage) {
+                const firstBtn = document.getElementById('btn-stage-0단계');
+                if (firstBtn) firstBtn.classList.add('btn-next-highlight');
+                localStorage.setItem('gemini_next_highlight_stage', '0단계');
+                return;
+            }
+            const completedIndex = STAGE_SEQUENCE.indexOf(completedStage);
+            if (completedIndex !== -1 && completedIndex < STAGE_SEQUENCE.length - 1) {
+                const nextStage = STAGE_SEQUENCE[completedIndex + 1];
+                const nextBtn = document.getElementById('btn-stage-' + nextStage);
+                if (nextBtn) {
+                    nextBtn.classList.add('btn-next-highlight');
+                    localStorage.setItem('gemini_next_highlight_stage', nextStage);
+                }
+            } else {
+                localStorage.setItem('gemini_next_highlight_stage', 'done');
+            }
+        }
+
+        function updateStatus(text, type) {
+            const statusEl = document.getElementById('api-status');
+            if (!statusEl) return;
+            statusEl.innerText = text;
+            statusEl.className = 'status-badge'; 
+            if (type === 'success') {
+                statusEl.classList.add('status-success');
+            } else if (type === 'fail') {
+                statusEl.classList.add('status-fail');
+            } else if (type === 'warn') {
+                statusEl.classList.add('status-warn');
+            }
+        }
+
+        function updateSaveButtonState() {
+            const btn = document.getElementById('btn-save');
+            if (!btn) return;
+            const versionMap = getVersionMap();
+            const title = getProjectTitle();
+            const partName = currentActiveStage || '기획';
+            const key = title + '_' + partName;
+            const currentVer = versionMap[key] || 0;
+            if (isContentSaved) {
+                btn.classList.remove('btn-unsaved-highlight');
+                btn.innerText = '저장 완료 (v' + currentVer + ')';
+            } else {
+                btn.classList.add('btn-unsaved-highlight');
+                btn.innerText = '저장 필요 ⚠️ (v' + (currentVer + 1) + ')';
+            }
+            localStorage.setItem('gemini_is_content_saved', isContentSaved ? 'true' : 'false');
+            localStorage.setItem('gemini_current_active_stage', currentActiveStage);
+            updateVersionCountLabel();
+        }
+
+        function triggerAutoSave(htmlContent = null) {
+            try {
+                localStorage.setItem('gemini_chat_history', JSON.stringify(chatHistory));
+                localStorage.setItem('gemini_project_title', getProjectTitle());
+                const stepText = document.getElementById('step-indicator').innerText;
+                localStorage.setItem('gemini_step_indicator', stepText);
+                if (htmlContent) localStorage.setItem('gemini_output_html', htmlContent);
+                else localStorage.setItem('gemini_output_html', document.getElementById('output-view').innerHTML);
+            } catch (e) {
+                console.warn('로컬 스토리지 한도 초과로 자동 저장이 일부 제한되었습니다.', e);
+            }
+        }
+
+        function handleTitleInput(val) {
+            localStorage.setItem('gemini_project_title', val.trim() || fallbackDefaultTitle);
+            updateSaveButtonState();
+            renderStageTabs();
+        }
+
+        function handleKeyInput(val) { localStorage.setItem('gemini_api_key_3split', val.trim()); }
+        function getActiveApiKey() { return document.getElementById('api-key').value.trim(); }
+
+        function handleModelDropdownChange(val) {
+            const nameInput = document.getElementById('model-name');
+            if (val !== 'custom') nameInput.value = val;
+            else { nameInput.value = ''; nameInput.focus(); }
+            localStorage.setItem('gemini_selected_model', nameInput.value.trim());
+        }
+
+        function getProjectTitle() { return document.getElementById('project-title').value.trim() || fallbackDefaultTitle; }
+        function logDiagnostic(msg) { document.getElementById('diagnostic-log').innerText = msg; }
+
+        async function saveAndVerifyKey() {
+            const keyInput = getActiveApiKey();
+            const modelName = document.getElementById('model-name').value.trim();
+            if (!keyInput || !modelName) { updateStatus('입력 정보 부족', 'fail'); return; }
+            updateStatus('연결 테스트 중...', 'warn');
+            const res = await verifyApiKeyDetailed(keyInput, modelName);
+            if (res.success) {
+                localStorage.setItem('gemini_api_key_3split', keyInput);
+                localStorage.setItem('gemini_selected_model', modelName);
+                updateStatus('API 연결 완료!', 'success');
+            } else {
+                updateStatus('API 인증 실패', 'fail');
+                logDiagnostic(res.errorDetail);
+            }
+        }
+
+        async function verifyKeyDirectly(key) {
+            const modelName = document.getElementById('model-name').value.trim();
+            const res = await verifyApiKeyDetailed(key, modelName);
+            if (res.success) updateStatus('API 연결 정상', 'success');
+            else updateStatus('연결 오류 확인', 'fail');
+        }
+
+        async function verifyApiKeyDetailed(key, model) {
+            const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+            try {
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: 'Ping' }] }], generationConfig: { maxOutputTokens: 1 } })
+                });
+                if (response.ok) return { success: true };
+                const errData = await response.json().catch(() => ({}));
+                const detail = errData.error ? errData.error.message : ('HTTP 오류 ' + response.status);
+                return { success: false, errorDetail: detail };
+            } catch (error) { return { success: false, errorDetail: error.message }; }
+        }
+
+        async function sendPrompt(customText = null) {
+            const promptInput = document.getElementById('prompt-input');
+            const userText = customText ? customText.trim() : promptInput.value.trim();
+            const modelName = document.getElementById('model-name').value.trim();
+            const activeKey = getActiveApiKey();
+
+            if (!userText) return;
+            if (!activeKey) {
+                alert('우측 [1. API 연결 설정] 영역에 구글 API 키를 먼저 입력해 주세요.');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'flex';
+            chatHistory.push({ role: 'user', parts: [{ text: userText }] });
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: chatHistory,
+                        systemInstruction: { parts: [{ text: systemInstructionText }] },
+                        generationConfig: { temperature: 0.72, topK: 40, topP: 0.95 }
+                    })
+                });
+                
+                let resData;
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    resData = await response.json();
+                } else {
+                    const textResponse = await response.text();
+                    throw new Error(`API 응답 형식 오류 (HTTP ${response.status}): ${textResponse.substring(0, 150)}`);
+                }
+                
+                if (!response.ok || !resData.candidates || resData.candidates.length === 0) {
+                    const errMsg = resData.error ? resData.error.message : 'API 비정상 응답 발생';
+                    throw new Error(errMsg);
+                }
+
+                const responseText = resData.candidates[0].content.parts[0].text;
+
+                chatHistory.push({ role: 'model', parts: [{ text: responseText }] });
+                
+                // Update the active stage key PRIOR to rendering so that individual stage auto-saving maps the files correctly.
+                if (lastTriggeredStage) {
+                    currentActiveStage = lastTriggeredStage;
+                    setNextStageHighlight(lastTriggeredStage);
+                    lastTriggeredStage = null;
+                }
+                
+                renderResult(responseText);
+                if (!customText) promptInput.value = '';
+                document.getElementById('output-view').scrollTop = 0;
+
+                updateStepIndicator(responseText);
+                isContentSaved = false;
+                updateSaveButtonState();
+                triggerAutoSave();
+            } catch (error) {
+                logDiagnostic('오류: ' + error.message);
+                alert('API 호출에 실패했습니다: ' + error.message);
+                chatHistory.pop();
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function triggerStage(stage) {
+            let cmd = "";
+            lastTriggeredStage = stage;
+            switch (stage) {
+                case '0단계': 
+                    cmd = "0단계: 조회수와 몰입도가 극대화된 역사 미스터리/야담 전용 신선한 주제 5개를 추천해줘. 각 주제는 역사적 실마리와 숨겨진 미스터리 음모 요소를 결합해 설명해줘."; 
+                    break;
+                case '1단계': 
+                    cmd = "1단계: 추천된 주제 중 하나를 선택하거나, 사용자가 원하는 핵심 설정에 따라 조선 정통 야담풍의 어울리는 강렬한 영상 대본 제목 5종을 제안하고, 전체 20분 분량에 걸맞는 총 60개 씬(60-scene sequence) 목차 기획 개요를 작성해줘. 또한, 이 역사극의 주요 핵심 인물들을 '야담 표준 캐릭터 식별자 코드(Ch_A: 주역, Ch_B: 상대왕/임금, Ch_D: 조력녀, Ch_F: 악역/대감 등)'에 100% 매칭하여 등장인물 스펙글을 적어주고, 반드시 'Ch_A(특징)', 'Ch_B(특징)' 포맷으로 등장인물을 선언해줘. 이것은 스토리보드 엔진의 로컬 파서가 정확히 인식하기 위한 필수 요구사항이야."; 
+                    break;
+                case '인트로': 
+                    cmd = "2단계 [인트로 파트 상세기획]: Scene 1부터 Scene 8까지 (8개 씬) 상세 구성해줘. 각 씬은 '9.5초의 실 낭독'에 최적화되게 글자수 약 75자~90자 내외로 씬당 나레이션을 구성해줘.\n\n" +
+                          "★ [인트로 기획 핵심 규칙: LTX 모션 최적화 & CTR 극대화] ★\n" +
+                          "1. **시네마틱 LTX 비디오 무브먼트 생성**: 인트로의 영문 이미지 프롬프트는 비디오 변환(LTX) 시 밋밋한 정적 슬라이드가 아닌, **역동적이고 차별화된 시네마틱 모션(Cinematic Motion)**이 자연스럽게 일어나도록 기획해줘. 비디오 생성에 생명력을 주는 연출 요소들(예: 바람에 격렬히 날리는 도포 자락과 머리칼, 어둠 속에서 타오르며 흩어지는 횃불 불꽃과 붉은 불씨들, 흩날리는 강한 눈발, 은은하게 피어오르는 방 안의 등잔불 연기, 조용히 흘러가는 짙은 안개 등)을 구체적인 영문 묘사로 가미한다. 앵글은 주역(Ch_A) 중심의 클로즈업/바스트 샷 구도로 인물의 세밀한 표정 변화를 담고, 카메라 무브먼트(Slow tracking zoom-in, dynamic camera sliding, camera panning 등)를 함께 지시하여 영화의 오프닝과 같은 시각적 입체감을 높인다.\n" +
+                          "2. **CTR 보존 및 호기심 유지**: 인트로 나레이션은 본편의 강력한 서사 도입부를 상징적으로 요약하되, 결코 결말이나 핵심 반전을 미리 스포일러하지 마라. 가장 치명적인 미스터리의 서두와 위험천만한 딜레마만을 압축 제기하며 시청자가 무조건 끝까지 시청하게 만드는 파괴적인 궁금증(Hook)을 Scene 8에 던져서 끝마쳐줘.\n\n" +
+                          "모든 씬은 반드시 스토리보드 제어 엔진의 정밀 파서 및 캐릭터 DB와 완벽히 호환되도록 다음과 같은 포맷으로 정확히 출력해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 1단계에서 선언한 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해.";
+                    break;
+                case '사건발생': 
+                    cmd = "[사건 발생 파트 상세기획]: Scene 9부터 Scene 18까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                    break;
+                case '의혹': 
+                    cmd = "[의혹과 갈등 파트 상세기획]: Scene 19부터 Scene 28까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                    break;
+                case '추적': 
+                    cmd = "[진실 추적 파트 상세기획]: Scene 29부터 Scene 38까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                    break;
+                case '반전': 
+                    cmd = "[반전 파트 상세기획]: Scene 39부터 Scene 48까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                    break;
+                case '결말': 
+                    cmd = "[결말 파트 상세기획]: Scene 49부터 Scene 60까지 (12개 씬)의 피날레 상세 대본과 연출을 짜줘.\n\n" +
+                          "★ [결말 기획 핵심 규칙: 2안 시네마틱 브릿지 아웃트로 적용] ★\n" +
+                          "1. **Scene 59에서 서사 완결**: 기승전결의 본편 스토리는 반드시 Scene 59에서 웅장하고 깊은 여운이 가득하게 완전히 매듭(완결)지어줘.\n" +
+                          "2. **Scene 60 시네마틱 브릿지**: 마지막 Scene 60은 기계적인 '오늘 영상 잘 보셨나요?' 대신 본편 결말의 마지막 정서를 차분하고 감동적으로 이어받는 문장으로 전반부를 열고(예: 그 깊은 어둠 속에 묻힌 진실은 오늘 우리에게 무엇을 말해주고 있을까요?), 이어서 자연스럽게 시청자 반응 댓글 유도 및 감사 인사로 물 흐르듯 빌드업해줘. (낭독 시간 9.5초용 글자수 약 80자~95자 내외)\n" +
+                          "3. **Scene 60 비주얼 여운**: 비주얼(LTX 프롬프트) 역시 갑자기 다른 엉뚱한 인물이나 장소로 전환되는 것을 금지하고, 본편의 마지막 무드를 상징하는 여운 깊은 풍경(예: 흩날리는 강한 눈발 속 은은하게 피어오르는 처마 끝 등대 풍경 등)에 느린 줌아웃과 미세한 시네마틱 움직임을 지시하여 완벽한 페이드아웃을 만들어줘.\n\n" +
+                          "모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해."; 
+                    break;
+                case '썸네일': 
+                    cmd = "4단계: 유튜브 썸네일 및 매체 최적화 기획을 수행해줘. 가장 충격적이고 호기심을 폭발시키는 클라이맥스 씬 기반의 디렉션 프롬프트와 썸네일 텍스트 문구 5선 후보, 설명란(타임라인 포함), 해시태그, Pinned Comment(고정 댓글 제안)까지 완결성 있게 뽑아줘."; 
+                    break;
+            }
+            sendPrompt(cmd);
+        }
+
+        function extractLtxPromptsOnly() {
+            // Scan chat history from model messages
+            let prompts = [];
+            
+            let modelTexts = chatHistory
+                .filter(msg => msg.role === 'model')
+                .map(msg => msg.parts[0].text);
+                
+            modelTexts.forEach(text => {
+                let matches = [];
+                let match;
+                const splitPatternLocal = /\[S(\d+)\.?\]/g;
+                while ((match = splitPatternLocal.exec(text)) !== null) {
+                    matches.push({
+                        id: parseInt(match[1], 10),
+                        index: match.index
+                    });
+                }
+                
+                for (let i = 0; i < matches.length; i++) {
+                    const current = matches[i];
+                    const nextIndex = (i + 1 < matches.length) ? matches[i+1].index : text.length;
+                    const blockText = text.slice(current.index, nextIndex);
+                    
+                    // Now, look for [IMAGE GENERATION PROMPT] in this specific block
+                    const promptMatch = blockText.match(/\[IMAGE\s*GENERATION\s*PROMPT\]:\s*([^\n\r\[]+)/i);
+                    if (promptMatch && promptMatch[1]) {
+                        prompts.push({
+                            id: current.id,
+                            prompt: promptMatch[1].trim()
+                        });
+                    }
+                }
+            });
+            
+            if (prompts.length === 0) {
+                if (confirm('대본 기획안에서 정형화된 [IMAGE GENERATION PROMPT] 패턴을 찾을 수 없습니다. 대본 작성이 완료되지 않았거나 기본 형식이 다를 수 있습니다. 제미나이 AI 서버를 가동해 대본을 분석하고 프롬프트들을 일괄 추출하시겠습니까?')) {
+                    sendPrompt("대본 기획안 전체에서 Scene 1부터 Scene 60까지 '영어 LTX 2.3 영문 프롬프트(English dynamic prompt)'만 한 줄도 빼놓지 말고 일괄적으로 모아서 깔끔하게 출력해줘. 사용자가 LTX 비디오 렌더러에 번거로움 없이 편하게 순서대로 즉각 복사해서 붙여넣을 수 있게 다음과 같이 번호를 딱 매겨서 영문 프롬프트 본문만 한눈에 보이게 묶어줘.\n\n예시 포맷:\n[Scene 1] 영문 프롬프트 내용..\n[Scene 2] 영문 프롬프트 내용..\n... 형식으로 다른 잡설 없이 깔끔하게 추출해줘.");
+                }
+                return;
+            }
+            
+            // Sort by scene ID
+            prompts.sort((a,b) => a.id - b.id);
+            
+            // De-duplicate in case of multiple attempts or overlapping blocks
+            const uniquePromptsMap = new Map();
+            prompts.forEach(p => {
+                uniquePromptsMap.set(p.id, p.prompt);
+            });
+            
+            let sortedUniquePrompts = Array.from(uniquePromptsMap.entries())
+                .sort((a,b) => a[0] - b[0]);
+                
+            // Compile into beautiful Markdown
+            let outputMarkdown = `### 🎬 LTX 2.3 영문 비디오 프롬프트 일괄 추출 (로컬 즉시 추출 완료)\n`;
+            outputMarkdown += `> 대화 기록 분석 결과 총 **${sortedUniquePrompts.length}개**의 프롬프트가 즉시 추출되었습니다. 아래 목록에서 필요한 씬의 프롬프트를 복사하여 LTX 2.3 비디오 엔진에 바로 붙여넣으십시오. 이 완정 규격화된 프롬프트들은 스토리보드 제어 엔진과 100% 호환됩니다.\n\n`;
+            
+            outputMarkdown += '<table style="width:100%; border-collapse:collapse; margin: 1.5em 0; background-color:#0f0f15;">';
+            outputMarkdown += '<tr style="background-color:#1e293b; color:#ffffff;"><th style="border:1px solid #334155; padding:8px; width:100px; text-align:center;">씬 번호</th><th style="border:1px solid #334155; padding:8px;">LTX 2.3 영어 연출 및 복사 단추</th></tr>';
+            
+            sortedUniquePrompts.forEach(([id, prompt]) => {
+                const escapedPrompt = prompt.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                outputMarkdown += '<tr>';
+                outputMarkdown += `<td style="border:1px solid #334155; padding:12px; text-align:center; font-weight:bold; color:#f43f5e; background-color:#111116;">Scene ${id}</td>`;
+                outputMarkdown += `<td style="border:1px solid #334155; padding:12px; line-height:1.5;">`;
+                outputMarkdown += `<code style="display:block; background-color:#000; padding:8px; border-radius:4px; font-family:monospace; font-size:0.85rem; color:#38bdf8; word-break:break-all; margin-bottom:8px;">${prompt}</code>`;
+                outputMarkdown += `<button class="btn" style="background-color:#fff; color:#000; border:none; padding:4px 10px; font-size:0.75rem; font-weight:bold; cursor:pointer;" onclick="navigator.clipboard.writeText('${escapedPrompt}'); alert('Scene ${id}의 프롬프트가 복사되었습니다!')">단독 복사</button>`;
+                outputMarkdown += `</td>`;
+                outputMarkdown += '</tr>';
+            });
+            outputMarkdown += '</table>';
+            
+            outputMarkdown += `\n\n### 📦 텍스트 일괄 복사 가이드 (전체 복보 전용)\n\`\`\`text\n`;
+            sortedUniquePrompts.forEach(([id, prompt]) => {
+                outputMarkdown += `[Scene ${id}]\n${prompt}\n\n`;
+            });
+            outputMarkdown += `\`\`\`\n`;
+            
+            currentActiveStage = "LTX추출";
+            renderResult(outputMarkdown);
+            document.getElementById('output-view').scrollTop = 0;
+            updateSaveButtonState();
+        }
+
+        function generateShorts() {
+            currentActiveStage = "쇼츠";
+            sendPrompt("이 대본의 기획 내용 중 시청자들이 가장 깜짝 놀랄 만한 부분 또는 1분 하이라이트 요소를 활용하여 마케팅 집중도가 높은 60초 유튜브 쇼츠(Shorts) 오프닝 대본을 작성해줘. 시각 연출 타이밍과 화려한 자막 연출선도 함께 반영해줘.");
+        }
+
+        function generateCommunityPost() {
+            currentActiveStage = "커뮤니티";
+            sendPrompt("본 역사 영상의 업로드 전 예고나 업로드 직후 활성화를 유도하기 위한 영리인 유튜브 커뮤니티 홍보 게시글을 2종(역사 퀴즈 투표 피드백형, 미스터리 호기심 증폭 시청 유도형)으로 자세하게 작성해줘.");
+        }
+
+        function extractScript() {
+            currentActiveStage = "대본";
+            sendPrompt("■ 5단계 [전체 60개 씬 장편 대본 통합 일괄 출력]:\n" +
+                       "Scene 1부터 Scene 60까지의 모든 씬에 대하여, 기획된 전체 표준 대본 양식 세부 기획 내용을 단 하나도 누락하거나 축소하지 말고 완벽히 순서대로 한 번에 모아서 출력해줘.\n" +
+                       "반드시 다음의 표준 스토리보드 전체 포맷 규격을 칼같이 준수하여 깔끔하게 모아줘:\n\n" +
+                       "포맷 규격:\n" +
+                       "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                       "[IMAGE GENERATION PROMPT]: 영문 이미지 생성 프롬프트\n\n" +
+                       "예시:\n" +
+                       "[S1.] [산속 깊은 숲, 밤 / Ch_A] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
+                       "[IMAGE GENERATION PROMPT]: A direct dramatic scene, a Joseon period scholar holding a paper lantern walking through a dark spooky forest, dense low fog, night atmosphere, highly detailed, realistic, LTX style.\n\n" +
+                       "이 규격에 맞춰 한 씬도 빠짐없이 Scene 1부터 Scene 60까지 정교하게 출력해 줘.");
+        }
+
+        function extractScriptPart1() {
+            currentActiveStage = "대본1";
+            sendPrompt("■ 5단계 [통합 대본 1부 (장소 정보 및 이미지 프롬프트 포함 - Scene 1 ~ Scene 30)]:\n" +
+                       "전체 60개 씬 중 전반부인 Scene 1부터 Scene 30까지의 30개 씬에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+                       "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
+                       "포맷 규격:\n" +
+                       "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                       "[IMAGE GENERATION PROMPT]: 영문 이미지 생성 프롬프트\n\n" +
+                       "예시:\n" +
+                       "[S1.] [산속 깊은 숲, 밤 / Ch_A] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
+                       "[IMAGE GENERATION PROMPT]: A direct dramatic scene, a Joseon period scholar holding a paper lantern walking through a dark spooky forest, dense low fog, night atmosphere, highly detailed, realistic, LTX style.\n\n" +
+                       "인트로(S1-8)는 10.5초(실 낭독 9.5초 전후, 글자수 약 75자~90자 내외), 서사(S9-30)는 16초(실 낭독 15초 전후, 글자수 약 110자~130자 내외) 분량에 완전히 최적화되게 글자수를 기획된 그대로 가이드라인 맞춰 Scene 1부터 Scene 30까지 한 씬도 빠뜨리지 말고 출력해줘.");
+        }
+
+        function extractScriptPart2() {
+            currentActiveStage = "대본2";
+            sendPrompt("■ 5단계 [통합 대본 2부 (장소 정보 및 이미지 프롬프트 포함 - Scene 31 ~ Scene 60)]:\n" +
+                       "전체 60개 씬 중 후반부 및 결말부인 Scene 31부터 Scene 60까지의 30개 씬에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+                       "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
+                       "포맷 규격:\n" +
+                       "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                       "[IMAGE GENERATION PROMPT]: 영문 이미지 생성 프롬프트\n\n" +
+                       "예시:\n" +
+                       "[S31.] [조정 대전, 낮 / Ch_B_Yeongjo] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
+                       "[IMAGE GENERATION PROMPT]: Joseon Dynasty king speaking in deep distress in the royal throne hall, serious, highly detailed, realistic, LTX style.\n\n" +
+                       "서사 및 결말(S31-59)은 씬당 16초(실 낭독 15초 전후, 한글 공백 포함 110자 ~ 130자 내외) 분량, 마지막 Scene 60는 10.5초(실 낭독 9.5초 전후, 마무리 멘트 위주 글자수 약 75자~90자 내외) 분량에 완전히 최적화되게 글자수를 기획된 가이드라인 맞춰, Scene 31부터 최후의 Scene 60까지 한 씬도 빠뜨리지 말고 출력해줘.");
+        }
+
+        function extractTTSOutput() {
+            currentActiveStage = "TTS";
+            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 (1회 완결 일괄출력 모드)]:\n" +
+                       "Scene 1부터 Scene 60까지의 모든 씬에 대하여, 별도의 분산 추출 없이 전체 씬의 한국어 대사본을 순차적으로 끝까지 이어서 단 한 씬도 누락하지 말고 한 번에 다 뽑아줘.\n" +
+                       "불필요한 영어 프롬프트나 대괄호 장소 정보는 다 버리고 오직 성우 TTS 및 스토리보드 컨트롤러 파싱에 꼭 필요한 아래의 간결 미니멀 규격으로만 포맷팅해 줘.\n\n" +
+                       "포맷 규칙:\n" +
+                       "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
+                       "예시:\n" +
+                       "[S1.] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
+                       "[S2.] \"마침내 저 멀리 희미한 등불이 켜진 오막살이가 보였다.\" (오막살이 앞에 서서 굳어버린 이현, Med shot)\n\n" +
+                       "이 포맷을 철저히 유지하며 전체 60개 씬에 대해 25,000 토큰 이하의 정교하고 완벽한 단일 텍스트 구조로 일제히 출력해 주십시오. 씬 번호를 건너뛰거나 중간에 생략(예: 등등..)하지 말고 끝까지 다 적어줘.");
+        }
+
+        function extractTTSOutputPart1() {
+            currentActiveStage = "TTS1";
+            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 1부 (Scene 1 ~ Scene 30)]:\n" +
+                       "전체 60개 씬 중 전반부인 Scene 1부터 Scene 30까지의 30개 씬에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+                       "엄격한 미니멀 포맷 규격:\n" +
+                       "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
+                       "예시:\n" +
+                       "[S1.] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
+                       "[S2.] \"마침내 저 멀리 희미한 등불이 켜진 오막살이가 보였다.\" (오막살이 앞에 서서 굳어버린 이현, Med shot)\n\n" +
+                       "중간 생략 없이 기획된 나레이션 글자수 분량 그대로, Scene 1부터 Scene 30까지 가득 채워 포맷에 맞춰 빈틈없이 출력해줘.");
+        }
+
+        function extractTTSOutputPart2() {
+            currentActiveStage = "TTS2";
+            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 2부 (Scene 31 ~ Scene 60)]:\n" +
+                       "전체 60개 씬 중 후반부인 Scene 31부터 Scene 60까지의 30개 씬에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+                       "엄격한 미니멀 포맷 규격:\n" +
+                       "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
+                       "예시:\n" +
+                       "[S31.] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
+                       "[S32.] \"백성들과 신하들은 모두 긴장감 서린 눈으로 처분을 기다리고 있었다.\" (잔뜩 굳어 경직된 신하들의 모습, Wide shot)\n\n" +
+                       "중간 생략이나 끝부분 요약 축소 없이 기획된 후반부 나레이션 분량(S31-59는 씬당 공백포함 110자 ~ 130자 내외, S60은 공백포함 75자 ~ 90자 내외)을 가이드라인에 맞게 기획된 그대로 Scene 31부터 최후의 Scene 60까지 완벽하게 출력해줘.");
+        }
+
+        function getVersionMap() { 
+            try {
+                return JSON.parse(localStorage.getItem('gemini_version_map') || '{}'); 
+            } catch (e) {
+                console.error('버전 맵 획득 실패:', e);
+                return {};
+            }
+        }
+        
+        function updateVersionCountLabel() {
+            const key = getProjectTitle() + '_' + (currentActiveStage || '기획');
+            document.getElementById('version-display').innerText = '현재 파트 [' + currentActiveStage + '] 저장 이력: v' + (getVersionMap()[key] || 0);
+        }
+
+        function exportTextWithVersion() {
+            const outputView = document.getElementById('output-view');
+            const textContent = outputView.innerText;
+            if (!textContent || textContent.trim().length < 10) {
+                alert('저장할 만한 텍스트 결과물이 비어 있습니다.');
+                return;
+            }
+            const title = getProjectTitle();
+            const partName = currentActiveStage || '기획';
+            let versionMap = getVersionMap();
+            const key = title + '_' + partName;
+            const nextVer = (versionMap[key] || 0) + 1;
+            versionMap[key] = nextVer;
+            try {
+                localStorage.setItem('gemini_version_map', JSON.stringify(versionMap));
+            } catch (e) {
+                console.warn('버전 맵 로컬 저장 실패:', e);
+            }
+            const fileName = `${title}_${partName}_v${nextVer}.txt`;
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+            isContentSaved = true;
+            updateSaveButtonState();
+        }
+
+        function resetProject() {
+            if (confirm('스토리보드 기획 히스토리와 로컬 저장소 전체를 지우고 초기화하시겠습니까?')) {
+                chatHistory = [];
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function renderResult(markdownText) { 
+            if (typeof marked !== 'undefined' && marked.parse) {
+                document.getElementById('output-view').innerHTML = marked.parse(markdownText); 
+            } else {
+                document.getElementById('output-view').innerText = markdownText;
+            }
+            
+            // Auto-save the raw markdown for the active stage tab history
+            try {
+                const projectTitle = getProjectTitle();
+                if (projectTitle && currentActiveStage) {
+                    localStorage.setItem('gemini_stage_markdown_' + projectTitle + '_' + currentActiveStage, markdownText);
+                    renderStageTabs();
+                }
+            } catch (e) {
+                console.warn('단계별 개별 복사본 로컬 저장 실패:', e);
+            }
+        }
+        
+        function updateStepIndicator(text) {
+            const match = text.match(/\[현재 상태:[^\]]+\]/);
+            document.getElementById('step-indicator').innerText = match ? match[0] : '실시간 업데이트 완료';
+        }
+
+        async function downloadSelf() {
+            try {
+                // 1. Fetch the pristine, original HTML file directly from the active live dev/prod server
+                const fetchUrl = window.location.origin + '/yadam_generator.html?t=' + Date.now();
+                console.log('[HTML BACKUP] Attempting pristine fetch from: ' + fetchUrl);
+                const response = await fetch(fetchUrl);
+                if (response.ok) {
+                    let cleanHtml = await response.text();
+                    
+                    // Pre-inject the active API key and project title from current runtime state directly into the saved file!
+                    // This offers a highly elite UX by retaining the user's input config automatically inside the downloaded file.
+                    const currentApiKey = getActiveApiKey();
+                    const currentTitle = getProjectTitle();
+                    
+                    if (currentApiKey) {
+                        cleanHtml = cleanHtml.replace(
+                            `const savedKey = localStorage.getItem('gemini_api_key_3split');`,
+                            `const savedKey = localStorage.getItem('gemini_api_key_3split') || '${currentApiKey}';`
+                        );
+                    }
+                    if (currentTitle && currentTitle !== fallbackDefaultTitle) {
+                        cleanHtml = cleanHtml.replace(
+                            `document.getElementById('project-title').value = savedTitle || fallbackDefaultTitle;`,
+                            `document.getElementById('project-title').value = savedTitle || '${currentTitle}';`
+                        );
+                    }
+                    
+                    // Double check to strip any unexpected google service injection from server string
+                    cleanHtml = cleanHtml.replace(/<script[^>]*_aistudio-iframe\.js[^>]*><\/script>/gi, '');
+
+                    const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'yadam_planner_v15_pro.html';
+                    link.click();
+                    console.log('[HTML BACKUP] Server fetch backup downloaded successfully.');
+                    return;
+                }
+            } catch (error) {
+                console.warn('[HTML BACKUP] Server fetch failed. Recovering via high-fidelity sanitizing DOM local clone...', error);
+            }
+
+            // 2. Fallback: Local DOM cloning with extreme sanitization (purges google injects, analytics, scripts)
+            const docClone = document.cloneNode(true);
+            
+            // Clean up cloned head of any external system tracking or ai studio frames
+            const head = docClone.head;
+            const keptHeadNodes = [];
+            
+            const metas = head.querySelectorAll('meta');
+            metas.forEach(meta => {
+                const name = meta.getAttribute('name');
+                const charset = meta.getAttribute('charset');
+                if (charset === 'UTF-8' || name === 'viewport') {
+                    keptHeadNodes.push(meta);
+                }
+            });
+            
+            const title = head.querySelector('title');
+            if (title) keptHeadNodes.push(title);
+            
+            // Retain marked.js CDN exclusively
+            const scripts = head.querySelectorAll('script');
+            scripts.forEach(scr => {
+                const src = scr.getAttribute('src');
+                if (src && src.includes('marked')) {
+                    keptHeadNodes.push(scr);
+                }
+            });
+            
+            // Retain the core stylesheet
+            const style = head.querySelector('style');
+            if (style) keptHeadNodes.push(style);
+            
+            head.innerHTML = '';
+            keptHeadNodes.forEach(node => head.appendChild(node));
+            
+            // Purge any foreign google inject scripts or iframes in body
+            const body = docClone.body;
+            
+            // Remove typical google iframe injections
+            const googleScripts = body.querySelectorAll('script[src*="aistudio"], iframe[id*="google"], script[id*="google"]');
+            googleScripts.forEach(el => el.remove());
+
+            const keptBodyNodes = [];
+            
+            const nativeHeader = body.querySelector('header');
+            if (nativeHeader) keptBodyNodes.push(nativeHeader);
+            
+            const nativeContainer = body.querySelector('.main-container');
+            if (nativeContainer) keptBodyNodes.push(nativeContainer);
+            
+            // Strip any remaining third-party script links and retain only the main script
+            const bodyScripts = body.querySelectorAll('script');
+            bodyScripts.forEach(scr => {
+                if (!scr.getAttribute('src')) {
+                    keptBodyNodes.push(scr);
+                }
+            });
+            
+            body.innerHTML = '';
+            keptBodyNodes.forEach(node => body.appendChild(node));
+            
+            // Serialize and download clean clone
+            let htmlContent = '<!DOCTYPE html>\n' + docClone.documentElement.outerHTML;
+            
+            // Clean any potential wrapper residue strings
+            htmlContent = htmlContent.replace(/<script[^>]*_aistudio-iframe\.js[^>]*><\/script>/gi, '');
+
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'yadam_planner_v15_pro.html';
+            link.click();
+            console.log('[HTML BACKUP] Clean local clone backup triggered.');
+        }
+    </script>
+</body>
+</html>

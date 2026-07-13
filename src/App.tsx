@@ -32,6 +32,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Percent,
+  Film,
+  Video,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -133,6 +135,7 @@ export default function App() {
   const [quantityOverride, setQuantityOverride] = useState(false);
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
+  const [sceneLtxMotions, setSceneLtxMotions] = useState<Record<number, string>>({});
 
   // Core application state
   const [analysis, setAnalysis] = useState<StoryboardAnalysisResponse | null>(
@@ -146,6 +149,27 @@ export default function App() {
   const [thumbnailData, setThumbnailData] = useState<ThumbnailDirectorData | null>(null);
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState<"16:9" | "9:16">("16:9");
+  
+  // Real-time Korean Calligraphy Thumbnail Text Overlay states
+  const [overlayText, setOverlayText] = useState("");
+  const [overlayStyle, setOverlayStyle] = useState<"classic-brush" | "horror-mystery" | "clean-serif" | "bold-modern">("classic-brush");
+  const [overlaySize, setOverlaySize] = useState(48);
+  const [overlayColor, setOverlayColor] = useState("#facc15"); // Golden yellow (Standard high CTR)
+  const [overlayY, setOverlayY] = useState(80); // percentage (10 to 90)
+  const [overlayX, setOverlayX] = useState(50); // percentage (10 to 90)
+  const [overlayRotation, setOverlayRotation] = useState(-3); // subtle rotation to add dramatic visual tension
+  const [enableBackingGlow, setEnableBackingGlow] = useState(true); // Outline glow border
+  const [enableBackingRibbon, setEnableBackingRibbon] = useState(false); // Semi-transparent black plate
+  const [optimizeForLtxStyle, setOptimizeForLtxStyle] = useState(true); // Option to inject LTX 2.3 cinematic style prompt
+
+  // Synchronize calligraphy text overlay when thumbnailData changes
+  useEffect(() => {
+    if (thumbnailData?.recommendedText) {
+      setOverlayText(thumbnailData.recommendedText);
+    } else {
+      setOverlayText("");
+    }
+  }, [thumbnailData]);
 
   // Queue state tracking
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -276,6 +300,99 @@ export default function App() {
     }
 
     return finalPrompt;
+  };
+
+  // Sound design and SFX cues recommender for dialogue-free LTX 2.3 storytelling (optimized for AI Audio Generators)
+  const getRecommendedSfx = (scene: SceneItem) => {
+    const text = (scene.visualDescription + " " + scene.narrationText).toLowerCase();
+    const matches: { sfx: string; engSfx: string }[] = [];
+
+    if (text.includes("호랑이") || text.includes("백호") || text.includes("맹수")) {
+      matches.push({
+        sfx: "🐅 호랑이 포효 & 사나운 으르렁",
+        engSfx: "vicious growling tiger, deep throat roar, cinematic foley sound effect, high fidelity"
+      });
+    }
+    if (text.includes("바람") || text.includes("밤") || text.includes("산자락") || text.includes("산길")) {
+      matches.push({
+        sfx: "🍃 음산한 산울림 밤바람 소리",
+        engSfx: "haunting mountain wind howling through dry trees, low rumbling wind sound effect, cinematic"
+      });
+    }
+    if (text.includes("비") || text.includes("소나기") || text.includes("폭우") || text.includes("천둥")) {
+      matches.push({
+        sfx: "🌧️ 을씨년스러운 빗소리와 먼 천둥",
+        engSfx: "eerie rain pattering, distant low rumbling thunder, dramatic rain sound effect, high fidelity"
+      });
+    }
+    if (text.includes("칼") || text.includes("검") || text.includes("목검") || text.includes("전쟁") || text.includes("싸움")) {
+      matches.push({
+        sfx: "⚔️ 검을 스릉 빼는 날카로운 마찰음",
+        engSfx: "sharp steel sword unsheathing, metallic blade sliding friction, medieval weapon sound effect"
+      });
+    }
+    if (text.includes("울") || text.includes("통곡") || text.includes("비명") || text.includes("소리치")) {
+      matches.push({
+        sfx: "😱 공포에 질린 비명 또는 흐느낌",
+        engSfx: "terrified gasp, dramatic crying weeping, sharp human breath in fear, cinematic voice effect"
+      });
+    }
+    if (text.includes("불") || text.includes("도깨비불") || text.includes("화재") || text.includes("등불")) {
+      matches.push({
+        sfx: "🔥 화르륵 타오르는 도깨비불 소리",
+        engSfx: "mystical fire swoosh, fast burning wood crackling, fantasy fire sound effect"
+      });
+    }
+    if (text.includes("초막") || text.includes("집") || text.includes("오두막") || text.includes("대문") || text.includes("방")) {
+      matches.push({
+        sfx: "🚪 삐걱이는 낡은 한옥 나무문 소리",
+        engSfx: "creaking old wooden door sliding open, soft slow footsteps on dusty wooden floor, realistic foley"
+      });
+    }
+    if (text.includes("차") || text.includes("술") || text.includes("그릇") || text.includes("엿")) {
+      matches.push({
+        sfx: "🍵 도자기 그릇의 청아한 마찰음",
+        engSfx: "pouring liquid tea, traditional ceramic cup clinging, delicate liquid pouring sound effect"
+      });
+    }
+    if (text.includes("달") || text.includes("보름달") || text.includes("새벽") || text.includes("깊은 밤")) {
+      matches.push({
+        sfx: "🦉 밤벌레와 부엉이 소리",
+        engSfx: "hooting forest owl, night crickets chirping quietly, deep nocturnal countryside background"
+      });
+    }
+    if (text.includes("구미호") || text.includes("요괴") || text.includes("귀신") || text.includes("꼬리")) {
+      matches.push({
+        sfx: "👻 소름돋는 미스터리 기운과 심장박동",
+        engSfx: "dark ominous drone synth pads, low cinematic heartbeat pulse, supernatural horror ambient"
+      });
+    }
+
+    // Default fallbacks if no match, or ensure we have exactly 2
+    if (matches.length === 0) {
+      matches.push({
+        sfx: "🦗 고요한 심야 산기슭의 밤벌레 소리",
+        engSfx: "ambient night crickets chirping softly, gentle wind blowing through grass, natural countryside background"
+      });
+      matches.push({
+        sfx: "🥁 역사극 미스터리 대금 배경음",
+        engSfx: "ominous traditional Korean Daegeum bamboo flute drone, haunting oriental folk melody"
+      });
+    } else if (matches.length === 1) {
+      matches.push({
+        sfx: "🥁 전통 악기가 자아내는 음산한 텐션",
+        engSfx: "low creepy traditional Korean Haegeum string drone, cinematic tension building ambient background"
+      });
+    }
+
+    // Slice to exactly 2 items
+    const finalMatches = matches.slice(0, 2);
+
+    return {
+      sfx: finalMatches.map(m => m.sfx),
+      engSfx: finalMatches.map(m => m.engSfx),
+      items: finalMatches
+    };
   };
 
   // Stop/Cancel request handler
@@ -1172,7 +1289,7 @@ export default function App() {
       setScenes([...updatedScenes]);
 
       try {
-        const isIntroScene = updatedScenes[i].id <= 6;
+        const isIntroScene = updatedScenes[i].id <= 8;
         const response = await fetch("/api/generate-scene-image", {
           method: "POST",
           headers: getHeaders(),
@@ -1222,7 +1339,7 @@ export default function App() {
     setScenes([...updated]);
 
     try {
-      const isIntroScene = updated[index].id <= 6;
+      const isIntroScene = updated[index].id <= 8;
       const response = await fetch("/api/generate-scene-image", {
         method: "POST",
         headers: getHeaders(),
@@ -1279,7 +1396,7 @@ export default function App() {
       setScenes([...updatedScenes]);
 
       try {
-        const isIntroScene = updatedScenes[i].id <= 6;
+        const isIntroScene = updatedScenes[i].id <= 8;
         const response = await fetch("/api/generate-scene-image", {
           method: "POST",
           headers: getHeaders(),
@@ -1373,7 +1490,7 @@ export default function App() {
       updatedScenes[i].error = undefined;
       setScenes([...updatedScenes]);
 
-      const isIntroScene = updatedScenes[i].id <= 6;
+      const isIntroScene = updatedScenes[i].id <= 8;
       addLog(
         `[QUEUED] 장면 #${updatedScenes[i].id} 배치 분배 기동... ${isIntroScene && wanIntroOptimized ? "(🎬 WAN 인트로 비디오 최적화 스펙 적용)" : ""}`,
       );
@@ -1509,12 +1626,7 @@ export default function App() {
           }),
         });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "썸네일 디렉터 분석 중 서버 오류가 발생했습니다.");
-        }
-
-        finalPlan = await response.json();
+        finalPlan = await safeParseJSON(response, "썸네일 디렉터 분석 실패");
       }
 
       if (!finalPlan) {
@@ -1524,11 +1636,16 @@ export default function App() {
       // Generate the thumbnail image using the visualPrompt!
       showFeedback(`선정된 장면으로 고화질 유튜브 썸네일 이미지 (${selectedRatio}) 생성 중...`, "info");
       
+      let finalPrompt = finalPlan.visualPrompt;
+      if (optimizeForLtxStyle) {
+        finalPrompt += " . LTX 2.3 cinematic video frame style, ultra detailed skin texture, 3d chiaroscuro cinematic lighting, dramatic backlight, highly emotional expression, intense atmosphere, wide cinematic bokeh, 4k resolution, historical drama masterpiece";
+      }
+      
       const imgResponse = await fetch("/api/generate-scene-image", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
-          prompt: finalPlan.visualPrompt,
+          prompt: finalPrompt,
           artStyle,
           modelName,
           aspectRatio: selectedRatio,
@@ -1536,12 +1653,7 @@ export default function App() {
         }),
       });
 
-      if (!imgResponse.ok) {
-        const imgErr = await imgResponse.json();
-        throw new Error(imgErr.error || "썸네일 이미지 생성 중 오류가 발생했습니다.");
-      }
-
-      const imgData = await imgResponse.json();
+      const imgData = await safeParseJSON(imgResponse, "썸네일 이미지 생성 실패");
       finalPlan.imageUrl = imgData.imageUrl;
       finalPlan.error = undefined;
 
@@ -1573,6 +1685,187 @@ export default function App() {
     } finally {
       setIsGeneratingThumbnail(false);
     }
+  };
+
+  // Download merged thumbnail using HTML5 Canvas
+  const handleDownloadMergedThumbnail = () => {
+    if (!thumbnailData?.imageUrl) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = thumbnailData.imageUrl;
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || (thumbnailAspectRatio === "16:9" ? 1280 : 720);
+      canvas.height = img.naturalHeight || (thumbnailAspectRatio === "16:9" ? 720 : 1280);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // 1. Draw base image
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // 2. Compute dynamic scale
+      const scale = canvas.width / 640;
+      const targetFontSize = overlaySize * scale;
+
+      // 3. Set font family mapping
+      let fontName = "sans-serif";
+      if (overlayStyle === "classic-brush") fontName = "Nanum Brush Script";
+      else if (overlayStyle === "horror-mystery") fontName = "East Sea Dokdo";
+      else if (overlayStyle === "clean-serif") fontName = "Song Myung";
+      else if (overlayStyle === "bold-modern") fontName = "Black Han Sans";
+
+      ctx.font = `${overlayStyle === "horror-mystery" ? "italic " : ""}${overlayStyle === "bold-modern" ? "900" : "700"} ${targetFontSize}px '${fontName}', 'Gungsuh', sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const xPos = (overlayX / 100) * canvas.width;
+      const yPos = (overlayY / 100) * canvas.height;
+
+      // 4. Save and apply rotation
+      ctx.save();
+      ctx.translate(xPos, yPos);
+      ctx.rotate((overlayRotation * Math.PI) / 180);
+
+      const textLines = overlayText.split("\n");
+      const lineHeight = targetFontSize * (overlayStyle === "horror-mystery" ? 0.9 : 1.15);
+
+      const totalHeight = lineHeight * (textLines.length - 1);
+      const startY = -totalHeight / 2;
+
+      textLines.forEach((line, index) => {
+        const lineY = startY + index * lineHeight;
+
+        // Draw Ribbon Background plate
+        if (enableBackingRibbon) {
+          const textWidth = ctx.measureText(line).width;
+          ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+          ctx.fillRect(-textWidth / 2 - 20 * scale, lineY - lineHeight / 2, textWidth + 40 * scale, lineHeight);
+        }
+
+        // Draw Shadows and Glow Outlines
+        if (enableBackingGlow) {
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 14 * scale;
+          ctx.lineJoin = "round";
+          ctx.strokeText(line, 0, lineY);
+          
+          ctx.lineWidth = 8 * scale;
+          ctx.strokeText(line, 0, lineY);
+
+          ctx.strokeStyle = "rgba(0,0,0,0.5)";
+          ctx.lineWidth = 20 * scale;
+          ctx.strokeText(line, 0, lineY);
+        } else {
+          ctx.shadowColor = "rgba(0,0,0,0.85)";
+          ctx.shadowBlur = 10 * scale;
+          ctx.shadowOffsetX = 3 * scale;
+          ctx.shadowOffsetY = 3 * scale;
+        }
+
+        // Fill Foreground Text
+        ctx.fillStyle = overlayColor;
+        ctx.fillText(line, 0, lineY);
+      });
+
+      ctx.restore();
+
+      // Download merged image as PNG
+      try {
+        const dataUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        const sanitizedTitle = (thumbnailData.sceneTitle || "yadam").replace(/\s+/g, "_");
+        link.download = `yadam_thumbnail_${sanitizedTitle}_${thumbnailAspectRatio}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showFeedback("성공! 붓글씨 한글 캘리그래피 자막이 완벽하게 인쇄 합성된 고화질 유튜브 썸네일(PNG)이 즉시 다운로드되었습니다.", "success");
+      } catch (e) {
+        console.error("Canvas merger download error:", e);
+        showFeedback("브라우저 캔버스 보안 정책으로 인해 변환 다운로드에 실패했습니다. 이미지를 길게 누르거나 우클릭하여 저장을 권장합니다.", "error");
+      }
+    };
+
+    img.onerror = () => {
+      showFeedback("썸네일 원본 리소스 분석에 일시적인 장애가 생겨 실시간 캘리그래피 합성에 실패했습니다.", "error");
+    };
+  };
+
+  // Extract all LTX I2V motion prompts together as a clean copyable batch
+  const handleExtractAllLtxMotions = () => {
+    if (!scenes || scenes.length === 0) {
+      showFeedback("추출할 스토리보드 씬이 존재하지 않습니다.", "error");
+      return;
+    }
+
+    const motionMap: Record<string, string> = {
+      none: "",
+      dolly_in: "slow cinematic dolly in, focusing closely on internal details, dramatic traditional atmosphere, masterpiece, 24fps",
+      dolly_out: "slow cinematic dolly out, revealing more of the traditional Joseon background, deep space, masterpiece, 24fps",
+      pan_left: "slow smooth camera pan left, sweeping traditional scenery perspective, cinematic depth, masterpiece, 24fps",
+      pan_right: "slow smooth camera pan right, sweeping landscape perspective, cinematic depth, masterpiece, 24fps",
+      tilt_up: "slow vertical camera tilt up, majestic revealing shot of traditional structure, dramatic lighting, masterpiece, 24fps",
+      tilt_down: "slow vertical camera tilt down, focusing down onto character facial expressions, intense look, masterpiece, 24fps",
+      orbit: "majestic 360-degree slow rotational orbit panning, cinematic 3D parallax depth, masterpiece, 24fps",
+      slow_zoom: "steady constant slow camera zoom-in, amplifying the emotional tension, dramatic look, masterpiece, 24fps"
+    };
+
+    let textResult = "=== 야담 LTX 2.3 I2V(Image-to-Video) 모션 전용 프롬프트 일괄 추출 ===\n";
+    textResult += "(I2V 모션 프롬프트는 이미지의 주어/한글/인물 묘사를 전부 지우고 모션과 연출 정보만으로 동작 부풀림을 극대화합니다)\n\n";
+
+    scenes.forEach((sc) => {
+      const selectedMotionKey = sceneLtxMotions[sc.id] || "dolly_in";
+      const motionPrompt = motionMap[selectedMotionKey] || "";
+      
+      // Cleans Korean text as requested
+      let cleaned = sc.refinedImagePrompt.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ");
+      cleaned = cleaned.replace(/[\s,]+/g, ", ").trim();
+      
+      const words = (cleaned + ", " + motionPrompt).split(",").map(w => w.trim()).filter(Boolean);
+      const unique: string[] = [];
+      const seen = new Set<string>();
+      
+      for (const w of words) {
+        const lw = w.toLowerCase();
+        if (!seen.has(lw)) {
+          seen.add(lw);
+          const isCompactTag = 
+            lw.includes("masterpiece") || lw.includes("quality") || lw.includes("lighting") || 
+            lw.includes("composition") || lw.includes("backdrop") || lw.includes("scenery") || 
+            lw.includes("atmosphere") || lw.includes("rendering") || lw.includes("artistic") || 
+            lw.includes("cinematic") || lw.includes("traditional") || lw.includes("joseon") || 
+            lw.includes("moody") || lw.includes("dramatic") || lw.includes("fps") ||
+            lw.includes("dolly") || lw.includes("pan") || lw.includes("tilt") || 
+            lw.includes("zoom") || lw.includes("orbit") || lw.includes("parallax") || 
+            lw.includes("depth") || lw.includes("shot");
+          if (isCompactTag) {
+            unique.push(w);
+          }
+        }
+      }
+      
+      const compactPrompt = unique.length > 2 ? unique.join(", ") : motionPrompt;
+      textResult += `[Scene #${sc.id}] (모션 설정: ${selectedMotionKey})\n`;
+      textResult += `- 원본 요약: ${sc.narrationText.substring(0, 45)}...\n`;
+      textResult += `- LTX I2V 추천 프롬프트:\n  ${compactPrompt}\n\n`;
+    });
+
+    navigator.clipboard.writeText(textResult)
+      .then(() => {
+        showFeedback("전체 씬의 LTX 모션 프롬프트가 한번에 클립보드에 무사히 복사되었습니다! 비디오 툴 대기열에 바로 사용해보세요.", "success");
+      })
+      .catch((err) => {
+        console.error("Clipboard blocked:", err);
+        const blob = new Blob([textResult], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `yadam_ltx_motion_prompts_${new Date().toISOString().slice(0, 10)}.txt`;
+        link.click();
+        showFeedback("브라우저 보안 차단으로 인해 텍스트(.TXT) 파일로 다운로드되었습니다.", "success");
+      });
   };
 
   // Download all as ZIP file using JSZip client side
@@ -1630,6 +1923,32 @@ export default function App() {
     } catch (err) {
       console.error(err);
       showFeedback("압축 다운로드 작업이 중단되었습니다.", "error");
+    }
+  };
+
+  // Download the pristine yadam_generator.html file from server
+  const handleDownloadPlannerFile = async () => {
+    try {
+      showFeedback?.("플래너 템플릿(HTML) 파일을 서버로부터 정밀하게 수급하는 중입니다...", "info");
+      const response = await fetch('/yadam_generator.html?t=' + Date.now());
+      if (response.ok) {
+        const text = await response.text();
+        const blob = new Blob([text], { type: "text/html;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = 'yadam_planner_v1.5.html';
+        link.click();
+        showFeedback?.("야담 대본 플래너(HTML) 오프라인 파일이 브라우저로 무사히 내려받아졌습니다! 비디오 렌더 파일 설계에 사용해 주세요.", "success");
+      } else {
+        throw new Error("서버에서 파일 탐색에 실패했습니다.");
+      }
+    } catch (error: any) {
+      console.warn("[PLANNER DOWNLOAD FALLBACK] Fetch error, triggering direct trigger link:", error);
+      const link = document.createElement("a");
+      link.href = "/yadam_generator.html";
+      link.download = "yadam_planner_v1.5.html";
+      link.click();
+      showFeedback?.("오프라인 플래너 파일 다운로드 완료! (백업 포지션 연동)", "success");
     }
   };
 
@@ -1859,98 +2178,73 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Modern navigation menu */}
-      <div
-        className="grid grid-cols-2 md:grid-cols-5 border border-white/10 mb-6 bg-[#121216] p-1.5 rounded-lg gap-1.5"
-        id="nav-tabs"
+      {/* 🌟 Dynamic Planner & Append Mode System Status Bar (Dual Integration) */}
+      <div 
+        id="planner-status-integration-bar"
+        className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl text-left"
       >
-        <button
-          onClick={() => setActiveTab("editor")}
-          id="tab-btn-editor"
-          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-            activeTab === "editor"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-              : "text-white/40 hover:text-white/80 hover:bg-white/5"
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          대본 분석 및 설정
-        </button>
-        <button
-          onClick={() => setActiveTab("characters")}
-          disabled={!analysis}
-          id="tab-btn-characters"
-          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-            !analysis ? "opacity-30 cursor-not-allowed" : ""
-          } ${
-            activeTab === "characters"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-              : "text-white/40 hover:text-white/80 hover:bg-white/5"
-          }`}
-        >
-          <History className="w-4 h-4" />
-          1단계: 캐릭터 컨셉 시트{" "}
-          {characters.length > 0
-            ? `(${charSuccessCount}/${charTotalCount})`
-            : ""}
-        </button>
-        <button
-          onClick={() => setActiveTab("storyboard")}
-          disabled={!analysis}
-          id="tab-btn-storyboard"
-          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-            !analysis ? "opacity-30 cursor-not-allowed" : ""
-          } ${
-            activeTab === "storyboard"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-              : "text-white/40 hover:text-white/80 hover:bg-white/5"
-          }`}
-        >
-          <ImageIcon className="w-4 h-4" />
-          2단계: 씬별 스토리보드{" "}
-          {scenes.length > 0 ? `(${successCount}/${totalCount})` : ""}
-        </button>
-        <button
-          onClick={() => setActiveTab("thumbnail")}
-          disabled={!analysis || scenes.length === 0}
-          id="tab-btn-thumbnail"
-          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-            (!analysis || scenes.length === 0) ? "opacity-30 cursor-not-allowed" : ""
-          } ${
-            activeTab === "thumbnail"
-              ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-              : "text-white/40 hover:text-white/80 hover:bg-white/5"
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          3단계: 썸네일 디렉터
-        </button>
-        <button
-          onClick={() => setActiveTab("safety")}
-          id="tab-btn-safety"
-          className={`py-3 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-            activeTab === "safety"
-              ? "bg-rose-750 text-white shadow-lg shadow-rose-950/20 border border-rose-500/30"
-              : "text-white/40 hover:text-white/80 hover:bg-white/5"
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4 text-rose-400" />
-          4단계: 수익정지 안전 진단기
-        </button>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-rose-950/40 border border-rose-500/20 rounded-md shrink-0">
+            <Sparkles className="w-5 h-5 text-rose-400 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white tracking-tight">대본 기획용 야담 플래너 & 제어 제휴망</span>
+              <span className="text-[10px] bg-sky-950 text-sky-400 border border-sky-800/30 font-bold px-1.5 py-0.5 rounded-sm">60씬 규격 호환</span>
+            </div>
+            <p className="text-xs text-white/50 leading-relaxed max-w-2xl mt-0.5">
+              플래너에서 0~4단계에 걸쳐 60개 씬의 대본과 TTS 극본을 설계한 뒤, 아래 입력란이나 누적추가 기능을 활용해 스토리보드 타임라인을 끊김없이 렌더링하세요.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-2 md:mt-0 shrink-0">
+          {/* 야담 플래너 오프라인 다운로드 버튼 */}
+          <button
+            type="button"
+            onClick={handleDownloadPlannerFile}
+            className="px-3.5 py-1.5 h-[38px] bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-rose-950/40"
+            title="야담 대본 플래너 오프라인 단독 구동용 HTML 파일 다운로드"
+          >
+            <Download className="w-3.5 h-3.5 text-white" />
+            야담 플래너 다운로드 (HTML)
+          </button>
+
+          {/* 지속 누적 추가 모드 스위치컨트롤러 */}
+          <div className="flex items-center gap-2.5 bg-white/5 border border-white/5 p-1 px-3 rounded-md h-[38px]">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full ${appendMode ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]' : 'bg-white/25'}`} />
+              <span className="text-[11px] font-bold text-white/90">누적 추가 모드</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAppendMode(!appendMode)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                appendMode ? "bg-[#10b981]" : "bg-white/10"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  appendMode ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Main Grid content panes rendered strictly in Bento layouts */}
-      <div className="flex-grow" id="view-routes">
-        {/* TAB 1: STORY SCRIPT INPUT AND MODEL CONFIGS */}
-        {activeTab === "editor" && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            id="pane-editor"
-            className="grid grid-cols-1 lg:grid-cols-12 gap-5"
-          >
-            {/* Bento Block 1: Storyboard Input Form (Span 8) */}
-            <div className="col-span-1 lg:col-span-8 bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col gap-4">
+      {/* Main Persistent Split Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow" id="main-application-grid">
+        {/* LEFT COMPONENT: STAGED VIEW SYSTEM (lg:col-span-8) */}
+        <div className="lg:col-span-8 flex flex-col gap-5" id="view-routes">
+          {/* TAB 1: STORY SCRIPT INPUT */}
+          {activeTab === "editor" && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              id="pane-editor"
+              className="bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col gap-4"
+            >
               <div className="flex justify-between items-center pb-2 border-b border-white/5">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
                   Storyboard Script Input & Preview
@@ -2093,6 +2387,34 @@ export default function App() {
                 </div>
               ) : (
                 <>
+                  {/* [지속 누적 추가 모드] (Append Mode) 스위치 상단 극대화 기획 제공 */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/20 to-blue-950/20 border border-emerald-500/20 rounded-lg px-4 py-3 mb-4 shadow-md">
+                    <div className="flex items-start gap-2.5">
+                      <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${appendMode ? 'bg-emerald-400 animate-pulse shadow-glow shadow-emerald-500/50' : 'bg-white/20'}`} />
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          [지속 누적 추가 모드] {appendMode ? <span className="text-emerald-400">ON (활성화 중)</span> : <span className="text-white/40">OFF (새 타임라인 모드)</span>}
+                        </span>
+                        <span className="text-[10px] text-white/50 block leading-normal max-w-sm sm:max-w-xl">
+                          {appendMode 
+                            ? "1부 대본을 그대로 유지한 채 2부(나머지 씬) 대본을 연달아 입력하여 타임라인 뒤쪽에 안전하게 누적 병합 분석할 수 있습니다." 
+                            : "새로운 대본을 전송하면 현재 타임라인과 캐릭터가 초기화되고 완전히 처음부터 씬을 새로 기획합니다."}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAppendMode(!appendMode)}
+                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all border shrink-0 ${
+                        appendMode 
+                          ? "bg-[#10b981] hover:bg-[#059669] text-white border-[#10b981] shadow-lg shadow-emerald-600/20" 
+                          : "bg-white/5 hover:bg-white/10 text-white/70 border-white/10"
+                      }`}
+                    >
+                      {appendMode ? "누적 추가 해제" : "누적 추가 활성화"}
+                    </button>
+                  </div>
+
                   <textarea
                     id="input-script-textarea"
                     value={scriptText}
@@ -2127,416 +2449,8 @@ export default function App() {
                   </div>
                 </>
               )}
-            </div>
-
-            {/* Bento Block 2: Configuration Settings (Span 4) */}
-            <div className="col-span-1 lg:col-span-4 bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col justify-between gap-5">
-              <div>
-                <h2 className="text-[10px] uppercase tracking-widest font-bold text-white/50 mb-4 pb-2 border-b border-white/5">
-                  Engine Parameters Config
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Option 0: Custom Gemini API Key Override */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] text-white/80 font-medium flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Coins className="w-3 h-3 text-emerald-400" />
-                        개별 Gemini API 키 설정 (선택)
-                      </span>
-                      {customApiKey ? (
-                        <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5 font-mono">
-                          적용중
-                        </span>
-                      ) : (
-                        <span className="text-[9px] bg-white/5 text-white/40 border border-white/5 rounded px-1.5 py-0.5 font-mono">
-                          기본값
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="구글 AI 스튜디오 API 키 입력 (AIzaSy... 또는 AQ...)"
-                      value={customApiKey}
-                      onChange={(e) => updateCustomApiKey(e.target.value)}
-                      className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50"
-                    />
-                    {customApiKey && !customApiKey.trim().startsWith("AIzaSy") && !customApiKey.trim().startsWith("AQ") && (
-                      <div className="p-2.5 rounded text-[10px] leading-relaxed bg-amber-500/10 border border-amber-500/20 text-amber-300 flex items-start gap-1.5 text-left">
-                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400" />
-                        <div>
-                          <strong className="text-amber-200 block mb-0.5">⚠️ API 키 형식 감지 경고</strong>
-                          입력된 텍스트가 정식 구글 API 키 표준 규격(<code>AIzaSy</code> 또는 <code>AQ</code>로 시작하는 난수 문자열)이 아닌 것 같습니다. 혹시 API 키 대신 <strong>모델 명칭(예: GEMINI-3.5-FLASH)</strong>을 혼동하여 잘못 입력하셨는지 확인해 주세요.
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-white/40 leading-relaxed">
-                      입력하지 않으면 서버 환경변수를 기본 사용합니다. 직접 입력
-                      시 브라우저 내부 로컬스토리지에 보안 소장되며 요청 시
-                      헤더를 통해 우선 적용됩니다.
-                    </p>
-                    {customApiKey && (
-                      <div className="pt-1.5 flex flex-col gap-1.5">
-                        <button
-                          type="button"
-                          onClick={handleVerifyApiKey}
-                          disabled={isVerifyingKey}
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded text-xs font-semibold border transition-all ${
-                            isVerifyingKey
-                              ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
-                              : "bg-emerald-500/10 hover:bg-emerald-500/25 border-emerald-500/25 text-emerald-400 active:scale-98"
-                          }`}
-                        >
-                          <RefreshCw className={`w-3 h-3 ${isVerifyingKey ? "animate-spin" : ""}`} />
-                          {isVerifyingKey ? "구글 API 인증 키 무결성 검증 중..." : "위 API 키 검증 및 정상 작동 테스트"}
-                        </button>
-                        
-                        {keyVerificationError !== null && (
-                          <div className={`p-2 rounded text-[11px] leading-relaxed border space-y-1 block text-left ${
-                            keyVerificationError === "" 
-                              ? "bg-emerald-500/5 border-emerald-500/15 text-emerald-400"
-                              : "bg-rose-500/5 border-rose-500/15 text-rose-400"
-                          }`}>
-                            {keyVerificationError === "" ? (
-                              <div className="flex items-start gap-1.5">
-                                <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
-                                <span>인증 합격: 구글 제미나이 연결 테스트에 성공했습니다! 즉시 고전 스토리보드 서비스에 인용 적용됩니다.</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-start gap-1.5">
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
-                                <div className="space-y-0.5">
-                                  <span className="font-bold text-[10px] block text-rose-300 uppercase">인증 실패 피드백:</span>
-                                  <span>{keyVerificationError}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Option 1: AI model Selection */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] text-white/80 font-medium flex items-center justify-between">
-                      <span>이미지 생성 모델</span>
-                      <span className="text-[9px] text-blue-400 font-mono">
-                        Paid API Key
-                      </span>
-                    </label>
-                    <select
-                      id="select-api-model"
-                      value={modelName}
-                      onChange={(e) => setModelName(e.target.value as any)}
-                      className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50"
-                    >
-                      <option value="gemini-2.5-flash-image">
-                        Gemini 2.5 Flash Image Model
-                      </option>
-                      <option value="gemini-3.1-flash-image">
-                        Gemini 3.1 Flash Image (1K Resolution)
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* Option 2: Art Style selection */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] text-white/80 font-medium">
-                      적용 화풍 디자인 (Art Style)
-                    </label>
-                    <div
-                      className="grid grid-cols-2 gap-2"
-                      id="artstyle-container"
-                    >
-                      {[
-                        {
-                          key: "yadam",
-                          label: "야담 한포 일러스트",
-                          desc: "Traditional Illust",
-                        },
-                        {
-                          key: "realistic",
-                          label: "역사 극사실주의",
-                          desc: "Cinematic Realistic",
-                        },
-                        {
-                          key: "3d",
-                          label: "3D 애니 캐릭터",
-                          desc: "Pixar Toy Character",
-                        },
-                        {
-                          key: "anime",
-                          label: "레트로 수채화 애니",
-                          desc: "Hand-drawn Watercolor",
-                        },
-                      ].map((style) => (
-                        <button
-                          key={style.key}
-                          type="button"
-                          id={`artstyle-${style.key}`}
-                          onClick={() => setArtStyle(style.key as any)}
-                          className={`p-2 rounded text-left border transition-all flex flex-col ${
-                            artStyle === style.key
-                              ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
-                              : "bg-[#1a1a22] border-white/5 text-white/40 hover:text-white/60"
-                          }`}
-                        >
-                          <span className="text-[11px] font-bold leading-tight">
-                            {style.label}
-                          </span>
-                          <span className="text-[9px] opacity-60 leading-none mt-0.5 font-mono">
-                            {style.desc}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Option 3: Aspect Ratio config */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] text-white/80 font-medium">
-                      가로비 (Aspect Ratio)
-                    </label>
-                    <div
-                      className="grid grid-cols-3 gap-2"
-                      id="ratio-container"
-                    >
-                      {[
-                        { key: "16:9", label: "16:9 가로", desc: "YouTube" },
-                        { key: "1:1", label: "1:1 정방", desc: "Instagram" },
-                        { key: "9:16", label: "9:16 세로", desc: "Shorts" },
-                      ].map((ratio) => (
-                        <button
-                          key={ratio.key}
-                          type="button"
-                          id={`ratio-${ratio.key.replace(":", "-")}`}
-                          onClick={() => setAspectRatio(ratio.key as any)}
-                          className={`p-2 rounded border text-center transition-all ${
-                            aspectRatio === ratio.key
-                              ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
-                              : "bg-[#1a1a22] border-white/5 text-white/40 hover:text-white/60"
-                          }`}
-                        >
-                          <span className="text-[11px] font-bold block">
-                            {ratio.key}
-                          </span>
-                          <span className="text-[9px] block opacity-60 font-mono">
-                            {ratio.desc}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Option 4: Limit override slider */}
-                  <div className="space-y-3 pt-2 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-[11px] text-white/80 font-medium">
-                          강제 장면 분량 조율
-                        </label>
-                        <span className="text-[9px] text-white/30 block leading-tight">
-                          대본을 지정된 장면에 타겟 분배
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setQuantityOverride(!quantityOverride)}
-                        id="toggle-quantity-override"
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${
-                          quantityOverride
-                            ? "bg-blue-600"
-                            : "bg-[#1a1a22] border border-white/10"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                            quantityOverride ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {quantityOverride && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="space-y-2 overflow-hidden"
-                          id="overriden-quantity-slider-block"
-                        >
-                          <div className="flex justify-between items-center text-[10px] font-mono">
-                            <span className="text-white/40">
-                              장면 수량 피스
-                            </span>
-                            <span className="text-blue-400 font-bold">
-                              {quantityValue}장
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min="3"
-                            max="100"
-                            value={quantityValue}
-                            onChange={(e) =>
-                              setQuantityValue(parseInt(e.target.value))
-                            }
-                            className="w-full h-1 bg-[#1a1a22] accent-blue-500 rounded-full cursor-pointer outline-none"
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Option 5: Append Mode */}
-                  <div className="space-y-3 pt-3 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-[11px] text-white/80 font-medium">
-                          기존 타임라인에 누적 추가
-                        </label>
-                        <span className="text-[9px] text-white/30 block leading-tight">
-                          1부를 유지한 채 2부 대본을 연달아 병합 분석합니다.
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setAppendMode(!appendMode)}
-                        id="toggle-append-mode"
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${
-                          appendMode
-                            ? "bg-blue-600"
-                            : "bg-[#1a1a22] border border-white/10"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                            appendMode ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Option 6: WAN Video Motion Starter Optimization */}
-                  <div className="space-y-3 pt-3 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-[11px] text-white/80 font-medium">
-                          WAN 비디오 인트로 모션 최적화
-                        </label>
-                        <span className="text-[9px] text-white/30 block leading-tight">
-                          인트로용 장면(기초 1~6장)을 고포텐셜 정적 긴장 자세로
-                          튜닝해 WAN 영상 전환율을 높입니다.
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextVal = !wanIntroOptimized;
-                          setWanIntroOptimized(nextVal);
-                          localStorage.setItem(
-                            "yadam_wan_intro_optimized",
-                            String(nextVal),
-                          );
-                          showFeedback(
-                            nextVal
-                              ? "WAN 인트로 모션 비디오 최적화가 상시 활성화되었습니다."
-                              : "WAN 인트로 최적화 모션이 종료되었습니다.",
-                            "info",
-                          );
-                        }}
-                        id="toggle-wan-intro-optimized"
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center shrink-0 ${
-                          wanIntroOptimized
-                            ? "bg-emerald-600"
-                            : "bg-[#1a1a22] border border-white/10"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                            wanIntroOptimized
-                              ? "translate-x-4"
-                              : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Option 7: Strict Visual Consistency Mode */}
-                  <div className="space-y-3 pt-3 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-[11px] text-white/80 font-medium">
-                          인물/배경 초정밀 비주얼 일관성
-                        </label>
-                        <span className="text-[9px] text-white/30 block leading-tight">
-                          캐릭터 정보(외모, 의복)와 장소 세부 속성을 프롬프트에
-                          실시간 합산 연동하여 씬간 물체/의복 뒤틀림을
-                          방지합니다.
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextVal = !strictConsistencyMode;
-                          setStrictConsistencyMode(nextVal);
-                          localStorage.setItem(
-                            "yadam_strict_consistency_mode",
-                            String(nextVal),
-                          );
-                          showFeedback(
-                            nextVal
-                              ? "인물/배경 일관성 고착 제어가 활성화되었습니다."
-                              : "일관성 연동 모드가 종료되었습니다.",
-                            "info",
-                          );
-                        }}
-                        id="toggle-strict-consistency-mode"
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center shrink-0 ${
-                          strictConsistencyMode
-                            ? "bg-blue-600"
-                            : "bg-[#1a1a22] border border-white/10"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                            strictConsistencyMode
-                              ? "translate-x-4"
-                              : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step Analyzers Trigger */}
-              <button
-                onClick={handleAnalyzeScript}
-                disabled={isAnalyzing || !scriptText.trim()}
-                id="btn-trigger-script-analysis"
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-xs font-bold uppercase tracking-widest rounded-md transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/10"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    대본 파싱 연대기 분석 중...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 shrink-0 fill-white" />
-                    1단계: 플래닝 분석 가동
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
         {/* TAB 2: STEP 1 - CHARACTER DB AND CONCEPT PORTRAITS */}
         {activeTab === "characters" && (
@@ -3173,6 +3087,18 @@ export default function App() {
                     )}
                   </button>
 
+                  {scenes.length > 0 && (
+                    <button
+                      onClick={handleExtractAllLtxMotions}
+                      id="btn-extract-all-ltx-motions"
+                      className="px-4 py-1.5 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-300 hover:text-white font-bold text-xs rounded transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-950/20"
+                      title="스토리보드 모든 장면에 할당된 LTX 2.3 I2V 모션 비디오 프롬프트를 취합하여 한꺼번에 복사합니다."
+                    >
+                      <Video className="w-3.5 h-3.5 text-indigo-400" />
+                      LTX 모션 일괄 복사
+                    </button>
+                  )}
+
                   {successCount > 0 && (
                     <button
                       onClick={handleDownloadAllZip}
@@ -3406,7 +3332,7 @@ export default function App() {
                         <span className="bg-[#0a0a0c]/85 text-white/80 border border-white/5 text-[9px] font-mono px-1.5 py-0.5 rounded shadow truncate max-w-24 shrink-0">
                           {scene.locationName}
                         </span>
-                        {scene.id <= 6 && wanIntroOptimized && (
+                        {scene.id <= 8 && wanIntroOptimized && (
                           <span
                             className="bg-emerald-650/90 text-white font-bold text-[8px] px-1.5 py-0.5 rounded shadow border border-emerald-500/25 flex items-center gap-0.5 animate-pulse shrink-0 font-mono"
                             title="WAN image-to-video optimization template applied"
@@ -3681,6 +3607,138 @@ export default function App() {
                               )}
                             </div>
                           </div>
+
+                          {/* LTX 2.3 Motion Prompt Generator */}
+                          <div className="mt-2 bg-[#121218] border border-indigo-500/10 rounded p-1.5 flex flex-wrap gap-2 items-center justify-between">
+                            <div className="flex items-center gap-1 text-[11px] text-indigo-300 font-semibold select-none">
+                              <Video className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              <span>LTX 2.3 비디오 모션 방향:</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={sceneLtxMotions[scene.id] || "dolly_in"}
+                                onChange={(e) => setSceneLtxMotions(prev => ({ ...prev, [scene.id]: e.target.value }))}
+                                className="bg-[#1b1b26] border border-white/10 text-white/80 rounded px-1.5 py-0.5 text-[10px] focus:outline-none focus:border-indigo-500 font-sans"
+                              >
+                                <option value="none">정체 (No Motion)</option>
+                                <option value="dolly_in">달리 인 (Dolly In - 서서히 전진)</option>
+                                <option value="dolly_out">달리 아웃 (Dolly Out - 서서히 후진)</option>
+                                <option value="pan_left">패닝 좌 (Pan Left - 카메라스윕 좌)</option>
+                                <option value="pan_right">패닝 우 (Pan Right - 카메라스윕 우)</option>
+                                <option value="tilt_up">틸트 업 (Tilt Up - 하강각에서 상승)</option>
+                                <option value="tilt_down">틸트 다운 (Tilt Down - 상승각에서 하강)</option>
+                                <option value="orbit">오빗 공전 (Slow 360 Rotation)</option>
+                                <option value="slow_zoom">스테디 줌인 (Constant Slow Zoom-in)</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const motionMap: Record<string, string> = {
+                                    none: "",
+                                    dolly_in: "slow cinematic dolly in, focusing closely on internal details, dramatic traditional atmosphere, masterpiece, 24fps",
+                                    dolly_out: "slow cinematic dolly out, revealing more of the traditional Joseon background, deep space, masterpiece, 24fps",
+                                    pan_left: "slow smooth camera pan left, sweeping traditional scenery perspective, cinematic depth, masterpiece, 24fps",
+                                    pan_right: "slow smooth camera pan right, sweeping landscape perspective, cinematic depth, masterpiece, 24fps",
+                                    tilt_up: "slow vertical camera tilt up, majestic revealing shot of traditional structure, dramatic lighting, masterpiece, 24fps",
+                                    tilt_down: "slow vertical camera tilt down, focusing down onto character facial expressions, intense look, masterpiece, 24fps",
+                                    orbit: "majestic 360-degree slow rotational orbit panning, cinematic 3D parallax depth, masterpiece, 24fps",
+                                    slow_zoom: "steady constant slow camera zoom-in, amplifying the emotional tension, dramatic look, masterpiece, 24fps"
+                                  };
+                                  const selectedMotionKey = sceneLtxMotions[scene.id] || "dolly_in";
+                                  const motionPrompt = motionMap[selectedMotionKey] || "";
+                                  
+                                  const processCompactLtx = (base: string, motion: string) => {
+                                    let cleaned = base.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ");
+                                    cleaned = cleaned.replace(/[\s,]+/g, ", ").trim();
+                                    const words = (cleaned + ", " + motion).split(",").map(w => w.trim()).filter(Boolean);
+                                    const unique: string[] = [];
+                                    const seen = new Set<string>();
+                                    for (const w of words) {
+                                      const lw = w.toLowerCase();
+                                      if (!seen.has(lw)) {
+                                        seen.add(lw);
+                                        const isCompactTag = 
+                                          lw.includes("masterpiece") || lw.includes("quality") || lw.includes("lighting") || 
+                                          lw.includes("composition") || lw.includes("backdrop") || lw.includes("scenery") || 
+                                          lw.includes("atmosphere") || lw.includes("rendering") || lw.includes("artistic") || 
+                                          lw.includes("cinematic") || lw.includes("traditional") || lw.includes("joseon") || 
+                                          lw.includes("moody") || lw.includes("dramatic") || lw.includes("fps") ||
+                                          lw.includes("dolly") || lw.includes("pan") || lw.includes("tilt") || 
+                                          lw.includes("zoom") || lw.includes("orbit") || lw.includes("parallax") || 
+                                          lw.includes("depth") || lw.includes("shot");
+                                        if (isCompactTag) {
+                                          unique.push(w);
+                                        }
+                                      }
+                                    }
+                                    if (unique.length <= 2) return motion;
+                                    return unique.join(", ");
+                                  };
+
+                                  const compactPrompt = processCompactLtx(scene.refinedImagePrompt, motionPrompt);
+                                  copyToClipboard(compactPrompt, `ltx_compact_${scene.id}`);
+                                  showFeedback(`Scene ${scene.id}용 'I2V 모션 전용 콤팩트 프롬프트'가 복사되었습니다! 한글과 피사체 설명이 배제되어 LTX 비디오화에 100% 최적화되었습니다.`, "success");
+                                }}
+                                className="bg-[#052e16]/60 hover:bg-[#064e3b]/80 text-[#6ee7b7] hover:text-white border border-[#10b981]/30 rounded px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                                title="I2V 비디오 생성용 한글 및 주어 제거형 모션 특화 프롬프트 복사"
+                              >
+                                <Video className="w-3 h-3 text-[#34d399] shrink-0" />
+                                {copiedText === `ltx_compact_${scene.id}` ? "I2V 복사 성공!" : "I2V 추천 (모션전용 복사)"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* LTX 2.3 Sound Design & SFX Cues Guidance */}
+                          {(actualIndex < 8 || actualIndex === scenes.length - 1) && (
+                            <div className="mt-2.5 bg-[#0a0a0f] border border-emerald-500/15 rounded-lg p-3 space-y-2.5 animate-fade-in text-left">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shrink-0"></span>
+                                  {actualIndex < 8 ? (
+                                    <span>🔊 LTX 2.3 인트로 사운드 디자인 추천 (Dialogue-Free / 2선)</span>
+                                  ) : (
+                                    <span>🔊 LTX 2.3 아웃트로(구독/좋아요) 사운드 디자인 추천 (2선)</span>
+                                  )}
+                                </span>
+                                <span className="text-[9px] text-white/30 font-mono">가이드: 영어 텍스트 클릭 시 즉시 개별 복사 ⚡</span>
+                              </div>
+                              <div className="space-y-1.5">
+                                {getRecommendedSfx(scene).items.map((item, idx) => (
+                                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2 bg-emerald-950/15 border border-emerald-900/25 rounded text-[10px]">
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="text-emerald-500 font-mono font-bold">0{idx + 1}</span>
+                                      <span className="text-emerald-300 font-medium font-serif">{item.sfx}</span>
+                                    </div>
+                                    <div 
+                                      onClick={() => {
+                                        copyToClipboard(item.engSfx, `sfx_item_${scene.id}_${idx}`);
+                                        showFeedback(`"${item.engSfx}" 사운드 프롬프트가 복사되었습니다! LTX 오디오에 붙여넣어 주세요.`, "success");
+                                      }}
+                                      className="font-mono text-white/70 bg-black/40 hover:bg-black/80 hover:text-emerald-400 border border-white/5 rounded px-2 py-0.5 text-[9px] truncate max-w-full sm:max-w-[340px] cursor-pointer transition-all flex items-center gap-1 select-all"
+                                      title="클릭 시 이 사운드 프롬프트만 단독 복사"
+                                    >
+                                      <span className="truncate">{item.engSfx}</span>
+                                      <span className="text-[8px] text-emerald-500 shrink-0 border border-emerald-500/30 px-1 rounded">복사</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex justify-between items-center pt-1 border-t border-emerald-500/10">
+                                <span className="text-[9px] text-white/40">ElevenLabs, Suno, LTX Audio 등 생성기 100% 대응</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    copyToClipboard(getRecommendedSfx(scene).engSfx.join(", "), `sfx_${scene.id}`);
+                                    showFeedback(`Scene ${scene.id}용 통합 '사운드 이펙트 오디오 프롬프트'가 클립보드에 복사되었습니다!`, "success");
+                                  }}
+                                  className="shrink-0 bg-emerald-900/20 hover:bg-emerald-900/50 text-emerald-400 hover:text-emerald-300 border border-emerald-500/15 hover:border-emerald-500/35 rounded-md px-2.5 py-1 text-[9px] font-bold transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                                  title="두 개의 사운드를 결합한 통합 프롬프트 복사"
+                                >
+                                  <span>전체 복사 (통합)</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -3838,10 +3896,53 @@ export default function App() {
                               thumbnailAspectRatio === "16:9"
                                 ? "w-full h-full object-cover"
                                 : "h-full aspect-[9/16] object-cover rounded-md border border-white/10 shadow-2xl"
-                            } group-hover:scale-105 transition-transform duration-700 relative z-0`}
+                            } transition-transform duration-700 relative z-0`}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-4 flex items-center justify-between z-10">
+                          
+                          {/* Real-time Calligraphy Text Overlay Preview */}
+                          {overlayText && !isGeneratingThumbnail && (
+                            <div 
+                              className="absolute pointer-events-none select-none flex items-center justify-center z-10 text-center"
+                              style={{
+                                top: `${overlayY}%`,
+                                left: `${overlayX}%`,
+                                transform: `translate(-50%, -50%) rotate(${overlayRotation}deg)`,
+                                width: "90%",
+                              }}
+                            >
+                              <div 
+                                className="font-bold tracking-tight select-none leading-none select-none"
+                                style={{
+                                  fontSize: `${overlaySize * (thumbnailAspectRatio === '16:9' ? 1.0 : 0.75)}px`,
+                                  color: overlayColor,
+                                  fontFamily: 
+                                    overlayStyle === "classic-brush"
+                                      ? "'Nanum Brush Script', 'Yeon Sung', serif"
+                                      : overlayStyle === "horror-mystery"
+                                        ? "'East Sea Dokdo', sans-serif"
+                                        : overlayStyle === "clean-serif"
+                                          ? "'Song Myung', 'Nanum Myeongjo', serif"
+                                          : "'Black Han Sans', 'Inter', sans-serif",
+                                  fontWeight: overlayStyle === "bold-modern" ? 900 : 700,
+                                  fontStyle: overlayStyle === "horror-mystery" ? "italic" : "normal",
+                                  textShadow: enableBackingGlow 
+                                    ? "0 0 5px #000000, 0 0 15px #000000, 0 0 25px #000000, 0 0 35px #000000" 
+                                    : "2px 2px 4px rgba(0,0,0,0.9)",
+                                  backgroundColor: enableBackingRibbon ? "rgba(0,0,0,0.65)" : "transparent",
+                                  padding: enableBackingRibbon ? "8px 20px" : "0",
+                                  borderRadius: enableBackingRibbon ? "6px" : "0",
+                                  whiteSpace: "pre-wrap",
+                                  letterSpacing: overlayStyle === "horror-mystery" ? "0.15em" : "-0.02em",
+                                  textTransform: "uppercase"
+                                }}
+                              >
+                                {overlayText}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity p-4 flex items-center justify-between z-20">
                             <span className="text-[10px] text-white/80 font-serif">
                               {thumbnailAspectRatio === "16:9" ? "가로형 16:9 레이아웃" : "세로형 9:16 레이아웃"}
                             </span>
@@ -3852,7 +3953,7 @@ export default function App() {
                                 description: thumbnailData.selectionReason,
                                 prompt: thumbnailData.visualPrompt
                               })}
-                              className="px-2 py-1 bg-black/60 hover:bg-black/90 text-white rounded text-[9px] font-medium flex items-center gap-1 transition-all"
+                              className="px-2 py-1 bg-black/60 hover:bg-black/90 text-white rounded text-[9px] font-medium flex items-center gap-1 transition-all cursor-pointer"
                             >
                               <Eye className="w-3 h-3" /> 크게 보기
                             </button>
@@ -3915,20 +4016,258 @@ export default function App() {
 
                 {/* Analysis / Captions: Right Column (lg:col-span-5) */}
                 <div className="lg:col-span-5 space-y-6">
-                  {/* Captions proposal list */}
+                  {/* Real-time Calligraphy Control Panel */}
                   <div className="bg-[#121216] border border-white/10 rounded-lg p-5 space-y-4">
-                    <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">
-                      📝 SHORT PUNCHY CTR TEXT CANDIDATES
+                    <span className="text-[9px] text-purple-400 uppercase tracking-widest font-mono block font-bold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-400" />
+                      실시간 캘리그래피 텍스트 오버레이 엔진
                     </span>
 
-                    <div className="space-y-2.5">
+                    <div className="space-y-3.5">
+                      {/* Text Input */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/50 font-bold block">썸네일 삽입 문구 편집</label>
+                        <input
+                          type="text"
+                          value={overlayText}
+                          onChange={(e) => setOverlayText(e.target.value)}
+                          placeholder="시청자 호기심을 유도할 강렬한 한글 자막 입력..."
+                          className="w-full bg-[#1b1b26] border border-white/10 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-serif font-medium"
+                        />
+                      </div>
+
+                      {/* Font Presets */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-white/50 font-bold block">조선 서체 스타일 프리셋 (Calligraphy)</label>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOverlayStyle("classic-brush");
+                              setOverlayColor("#facc15"); // Golden
+                              setEnableBackingGlow(true);
+                              setEnableBackingRibbon(false);
+                            }}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer ${
+                              overlayStyle === "classic-brush"
+                                ? "bg-purple-600/10 border-purple-500 text-white font-bold animate-pulse"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            🖌️ 역동적 손붓글씨체 (Nanum Brush)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOverlayStyle("horror-mystery");
+                              setOverlayColor("#ef4444"); // Bloody red
+                              setEnableBackingGlow(true);
+                              setEnableBackingRibbon(false);
+                              setOverlaySize(60); // slightly larger for creepy look
+                            }}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer ${
+                              overlayStyle === "horror-mystery"
+                                ? "bg-purple-600/10 border-purple-500 text-white font-bold animate-pulse"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            🩸 독도 서늘살기체 (East Sea Dokdo)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOverlayStyle("clean-serif");
+                              setOverlayColor("#ffffff"); // White
+                              setEnableBackingGlow(true);
+                              setEnableBackingRibbon(false);
+                            }}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer ${
+                              overlayStyle === "clean-serif"
+                                ? "bg-purple-600/10 border-purple-500 text-white font-bold animate-pulse"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            📜 명품 궁중명조체 (Song Myung)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOverlayStyle("bold-modern");
+                              setOverlayColor("#ffffff");
+                              setEnableBackingGlow(false);
+                              setEnableBackingRibbon(true);
+                            }}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer ${
+                              overlayStyle === "bold-modern"
+                                ? "bg-purple-600/10 border-purple-500 text-white font-bold animate-pulse"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            🔥 초고대비 킹고딕 (Black Han Sans)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Font Color & Size */}
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-white/50 font-bold block">글자 크기: {overlaySize}px</label>
+                          <input
+                            type="range"
+                            min="24"
+                            max="100"
+                            value={overlaySize}
+                            onChange={(e) => setOverlaySize(Number(e.target.value))}
+                            className="w-full accent-purple-500 h-1 bg-white/5 rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-white/50 font-bold block font-mono">글자 색상</label>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="color"
+                              value={overlayColor}
+                              onChange={(e) => setOverlayColor(e.target.value)}
+                              className="w-6 h-6 bg-transparent border-0 cursor-pointer"
+                            />
+                            <div className="flex gap-1">
+                              {["#facc15", "#ef4444", "#ffffff", "#50e3c2"].map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => setOverlayColor(c)}
+                                  className="w-4 h-4 rounded-full border border-white/10 shrink-0"
+                                  style={{ backgroundColor: c }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Position & Angle */}
+                      <div className="space-y-2.5 bg-white/5 p-3 rounded border border-white/5">
+                        <span className="text-[9px] text-white/40 uppercase font-mono font-bold block">글자 배치 조율</span>
+                        
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-white/50">
+                            <span>세로 위치 Y (위 ↔ 아래)</span>
+                            <span>{overlayY}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="90"
+                            value={overlayY}
+                            onChange={(e) => setOverlayY(Number(e.target.value))}
+                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-white/50">
+                            <span>가로 위치 X (좌 ↔ 우)</span>
+                            <span>{overlayX}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="90"
+                            value={overlayX}
+                            onChange={(e) => setOverlayX(Number(e.target.value))}
+                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-white/50">
+                            <span>회전 각도 (Visual Tension)</span>
+                            <span>{overlayRotation}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-15"
+                            max="15"
+                            value={overlayRotation}
+                            onChange={(e) => setOverlayRotation(Number(e.target.value))}
+                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Effects */}
+                      <div className="flex items-center gap-4 text-[10px] bg-white/5 p-2 rounded">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
+                          <input
+                            type="checkbox"
+                            checked={enableBackingGlow}
+                            onChange={(e) => {
+                              setEnableBackingGlow(e.target.checked);
+                              if (e.target.checked) setEnableBackingRibbon(false);
+                            }}
+                            className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
+                          />
+                          <span>글자 뒤 그림자/두꺼운 테두리</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
+                          <input
+                            type="checkbox"
+                            checked={enableBackingRibbon}
+                            onChange={(e) => {
+                              setEnableBackingRibbon(e.target.checked);
+                              if (e.target.checked) setEnableBackingGlow(false);
+                            }}
+                            className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
+                          />
+                          <span>어두운 리본 반투명판</span>
+                        </label>
+                      </div>
+
+                      {/* Options & Export Actions */}
+                      <div className="pt-2 space-y-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-purple-300">
+                          <input
+                            type="checkbox"
+                            checked={optimizeForLtxStyle}
+                            onChange={(e) => setOptimizeForLtxStyle(e.target.checked)}
+                            className="rounded border-purple-500/30 text-purple-500 focus:ring-0 bg-transparent"
+                          />
+                          <span>[추천] LTX 2.3 시네마틱 화풍으로 다음 썸네일 자동 개선 튜닝</span>
+                        </label>
+
+                        {thumbnailData?.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={handleDownloadMergedThumbnail}
+                            className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-950/40 border border-purple-500/25"
+                          >
+                            <Download className="w-4 h-4" />
+                            🎨 캘리그래피 합성 고화질 썸네일 다운로드 (PNG)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Captions proposal list */}
+                  <div className="bg-[#121216] border border-white/10 rounded-lg p-5 space-y-3">
+                    <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">
+                      📝 SHORT PUNCHY CTR TEXT CANDIDATES (클릭시 자동 오버레이)
+                    </span>
+
+                    <div className="space-y-1.5">
                       {thumbnailData?.textCandidates?.map((text, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-3 bg-[#1a1a22] border border-[#fffff]/5 hover:border-purple-500/30 rounded hover:bg-[#20202a] transition-all group"
+                          onClick={() => {
+                            setOverlayText(text);
+                            showFeedback(`"${text}" 자막이 실시간 캘리그래피 레이어에 바로 입력되었습니다.`, "success");
+                          }}
+                          className="flex items-center justify-between p-2.5 bg-[#1a1a22] border border-white/5 hover:border-purple-500/40 rounded hover:bg-[#20202a] transition-all group cursor-pointer"
+                          title="클릭하여 오버레이 자막으로 바로 사용"
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="font-mono text-xs text-purple-400/60 font-bold shrink-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] text-purple-400/60 font-bold shrink-0">
                               0{idx + 1}
                             </span>
                             <span className="text-xs text-white font-serif font-medium tracking-tight">
@@ -3936,12 +4275,9 @@ export default function App() {
                             </span>
                           </div>
 
-                          <button
-                            onClick={() => copyToClipboard(text, `candidate_${idx}`)}
-                            className="text-[9px] bg-white/5 hover:bg-purple-600/30 text-white/40 hover:text-purple-300 px-2 py-1 rounded transition-all shrink-0 uppercase tracking-wider font-mono opacity-60 group-hover:opacity-100"
-                          >
-                            {copiedText === `candidate_${idx}` ? "copied!" : "copy"}
-                          </button>
+                          <span className="text-[9px] text-purple-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity hover:underline">
+                            자막 적용 ⚡
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -3961,15 +4297,25 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-purple-900/10 border border-purple-500/20 rounded-md text-center shadow-inner">
+                    <div 
+                      onClick={() => {
+                        if (thumbnailData?.recommendedText) {
+                          setOverlayText(thumbnailData.recommendedText);
+                          showFeedback(`"${thumbnailData.recommendedText}" 자막이 실시간 캘리그래피 레이어에 바로 입력되었습니다.`, "success");
+                        }
+                      }}
+                      className="p-4 bg-purple-900/10 border border-purple-500/20 rounded-md text-center shadow-inner cursor-pointer hover:bg-purple-900/20 hover:border-purple-500/40 transition-all"
+                      title="클릭하여 추천 자막으로 사용"
+                    >
                       <p className="text-lg font-bold text-white tracking-widest font-serif leading-tight">
                         "{thumbnailData?.recommendedText}"
                       </p>
+                      <span className="text-[9px] text-purple-400 font-mono block mt-1">클릭시 즉시 자막 오버레이 장착 ⚡</span>
                     </div>
 
                     <div className="space-y-1.5 pl-3.5 border-l border-purple-500/30">
                       <p className="text-[10px] text-purple-400 font-mono font-medium uppercase tracking-wide">
-                        CTR 최적화 타겟 심리학 배경:
+                        CTR 최적화 타겟 기획 배경:
                       </p>
                       <p className="text-[11px] text-white/70 leading-relaxed font-serif">
                         {thumbnailData?.recommendationReason}
@@ -4084,7 +4430,7 @@ export default function App() {
                     </p>
                     <ul className="text-[11px] text-white/50 space-y-2 pl-4 list-disc leading-relaxed">
                       <li>직설적인 시체/출혈 묘사를 고상한 문학적 풍경 은유로 일차적 자율 치환합니다.</li>
-                      <li>썸네일에서 노란딱지를 피하는 심리학적 타겟 유도 문구를 선정합니다.</li>
+                      <li>썸네일에서 노란딱지를 피하는 시청층 맞춤형 타겟 유도 문구를 선정합니다.</li>
                       <li>대본 분석 보고에 맞춤식 고유 역동성을 부가할 수 있게 지원합니다.</li>
                     </ul>
 
@@ -4381,6 +4727,528 @@ export default function App() {
           </motion.div>
         )}
       </div>
+
+      {/* RIGHT COMPONENT: PERSISTENT CONTROLLER CONSOLE (lg:col-span-4) */}
+      <div className="lg:col-span-4 flex flex-col gap-5 self-start sticky top-6" id="persistent-controller-pane">
+        {/* 🌟 Step Viewer System: Vertical Navigation Menu */}
+        <div className="bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col gap-3 shadow-md">
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-white/50 pb-2 border-b border-white/5 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+            야담 플래너 단계별 콘텐츠 뷰어
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab("editor")}
+              id="tab-btn-editor"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                activeTab === "editor"
+                  ? "bg-blue-600/10 border-blue-500/30 text-blue-400 shadow-lg shadow-blue-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" />
+                대본 분석지 및 편집 설정
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-white/30 font-mono">기획</span>
+            </button>
+            
+            <button
+              type="button"
+              disabled={!analysis}
+              onClick={() => setActiveTab("characters")}
+              id="tab-btn-characters"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                !analysis ? "opacity-35 cursor-not-allowed text-white/20" : ""
+              } ${
+                activeTab === "characters"
+                  ? "bg-blue-600/10 border-blue-500/30 text-blue-400 shadow-lg shadow-blue-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <History className="w-3.5 h-3.5" />
+                1단계: 캐릭터 컨셉 시트
+              </span>
+              {characters.length > 0 && (
+                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 rounded text-blue-400 font-mono">
+                  ({charSuccessCount}/{charTotalCount})
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={!analysis}
+              onClick={() => setActiveTab("storyboard")}
+              id="tab-btn-storyboard"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                !analysis ? "opacity-35 cursor-not-allowed text-white/20" : ""
+              } ${
+                activeTab === "storyboard"
+                  ? "bg-blue-600/10 border-blue-500/30 text-blue-400 shadow-lg shadow-blue-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <ImageIcon className="w-3.5 h-3.5" />
+                2단계: 씬별 스토리보드
+              </span>
+              {scenes.length > 0 && (
+                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 rounded text-blue-400 font-mono">
+                  ({successCount}/{totalCount})
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={!analysis || scenes.length === 0}
+              onClick={() => setActiveTab("thumbnail")}
+              id="tab-btn-thumbnail"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                (!analysis || scenes.length === 0) ? "opacity-35 cursor-not-allowed text-white/20" : ""
+              } ${
+                activeTab === "thumbnail"
+                  ? "bg-purple-600/10 border-purple-500/30 text-purple-400 shadow-lg shadow-purple-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                3단계: 썸네일 디렉터
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-purple-500/10 rounded text-purple-400 font-mono font-bold">최적화</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("safety")}
+              id="tab-btn-safety"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                activeTab === "safety"
+                  ? "bg-rose-600/10 border-rose-500/30 text-rose-450 shadow-lg shadow-rose-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                4단계: 수익정지 안전 진단기
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-rose-500/10 rounded text-rose-400 font-mono font-bold">안전</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Configuration Settings */}
+        <div className="bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col justify-between gap-5 shadow-md">
+          <div>
+            <h2 className="text-[10px] uppercase tracking-widest font-bold text-white/50 mb-4 pb-2 border-b border-white/5">
+              Engine Parameters Config
+            </h2>
+
+            <div className="space-y-4">
+              {/* Option 0: Custom Gemini API Key Override */}
+              <div className="space-y-2">
+                <label className="text-[11px] text-white/80 font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Coins className="w-3 h-3 text-emerald-400" />
+                    개별 Gemini API 키 설정 (선택)
+                  </span>
+                  {customApiKey ? (
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5 font-mono">
+                      적용중
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-white/5 text-white/40 border border-white/5 rounded px-1.5 py-0.5 font-mono">
+                      기본값
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="password"
+                  placeholder="구글 AI 스튜디오 API 키 입력 (AIzaSy... 또는 AQ...)"
+                  value={customApiKey}
+                  onChange={(e) => updateCustomApiKey(e.target.value)}
+                  className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50"
+                />
+                {customApiKey && !customApiKey.trim().startsWith("AIzaSy") && !customApiKey.trim().startsWith("AQ") && (
+                  <div className="p-2.5 rounded text-[10px] leading-relaxed bg-amber-500/10 border border-amber-500/20 text-amber-300 flex items-start gap-1.5 text-left">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400" />
+                    <div>
+                      <strong className="text-amber-200 block mb-0.5">⚠️ API 키 형식 감지 경고</strong>
+                      입력된 텍스트가 정식 구글 API 키 표준 규격(<code>AIzaSy</code> 또는 <code>AQ</code>로 시작하는 난수 문자열)이 아닌 것 같습니다. 혹시 API 키 대신 <strong>모델 명칭(예: GEMINI-3.5-FLASH)</strong>을 혼동하여 잘못 입력하셨는지 확인해 주세요.
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-white/40 leading-relaxed">
+                  입력하지 않으면 서버 환경변수를 기본 사용합니다. 직접 입력
+                  시 브라우저 내부 로컬스토리지에 보안 소장되며 요청 시
+                  헤더를 통해 우선 적용됩니다.
+                </p>
+                {customApiKey && (
+                  <div className="pt-1.5 flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleVerifyApiKey}
+                      disabled={isVerifyingKey}
+                      className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded text-xs font-semibold border transition-all ${
+                        isVerifyingKey
+                          ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
+                          : "bg-emerald-500/10 hover:bg-emerald-500/25 border-emerald-500/25 text-emerald-400 active:scale-98"
+                      }`}
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isVerifyingKey ? "animate-spin" : ""}`} />
+                      {isVerifyingKey ? "구글 API 인증 키 무결성 검증 중..." : "위 API 키 검증 및 정상 작동 테스트"}
+                    </button>
+                    
+                    {keyVerificationError !== null && (
+                      <div className={`p-2 rounded text-[11px] leading-relaxed border space-y-1 block text-left ${
+                        keyVerificationError === "" 
+                          ? "bg-emerald-500/5 border-emerald-500/15 text-emerald-400"
+                          : "bg-rose-500/5 border-rose-500/15 text-rose-400"
+                      }`}>
+                        {keyVerificationError === "" ? (
+                          <div className="flex items-start gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
+                            <span>인증 합격: 구글 제미나이 연결 테스트에 성공했습니다! 즉시 고전 스토리보드 서비스에 인용 적용됩니다.</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-[10px] block text-rose-300 uppercase">인증 실패 피드백:</span>
+                              <span>{keyVerificationError}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Option 1: AI model Selection */}
+              <div className="space-y-2">
+                <label className="text-[11px] text-white/80 font-medium flex items-center justify-between">
+                  <span>이미지 생성 모델</span>
+                  <span className="text-[9px] text-blue-400 font-mono">
+                    Paid API Key
+                  </span>
+                </label>
+                <select
+                  id="select-api-model"
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value as any)}
+                  className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50"
+                >
+                  <option value="gemini-2.5-flash-image">
+                    Gemini 2.5 Flash Image Model
+                  </option>
+                  <option value="gemini-3.1-flash-image">
+                    Gemini 3.1 Flash Image (2K Resolution for 16:9 / 9:16)
+                  </option>
+                </select>
+              </div>
+
+              {/* Option 2: Art Style selection */}
+              <div className="space-y-2">
+                <label className="text-[11px] text-white/80 font-medium">
+                  적용 화풍 디자인 (Art Style)
+                </label>
+                <div
+                  className="grid grid-cols-2 gap-2"
+                  id="artstyle-container"
+                >
+                  {[
+                    {
+                      key: "yadam",
+                      label: "야담 한포 일러스트",
+                      desc: "Traditional Joseon Illust",
+                    },
+                    {
+                      key: "realistic",
+                      label: "역사 극사실주의",
+                      desc: "Cinematic Realistic",
+                    },
+                    {
+                      key: "3d",
+                      label: "3D 애니 캐릭터",
+                      desc: "Pixar Toy Character",
+                    },
+                    {
+                      key: "anime",
+                      label: "레트로 수채화 애니",
+                      desc: "Hand-drawn Watercolor",
+                    },
+                  ].map((style) => (
+                    <button
+                      key={style.key}
+                      type="button"
+                      id={`artstyle-${style.key}`}
+                      onClick={() => setArtStyle(style.key as any)}
+                      className={`p-2 rounded text-left border transition-all flex flex-col ${
+                        artStyle === style.key
+                          ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
+                          : "bg-[#1a1a22] border-white/5 text-white/40 hover:text-white/60"
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold leading-tight">
+                        {style.label}
+                      </span>
+                      <span className="text-[9px] opacity-60 leading-none mt-0.5 font-mono">
+                        {style.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Option 3: Aspect Ratio config */}
+              <div className="space-y-2">
+                <label className="text-[11px] text-white/80 font-medium">
+                  가로비 (Aspect Ratio)
+                </label>
+                <div
+                  className="grid grid-cols-3 gap-2"
+                  id="ratio-container"
+                >
+                  {[
+                    { key: "16:9", label: "16:9 가로", desc: "YouTube" },
+                    { key: "1:1", label: "1:1 정방", desc: "Instagram" },
+                    { key: "9:16", label: "9:16 세로", desc: "Shorts" },
+                  ].map((ratio) => (
+                    <button
+                      key={ratio.key}
+                      type="button"
+                      id={`ratio-${ratio.key.replace(":", "-")}`}
+                      onClick={() => setAspectRatio(ratio.key as any)}
+                      className={`p-2 rounded border text-center transition-all ${
+                        aspectRatio === ratio.key
+                          ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
+                          : "bg-[#1a1a22] border-white/5 text-white/40 hover:text-white/60"
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold block">
+                        {ratio.key}
+                      </span>
+                      <span className="text-[9px] block opacity-60 font-mono">
+                        {ratio.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Option 4: Limit override slider */}
+              <div className="space-y-3 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-[11px] text-white/80 font-medium">
+                      강제 장면 분량 조율
+                    </label>
+                    <span className="text-[9px] text-white/30 block leading-tight">
+                      대본을 지정된 장면에 타겟 분배
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setQuantityOverride(!quantityOverride)}
+                    id="toggle-quantity-override"
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${
+                      quantityOverride
+                        ? "bg-blue-600"
+                        : "bg-[#1a1a22] border border-white/10"
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        quantityOverride ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {quantityOverride && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-2 overflow-hidden"
+                      id="overriden-quantity-slider-block"
+                    >
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-white/40">
+                          장면 수량 피스
+                        </span>
+                        <span className="text-blue-400 font-bold">
+                          {quantityValue}장
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="3"
+                        max="100"
+                        value={quantityValue}
+                        onChange={(e) =>
+                          setQuantityValue(parseInt(e.target.value))
+                        }
+                        className="w-full h-1 bg-[#1a1a22] accent-blue-500 rounded-full cursor-pointer outline-none"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Option 5: Append Mode */}
+              <div className="space-y-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-[11px] text-white/80 font-medium">
+                      기존 타임라인에 누적 추가
+                    </label>
+                    <span className="text-[9px] text-white/30 block leading-tight">
+                      1부를 유지한 채 2부 대본을 연달아 병합 분석합니다.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAppendMode(!appendMode)}
+                    id="toggle-append-mode"
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center ${
+                      appendMode
+                        ? "bg-blue-600"
+                        : "bg-[#1a1a22] border border-white/10"
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        appendMode ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 6: WAN Video Motion Starter Optimization */}
+              <div className="space-y-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-[11px] text-white/80 font-medium">
+                      WAN 비디오 인트로 모션 최적화
+                    </label>
+                    <span className="text-[9px] text-white/30 block leading-tight">
+                      인트로용 장면(기초 1~6장)을 고포텐셜 정적 긴장 자세로
+                      튜닝해 WAN 영상 전환율을 높입니다.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextVal = !wanIntroOptimized;
+                      setWanIntroOptimized(nextVal);
+                      localStorage.setItem(
+                        "yadam_wan_intro_optimized",
+                        String(nextVal),
+                      );
+                      showFeedback(
+                        nextVal
+                          ? "WAN 인트로 모션 비디오 최적화가 상시 활성화되었습니다."
+                          : "WAN 인트로 최적화 모션이 종료되었습니다.",
+                        "info",
+                      );
+                    }}
+                    id="toggle-wan-intro-optimized"
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center shrink-0 ${
+                      wanIntroOptimized
+                        ? "bg-emerald-600"
+                        : "bg-[#1a1a22] border border-white/10"
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        wanIntroOptimized
+                          ? "translate-x-4"
+                          : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 7: Strict Visual Consistency Mode */}
+              <div className="space-y-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-[11px] text-white/80 font-medium">
+                      인물/배경 초정밀 비주얼 일관성
+                    </label>
+                    <span className="text-[9px] text-white/30 block leading-tight">
+                      캐릭터 정보(외모, 의복)와 장소 세부 속성을 프롬프트에
+                      실시간 합산 연동하여 씬간 물체/의복 뒤틀림을
+                      방지합니다.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextVal = !strictConsistencyMode;
+                      setStrictConsistencyMode(nextVal);
+                      localStorage.setItem(
+                        "yadam_strict_consistency_mode",
+                        String(nextVal),
+                      );
+                      showFeedback(
+                        nextVal
+                          ? "인물/배경 일관성 고착 제어가 활성화되었습니다."
+                          : "일관성 연동 모드가 종료되었습니다.",
+                        "info",
+                      );
+                    }}
+                    id="toggle-strict-consistency-mode"
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors relative flex items-center shrink-0 ${
+                      strictConsistencyMode
+                        ? "bg-blue-600"
+                        : "bg-[#1a1a22] border border-[#ffffff]/10"
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        strictConsistencyMode
+                          ? "translate-x-4"
+                          : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step Analyzers Trigger */}
+          <button
+            onClick={handleAnalyzeScript}
+            disabled={isAnalyzing || !scriptText.trim()}
+            id="btn-trigger-script-analysis"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-xs font-bold uppercase tracking-widest rounded-md transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/10"
+          >
+            {isAnalyzing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                대본 파싱 연대기 분석 중...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 shrink-0 fill-white" />
+                대본 분석 및 스토리기획 가동
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
 
       {/* DETAILED HIGH QUALITY IMAGE LIGHTBOX POPUP */}
       <AnimatePresence>

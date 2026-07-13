@@ -87,12 +87,14 @@ Your goals are:
 3. Generate a modular sequence of storyboard scene blocks matching the timeline.
 
 === ARCHITECTURAL GUIDELINES ===
-- Character Sheets: Create clean portrait prompts for character sheets. They MUST represent ONLY ONE person centered, isolated, with no secondary characters or complex backgrounds.
-- Joseon Period Historical Accuracy & Prop Representation:
+- Character Sheets: Create clean portrait prompts for character s- Joseon Period Historical Accuracy, Prop Representation & Organic Reconstruction of Unrecorded Blanks:
+  - You MUST firmly ground all story elements, roles, and settings in actual historical records of the Joseon Period (such as the Annals of the Joseon Dynasty - 조선왕조실록, Seungjeongwon Ilgi - 승정원일기, or classic unofficial historical tales - 야사).
+  - For historical mysteries or missing elements not recorded in official annals, do NOT utilize modern fantasy, sci-fi, or anachronistic logic. Instead, fill the narrative blanks organically with highly plausible events that perfectly align with Joseon's geopolitical atmosphere (such as factional strife like Noron vs Soron, royal relative politics), legal/investigative frameworks (Gyeongguk Daejeon, Uigeumbu, Podochoeng), and Confucian societal norms and customs of that specific era.
   - You MUST translate any modern tools/structures/props into their authentic Joseon-era traditional counterparts. Absolutely NO modern plastic, modern glass, steel tubular legs, or modern metal wire holders.
   - If a "지구의" (terrestrial globe) or "지구본" is mentioned, describe it as: "an antique traditional hand-painted paper terrestrial globe (지구의) cradled on an ornate Joseon-period hand-carved dark wooden floor stand, decorated with elegant black ink calligraphic names and traditional water-color map routes."
   - If astronomical instruments or clocks are mentioned, describe them as: "a traditional Joseon bronze Honcheonui (혼천의) armillary sphere with intricate rustic brass rings and heavy dark wooden frames."
   - Avoid modern furniture. Instead, utilize low writing desks (서안), wooden storage chests (반닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍) to establish an authentic Joseon interior ambiance.
+  - Zero Anachronism: Ensure complete historical consistency in titles, clothes (e.g., gonryongpo, durumagi, dangui), and vocabulary. Use dignified, classic Joseon-style narrative tone and dialogue styling without modern terms.��닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍) to establish an authentic Joseon interior ambiance.
 - Scene Timeline:
   - If quantityOverride is active, divide the narrative beats of the script into exactly ${quantityValue} scenes.
   - If quantityOverride is inactive, divide the storyboard naturally into chronological story beats (typically 5 to 12 scenes).
@@ -234,18 +236,59 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
  */
 function injectArtStyle(prompt: string, style: "realistic" | "3d" | "anime" | "yadam"): string {
   const cleanPrompt = prompt.trim().replace(/[\.+]$/, ""); // remove trailing dot
+  // Strict negative visual directives to prevent subtitles, text overlays, watermarks, or literal Korean typography/names from cluttering the canvas
+  const negativeDirectives = ", absolutely no text overlay, no watermarks, no logos, no subtitles, no captions, no hangul characters, no written letters, no lettering, no written Korean names on image, clean pure visual painting only";
+  
   switch (style) {
     case "yadam":
-      return `${cleanPrompt}, Korean historical webtoon style, Joseon dynasty storytelling illustration, traditional Korean folklore atmosphere, same art style throughout entire story, consistent character appearance, consistent clothing, consistent environment design, clean line art, natural colors, soft shading, warm cinematic lighting, animation-friendly design`;
+      return `${cleanPrompt}, premium Korean historical webtoon illustration style, high-contrast emotional Joseon dynasty storytelling manhwa, traditional folklore mystery atmosphere, detailed traditional Hanbok textures, clean line art with soft cinematic shading, warm lighting, same art style throughout entire story, consistent character appearance, consistent clothing, animation-friendly layout, high-CTR visual appeal${negativeDirectives}`;
     case "realistic":
-      return `${cleanPrompt}, raw ultra-realistic film shot, 35mm lens photo, historical accuracy Joseon, lifelike skin textures, cinematic lighting and shadows, subtle grain, historical ambient drama`;
+      return `${cleanPrompt}, premium Joseon historical drama movie style, high-budget cinematic film still, raw hyper-realistic texture, 35mm lens cinematography, deep chiaroscuro lighting, dramatic shadows, volumetric fog, historical accuracy, highly detailed emotional faces, subtle atmospheric grain, masterpiece storytelling${negativeDirectives}`;
     case "3d":
-      return `${cleanPrompt}, stylized 3D animation character render, octane render style, soft ambient shadows, Pixar character aesthetic, historical Joseon dynasty detail, cute and clean 3D look`;
+      return `${cleanPrompt}, stylized 3D animation character render, octane render style, soft ambient shadows, Pixar character aesthetic, historical Joseon dynasty detail, cute and clean 3D look${negativeDirectives}`;
     case "anime":
-      return `${cleanPrompt}, gorgeous anime layout style, warm Studio Ghibli retro painting aesthetic, hand-drawn background, traditional watercolor, soft ambient line art, nostalgia lighting`;
+      return `${cleanPrompt}, gorgeous anime layout style, warm Studio Ghibli retro painting aesthetic, hand-drawn background, traditional watercolor, soft ambient line art, nostalgia lighting${negativeDirectives}`;
     default:
-      return cleanPrompt;
+      return cleanPrompt + negativeDirectives;
   }
+}
+
+/**
+ * Helper to dynamically translate any Korean characters in a prompt to clean English before sending to the Imagen model.
+ */
+async function translateKoreanToEnglishIfNeeded(prompt: string, ai: any): Promise<string> {
+  const trimmed = (prompt || "").trim();
+  if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(trimmed)) {
+    try {
+      console.log(`[PROMPT TRANSLATION] Korean characters detected. Translating prompt to English: "${trimmed}"`);
+      const transResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `You are an expert translation engine for AI image generators (like Imagen 3).
+Translate the following mixed Korean and English prompt into a clean, beautiful, descriptive English-only image prompt.
+Keep all character traits, historic structures, clothing, postures, moods, and camera angles intact but fully expressed in English.
+IMPORTANT: Do NOT include any Korean letters (Hangul/한글) in the translated version.
+IMPORTANT: Avoid adding instructions to render text or subtitles.
+Translate "사도세자" to "Crown Prince Sado", "영조" to "King Yeongjo", "정조" to "King Jeongjo".
+
+Input Prompt: ${trimmed}
+
+Output ONLY the translated English prompt itself:`,
+        config: {
+          temperature: 0.1,
+        }
+      });
+      const translated = transResponse.text?.trim() || trimmed;
+      // Safeguard: Strip any remaining Hangul text just in case the translator yielded raw letters
+      const englishOnly = translated.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ").replace(/\s+/g, " ").trim();
+      console.log(`[PROMPT TRANSLATION] Success: "${englishOnly}"`);
+      return englishOnly;
+    } catch (err) {
+      console.error("[PROMPT TRANSLATION] Failed to translate dynamically:", err);
+      // Fallback: Strip any Korean characters so we do not pass hangul text to the image engine
+      return trimmed.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+  return trimmed;
 }
 
 /**
@@ -425,15 +468,28 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     }
 
     const ai = getGenAI(req);
+    
+    // Auto-translate any accidental Korean words/names to English to avoid text overlays
+    const translatedPrompt = await translateKoreanToEnglishIfNeeded(prompt, ai);
 
     // STRICT PORTRAIT MODIFIERS to avoid multiple people appearing in the frame
     const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
     
     // Stitch modifiers together
-    const finalPrompt = injectArtStyle(`${prompt}, ${basePortraitModifiers}`, artStyle || "yadam");
+    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "yadam");
     const activeModel = modelName || "gemini-2.5-flash-image";
 
     console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
+
+    const targetRatio = aspectRatio || "1:1";
+    let resolvedImageSize: string | undefined = undefined;
+    if (activeModel === "gemini-3.1-flash-image") {
+      if (targetRatio === "16:9" || targetRatio === "9:16") {
+        resolvedImageSize = "2K";
+      } else {
+        resolvedImageSize = "1K";
+      }
+    }
 
     const imageResponse = await callGoogleGenWithRetry(
       () => ai.models.generateContent({
@@ -443,8 +499,8 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
         },
         config: {
           imageConfig: {
-            aspectRatio: aspectRatio || "1:1",
-            imageSize: activeModel === "gemini-3.1-flash-image" ? "1K" : undefined,
+            aspectRatio: targetRatio,
+            imageSize: resolvedImageSize,
           },
         },
       }),
@@ -494,15 +550,28 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
 
     const ai = getGenAI(req);
     
-    let basePrompt = prompt;
+    // Auto-translate any accidental Korean words/names to English to avoid text overlays
+    const translatedPrompt = await translateKoreanToEnglishIfNeeded(prompt, ai);
+    
+    let basePrompt = translatedPrompt;
     if (isWanIntro) {
-      basePrompt = `${prompt}, high-integrity WAN dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
+      basePrompt = `${translatedPrompt}, high-integrity WAN dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
     }
     
     const finalPrompt = injectArtStyle(basePrompt, artStyle || "yadam");
     const activeModel = modelName || "gemini-2.5-flash-image";
 
     console.log(`Generating scene image. Model: ${activeModel}, WAN-Intro: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
+
+    const targetRatio = aspectRatio || "16:9";
+    let resolvedImageSize: string | undefined = undefined;
+    if (activeModel === "gemini-3.1-flash-image") {
+      if (targetRatio === "16:9" || targetRatio === "9:16") {
+        resolvedImageSize = "2K";
+      } else {
+        resolvedImageSize = "1K";
+      }
+    }
 
     const imageResponse = await callGoogleGenWithRetry(
       () => ai.models.generateContent({
@@ -512,8 +581,8 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
         },
         config: {
           imageConfig: {
-            aspectRatio: aspectRatio || "16:9",
-            imageSize: activeModel === "gemini-3.1-flash-image" ? "1K" : undefined,
+            aspectRatio: targetRatio,
+            imageSize: resolvedImageSize,
           },
         },
       }),
@@ -620,7 +689,7 @@ Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail t
           items: { type: Type.STRING }
         },
         recommendedText: { type: Type.STRING, description: "The single best caption recommended for generating the highest possible CTR." },
-        recommendationReason: { type: Type.STRING, description: "Detailed Korean explanation of the tactical psychological reason why this recommended text will hook viewers." }
+        recommendationReason: { type: Type.STRING, description: "Detailed Korean explanation of the tactical marketing-strategic reason why this recommended text will hook viewers." }
       },
       required: ["chosenSceneId", "sceneTitle", "selectionReason", "visualPrompt", "textCandidates", "recommendedText", "recommendationReason"]
     };
@@ -798,6 +867,11 @@ async function startServer() {
   // Support static loading of assets first if we need
   app.use("/assets", express.static(path.join(process.cwd(), "assets")));
 
+  // Serve the raw yadam helper HTML tool directly
+  app.get("/yadam_generator.html", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "yadam_generator.html"));
+  });
+
   if (process.env.NODE_ENV !== "production") {
     // Development server with Vite middleware hot module reloading
     const vite = await createViteServer({
@@ -948,6 +1022,75 @@ function parseStructuredScript(script: string) {
     }
   }
 
+  // 1.5. 추가 캐릭터 자동 매칭 및 탐지 (대본 맨 위에 명세 정의 문단이 생략된 TTS 원고 입력 경우 대비)
+  const defaultCharIds = ["Ch_A", "Ch_B", "Ch_C", "Ch_D", "Ch_E", "Ch_F", "Ch_G", "Ch_H"];
+  defaultCharIds.forEach(charId => {
+    // Ch_A_Old etc.도 Ch_A를 포함하므로, Ch_[A-H] 형태로 대본에 언급되어 있지만 맵에 정의되지 않은 경우 자동 사전 생성
+    if (!charactersMap.has(charId) && (script.includes(charId) || script.includes(charId + "_"))) {
+      let displayName = charId;
+      if (charId === "Ch_A") displayName = "사도세자";
+      else if (charId === "Ch_B") displayName = "영조";
+      else if (charId === "Ch_C") displayName = "혜경궁 홍씨";
+      else if (charId === "Ch_D") displayName = "영빈 이씨";
+      else if (charId === "Ch_E") displayName = "나경언";
+      else if (charId === "Ch_F") displayName = "노론 대감";
+      else if (charId === "Ch_G") displayName = "홍봉한";
+      else if (charId === "Ch_H") displayName = "정조";
+
+      let gender = (charId === "Ch_C" || charId === "Ch_D") ? "여성" : "남성";
+      
+      let characterSheetPrompt = "";
+      let appearanceEnglish = "";
+      let clothingEnglish = "";
+      
+      if (charId === "Ch_B") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single elderly Joseon king, red royal dragon robe, ikseongwan royal crown, looking silent and stern, traditional grey long beard, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "stern, deeply wrinkled elderly Joseon king, traditional grey long beard";
+        clothingEnglish = "majestic red royal dragon robe, black royal crown hat ikseongwan";
+      } else if (charId === "Ch_A") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single young Joseon prince, disheveled royal blue robe, pale tragic face, no beard, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "tragic young Joseon crown prince, pale face, emotional eyes, no beard";
+        clothingEnglish = "disheveled royal blue silk robe";
+      } else if (charId === "Ch_C") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single young beautiful Joseon noblewoman, elegant complex traditional hair ornament with binyeo hairpin, green silk Hanbok dress, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "young beautiful Joseon princess, elegant complex traditional hair ornament";
+        clothingEnglish = "gorgeous green silk Hanbok dress with gold patterns";
+      } else if (charId === "Ch_D") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 60-year old Joseon royal concubine, elegant traditional hair ornament, green silk Hanbok, weep expression, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "wise 60-year-old Joseon court concubine, sorrowful expression";
+        clothingEnglish = "traditional dark green royal hanbok";
+      } else if (charId === "Ch_E") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 30-year old Joseon man, traditional hanbok and topknot hair, thin sparse mustache, looking anxious, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "anxious-looking 30-year-old Joseon man, neat topknot";
+        clothingEnglish = "simple brownish Joseon plebeian hanbok";
+      } else if (charId === "Ch_F") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 55-year old Joseon nobleman, dark administrative robe and samo hat, thick black-grey beard, look of subtle conspiracy, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "conspiratorial 55-year-old Korean minister, thick greyish beard";
+        clothingEnglish = "dark green Joseon administrative uniform robe with samo hat";
+      } else if (charId === "Ch_G") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 50-year old Joseon minister, dark administrative hat, long dark beard, complex calculating look, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "calculating 50-year-old Joseon politician minister, long dark beard";
+        clothingEnglish = "traditional administrative navy silk robe with samo hat";
+      } else if (charId === "Ch_H") {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 25-year old Joseon king Jeongjo, majestic red dragon robe, ikseongwan crown, neat thin mustache beard, powerful direct gaze, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "young confident Joseon king with strong direct gaze, thin neat mustache beard";
+        clothingEnglish = "red royal dragon robe with gold emblems, royal crown ikseongwan";
+      }
+
+      charactersMap.set(charId, {
+        name: displayName,
+        gender,
+        age: "분석 자동 추정군",
+        appearance: "대본 기반 식별 특징",
+        clothing: charId === "Ch_B" || charId === "Ch_H" ? "붉은 곤룡포, 익선관" : (gender === "여성" ? "당의, 전통 한복" : "조선 도포, 상투"),
+        traits: `${displayName}의 자동 임플리시트 생성 인자`,
+        characterSheetPrompt,
+        appearanceEnglish,
+        clothingEnglish
+      });
+    }
+  });
+
   // 기본 캐릭터 폴백 (유실 방지)
   if (charactersMap.size === 0) {
     charactersMap.set("DefaultJoseon", {
@@ -995,34 +1138,71 @@ function parseStructuredScript(script: string) {
 
   for (const [id, blockText] of rawSceneBlocksMap.entries()) {
     // 씬 헤더에서 장소, 인물 정보, 나레이션과 비주얼 텍스트 추출
-    // 양식 예: [조선시대 창경궁 문정전 앞마당, 밤 / 인물 없음] / "비바람이..." (빗물이...)
-    // 패턴을 포용력 있게 매치하기 위한 넉넉한 정규식
+    // 양식 1: [S10.] [조선시대 궁여 앞마당, 밤 / Ch_A] "비바람이..." (빗물이...)
+    // 양식 2 (정제형 TTS): [S10.] "비바람이..." (빗물이 Ch_A 얼굴을 적시는...)
     const headerRegex = /\[S\d+\.?\]\s*\[\s*([^/\]]+?)(?:\s*\/\s*([^\]]+))?\]\s*(?:\/)?\s*"([^"]+)"\s*(?:\(([^)]+)\))?/;
-    const headMatch = blockText.match(headerRegex);
+    let headMatch = blockText.match(headerRegex);
     
-    if (!headMatch) continue;
-    
-    const locationRaw = headMatch[1].trim();
-    const characterRaw = headMatch[2] ? headMatch[2].trim() : "인물 없음";
-    const narrationText = headMatch[3].trim();
-    const visualDescription = headMatch[4] ? headMatch[4].trim() : "";
+    let locationRaw = "미지정 야담 배경";
+    let characterRaw = "인물 자동 분석";
+    let narrationText = "";
+    let visualDescription = "";
+
+    if (headMatch) {
+      locationRaw = headMatch[1].trim();
+      characterRaw = headMatch[2] ? headMatch[2].trim() : "인물 없음";
+      narrationText = headMatch[3].trim();
+      visualDescription = headMatch[4] ? headMatch[4].trim() : "";
+    } else {
+      // 정제형 TTS 포맷 파싱 및 결합 시도 (S씬번호 다음에 장소 대괄호가 없고 바로 따옴표 내레이션 및 괄호 지시어가 깔렸을 시)
+      const fallbackRegex = /\[S\d+\.?\]\s*(?:"([^"]+)"|([^"(\n]+))\s*(?:\(([^)]+)\))?/;
+      const fallbackMatch = blockText.match(fallbackRegex);
+      if (fallbackMatch) {
+        narrationText = (fallbackMatch[1] || fallbackMatch[2] || "").trim();
+        visualDescription = fallbackMatch[3] ? fallbackMatch[3].trim() : "";
+        locationRaw = "조선 야담 배경";
+        characterRaw = "조선 인물";
+      } else {
+        // 완전 비정형 형태 구제: 씬 번호 제외한 나머지 전체 텍스트를 내레이션으로 전수 투입
+        const cleanContent = blockText.replace(/\[S\d+\.?\]/, "").trim();
+        if (cleanContent.length > 3) {
+          narrationText = cleanContent;
+          locationRaw = "야담 유동 배경";
+          characterRaw = "조선 인물";
+        } else {
+          continue; // 유의미한 콘텐츠가 없어 스킵
+        }
+      }
+    }
 
     // 위치 라벨 가공
     const cleanLocName = locationRaw.split(",")[0].trim();
-    locationsMap.set(cleanLocName, locationRaw);
+    if (!locationsMap.has(cleanLocName)) {
+      locationsMap.set(cleanLocName, locationRaw);
+    }
 
     // 씬 내 등장인물 추출
     const sceneCharacters: string[] = [];
-    for (const [charId, charObj] of charactersMap.entries()) {
-      if (characterRaw.includes(charId)) {
-        sceneCharacters.push(charObj.name);
+    if (characterRaw !== "인물 자동 분석" && characterRaw !== "인물 없음") {
+      for (const [charId, charObj] of charactersMap.entries()) {
+        if (characterRaw.includes(charId)) {
+          sceneCharacters.push(charObj.name);
+        }
       }
     }
-    if (sceneCharacters.length === 0 && characterRaw !== "인물 없음" && characterRaw.trim().length > 0) {
-      // Ch_ID 외에 일반 텍스트 매칭 보조
-      for (const [charId, charObj] of charactersMap.entries()) {
+
+    // 지능형 내 텍스트 인물 언급 분석 (TTS나 연출 지문에 직접 기호화/인명 언급이 있는 지 탐색하여 자동 할당)
+    for (const [charId, charObj] of charactersMap.entries()) {
+      if (!sceneCharacters.includes(charObj.name)) {
         const simpleName = charObj.name.split(" ")[0];
-        if (characterRaw.includes(charObj.name) || characterRaw.includes(simpleName)) {
+        if (
+          blockText.includes(charId) ||
+          narrationText.includes(charObj.name) ||
+          narrationText.includes(simpleName) ||
+          visualDescription.includes(charId) ||
+          visualDescription.includes(charObj.name) ||
+          visualDescription.includes(simpleName)
+        ) {
           sceneCharacters.push(charObj.name);
         }
       }
