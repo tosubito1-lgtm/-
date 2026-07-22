@@ -87,21 +87,95 @@ Your goals are:
 3. Generate a modular sequence of storyboard scene blocks matching the timeline.
 
 === ARCHITECTURAL GUIDELINES ===
-- Character Sheets: Create clean portrait prompts for character s- Joseon Period Historical Accuracy, Prop Representation & Organic Reconstruction of Unrecorded Blanks:
-  - You MUST firmly ground all story elements, roles, and settings in actual historical records of the Joseon Period (such as the Annals of the Joseon Dynasty - 조선왕조실록, Seungjeongwon Ilgi - 승정원일기, or classic unofficial historical tales - 야사).
-  - For historical mysteries or missing elements not recorded in official annals, do NOT utilize modern fantasy, sci-fi, or anachronistic logic. Instead, fill the narrative blanks organically with highly plausible events that perfectly align with Joseon's geopolitical atmosphere (such as factional strife like Noron vs Soron, royal relative politics), legal/investigative frameworks (Gyeongguk Daejeon, Uigeumbu, Podochoeng), and Confucian societal norms and customs of that specific era.
-  - You MUST translate any modern tools/structures/props into their authentic Joseon-era traditional counterparts. Absolutely NO modern plastic, modern glass, steel tubular legs, or modern metal wire holders.
-  - If a "지구의" (terrestrial globe) or "지구본" is mentioned, describe it as: "an antique traditional hand-painted paper terrestrial globe (지구의) cradled on an ornate Joseon-period hand-carved dark wooden floor stand, decorated with elegant black ink calligraphic names and traditional water-color map routes."
-  - If astronomical instruments or clocks are mentioned, describe them as: "a traditional Joseon bronze Honcheonui (혼천의) armillary sphere with intricate rustic brass rings and heavy dark wooden frames."
-  - Avoid modern furniture. Instead, utilize low writing desks (서안), wooden storage chests (반닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍) to establish an authentic Joseon interior ambiance.
-  - Zero Anachronism: Ensure complete historical consistency in titles, clothes (e.g., gonryongpo, durumagi, dangui), and vocabulary. Use dignified, classic Joseon-style narrative tone and dialogue styling without modern terms.��닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍) to establish an authentic Joseon interior ambiance.
-- Scene Timeline:
-  - If quantityOverride is active, divide the narrative beats of the script into exactly ${quantityValue} scenes.
+- Character Sheets: Create clean portrait prompts for characters.
+- Multi-Era Historical Adaptability, Prop Representation & Organic Reconstruction of Unrecorded Blanks:
+  - You MUST first analyze the script text and identify the historical era being depicted. If it belongs to Silla (신라), Goguryeo (고구려), Baekje (백제), Gaya (가야), or is referred to as the Three Kingdoms period (삼국시대), adjust all descriptions to that period. If it belongs to Goryeo (고려시대), adjust to Goryeo. Otherwise, default to Joseon (조선시대).
+  - Dynamically adapt the architectural styles, clothing, headwear, hair, interior furniture, and historical source citations to perfectly match that detected era:
+    1. If Three Kingdoms Period (삼국시대: 고구려, 백제, 신라, 가야) is detected:
+       - Historical Citations: Ground story elements in Samguk Sagi (삼국사기), Samguk Yusa (삼국유사), or ancient legends.
+       - Clothing/Headwear: Noble long belted robes (포 - Po) with contrasting color collar and sleeve hems, simple silk trousers/skirts with waistbands. Elegant metal crowns or decorative silk bird-feather hats (조우관 - Jougwan), leather boots. No Chosun durumagi or black lacquer gat hats.
+       - Hair: Noble topknots bound with ornate bronze/gold pins or diadem ornaments.
+       - Architecture/Interior: Palace rooms with heavy red-lacquered pillars, golden-bronze ceiling/wall ornaments, ancient tomb murals (고분벽화), stone fortresses, bronze incense burners, or celadon jars (like the Baekje Gilt-bronze Incense Burner).
+    2. If Goryeo Period (고려시대) is detected:
+       - Historical Citations: Ground in Goryeosa (고려사), Goryeosa Jeolyo (고려사절요), or unofficial tales.
+       - Clothing/Headwear: Elegant Goryeo-era Hanbok, high-collared pleated robes, celadon-blue silk dresses, decorative round collar robes, Goryeo caps (복두 - Bokdu, 사모 - Samo).
+       - Architecture/Interior: Goryeo wooden temples and palaces, green-glazed tile roofs, celadon incense burners (고려청자), low wooden tables, or ornate Buddhist paintings.
+    3. If Joseon Period (조선시대) or Default is detected:
+       - Historical Citations: Ground in Annals of the Joseon Dynasty (조선왕조실록), Seungjeongwon Ilgi (승정원일기), or unofficial tales (야사).
+       - Clothing: Durumagi, dopo (scholar's robe), black lacquer translucent gat hat, red/blue dragon embroidered royal robes (곤룡포 - Gonryongpo) for kings, and ceremonial 당의 (Dangui) or 상궁당의 for women.
+       - Architecture/Interior: Low writing desks (서안), wooden storage chests (반닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍).
+  - For historical mysteries or missing elements not recorded in official records, do NOT utilize modern fantasy or sci-fi logic. Instead, fill the narrative blanks organically with highly plausible events that perfectly align with that specific era's geopolitical atmosphere (e.g., factional/clan politics, court conspiracies), legal/investigative frameworks, and societal norms/customs.
+  - You MUST translate any modern tools/structures/props into their authentic traditional counterparts of that era. Absolutely NO modern plastic, modern glass, steel tubular legs, or modern metal wire holders.
+  - If a "지구의" (terrestrial globe) or "지구본" is mentioned, describe it as: "an antique traditional hand-painted paper terrestrial globe (지구의) cradled on an ornate hand-carved dark wooden floor stand, decorated with elegant black ink calligraphic names and traditional water-color map routes."
+  - If astronomical instruments or clocks are mentioned, describe them as: "a traditional bronze Honcheonui (혼천의) armillary sphere or elegant water clock with intricate rustic brass rings and heavy dark wooden frames."
+  - Zero Anachronism: Ensure complete historical consistency in titles, clothes, and vocabulary. Use dignified, classic Korean-style narrative tone and dialogue styling of that specific era without modern terms.
+- Scene Timeline & Duration Workflow Rules:
+  - Longform Mode (Default / 60 scenes):
+    - Intro Section (Scenes 1 ~ 8): Exactly 10 seconds per scene (8 scenes = 80s). Focus on fast LTX video motion & opening hooks.
+    - Main Story Section (Scenes 9 ~ 58): Exactly 15 seconds per scene (50 scenes = 750s). Focus on rich narration and dynamic slide zoom/pan camera movements.
+    - Outro Section (Scenes 59 ~ 60): Exactly 10 seconds per scene (2 scenes = 20s). Focus on historical source proof & channel subscribe calls. Total = 850 seconds (14 minutes 10 seconds).
+  - Shorts Mode (Shorts / 10 scenes):
+    - Scenes 1 ~ 10: Exactly 10 seconds per scene (10 scenes = 100s / 1 minute 40s). All vertical video optimized with 10s fixed cadence.
+  - If quantityOverride is active, divide the narrative beats of the script into exactly \${quantityValue} scenes.
   - If quantityOverride is inactive, divide the storyboard naturally into chronological story beats (typically 5 to 12 scenes).
 - Consistent Character Description: To ensure characters look visually uniform across various scenes, describe their clothing (e.g. durumagi, gat hat), physical attributes clearly in the refined prompt.
 - English Compatibility: You MUST extract 'appearanceEnglish' and 'clothingEnglish' for characters as precise English visual key tags or phrases (e.g. 'young Joseon man with a neat topknot and a thin mustache'), and 'descriptionEnglish' for locations as evocative English setting depictions. This ensures maximum consistency when styling characters dynamically across settings.
+- Style-Agnostic Prompting Rule (CRITICAL for Dual 2D/Clay Compatibility):
+  - You MUST write all 'refinedImagePrompt' and 'characterSheetPrompt' as style-neutral/style-agnostic visual descriptions.
+  - Do NOT include medium terms such as "folklore illustration style", "illustration", "painting", "drawing", "webtoon", "anime", "photorealistic", "3D render", "claymation", or "plasticine".
+  - Instead, focus entirely on concrete subjects, physical actions, traditional clothing, Joseon architectural objects, specific camera framing, and dramatic cinematic lighting (e.g., chiaroscuro, candlelight, rim light). This ensures that any selected art style (such as claymation or 2D illustration) can be applied dynamically by the image rendering engine without visual conflict.
+  - Apply the following Stop-Motion Claymation and 2D Compatibility Constraints:
+    1. Facial Expressions: Avoid microscopic facial details (e.g., "fine wrinkles on temple", "twitching cheek muscle"). Use bold, hand-molded expressive facial cues (e.g., "wide eyes of terror", "deep downward-curved mouth of intense grief", "raised surprised eyebrow", "beads of sweat on forehead").
+    2. Attire: Avoid hyper-intricate embroidery or ultra-detailed continuous floral silk weaves on hanbok garments, as these distort in clay Stop-Motion. Instead, specify solid-colored fabrics, bold solid silk borders, and clean layered folds with distinct silhouettes (e.g., "solid royal crimson robe with simple bold gold borders").
+    3. Text: Never describe tiny readable characters or small written letters on scrolls/screens. Use clean, bold symbolic items (e.g., "an open scroll with bold dark calligraphic brushstrokes", "a simple wooden tablet with a carved seal").
+    4. Motion & Physics: Avoid hyper-fluid complex multi-body physics interactions (e.g., "dozens of small arrows flying in all directions simultaneously through a dense forest"). Claymation stop-motion requires distinct, deliberate poses. Simplify action beats to a single focused, dramatic, frozen posture or concrete outcome (e.g., "a single arrow stuck on a thick wooden tree trunk", "a character in an active low sword-stance frozen in motion").
+    5. Violence / Distress: Never use gory open wounds. Represent distress or danger through symbolic metaphors (e.g., "dark crimson atmospheric lighting casting long shadows", "broken porcelain jar on a dark floor").
 - YouTube safety compliance: For any scene involving blood, physical violence, torture, or gruesome Joseon executions, do NOT depict actual blood, gory open wounds, or gory physical trauma. Instead, translate it into abstract, high-contrast, atmospheric visual metaphors. For instance, use: 'heavy dark rain over a fractured Joseon steel sword', 'intense red atmospheric backlighting casting long shadows of a locked cell', 'glowing red mystical fire consuming paper archives', or 'dramatic black silhouette on a paper wall'.
   - Note: Non-gory physical changes or medical symptoms (such as pale face, fever, sweat beads, or subtle red spots/rashes on skin) MUST be described accurately and literally (e.g., "fine red spots and rashes on the skin of his face and arms") rather than using gory metaphors like blood pools.
+
+=== CAMERA ANGLE & COMPOSITION DIVERSIFICATION RULES (ANTI-REPETITION MANDATE) ===
+- To prevent repetitive, monotonous video streams (which are heavily filtered by YouTube's automation algorithms), you MUST dynamically diversify camera angles, framing, and visual composition styles across consecutive scenes.
+- For each scene, dynamically select and apply a distinct framing style:
+  - "Extreme Close-Up": Focus intensely on a hand gesture, a small medical bottle, an open scroll, a single candle flame, or a clue.
+  - "Close-Up Shot": Clear focus on a character's facial expression (e.g., fear, plotting, sweat beads, malicious grin).
+  - "Medium Shot": Show 1 or 2 characters interacting from the waist up.
+  - "Low-Angle Shot": Look up at a powerful King, a grand Joseon palace gate, or a dramatic mountain peak.
+  - "Wide-Angle Establishing Shot": Show small character figures in a vast landscape, windy courtyard, misty forest, or historical city.
+  - "Extreme Dutch Angle": Tilted, dramatic camera perspective suitable for secrets, shock, or chaotic moments.
+  - "Over-The-Shoulder Shot": Focus on a character looking over the shoulder of an adversary.
+- Ensure the selected camera framing is clearly written into both 'visualDescription' and 'refinedImagePrompt'.
+- You MUST also assign a matching dynamic camera motion in 'cameraMotion' property (e.g., 'dolly_in', 'dolly_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'orbit', 'slow_zoom') to guarantee cinematic motion. Choose a motion that matches the scene's emotional tone:
+  - Suspense / Clues / Fear -> 'dolly_in' or 'slow_zoom' or 'tilt_down'
+  - Revealing vast scenery / Royalty / Outer environment -> 'dolly_out' or 'pan_right' or 'pan_left' or 'tilt_up'
+  - Mystical reveal / Majestic action -> 'orbit'
+  - Do NOT set all scenes to 'none' or 'dolly_in'. Create a beautiful, diverse flow of motions across consecutive scenes.
+
+=== YOUTUBE RETENTION (시청 지속률) OPTIMIZATION 3-STAGE STRUCTURE ===
+You MUST structure the narration and scene sequence of the script into a proven high-retention 3-stage narrative arc:
+1. Stage 1: Extreme Opening Hook (Scenes 1 ~ 2) - "0-15s Hook & Curiosity Trigger":
+   - Immediately project a shocking revelation, dramatic moment preview, or unexpected mystery in the first 1-2 scenes to prevent viewer drop-off.
+   - Make the opening narration punchy and provocative, instantly planting a core curiosity question (e.g. "한밤중 조선 왕실을 흔든 시신... 백성들이 기겁한 이유는 단 하나였습니다").
+2. Stage 2: Tension Build-up & Multi-Clue Conflict (Middle Scenes) - "Incremental Suspense & Conflict Escalation":
+   - Maintain crisp, rhythmic narration pacing (maximum 1-2 concise sentences per scene, smooth natural speech flow for TTS).
+   - Escalates conflict step-by-step between characters, revealing clues incrementally so viewers remain hooked for the answer.
+3. Stage 3: Payoff Peak, Dramatic Twist & Outro (Final Scenes) - "Climax Resolution & Proof Bridge":
+   - Unveil the satisfying climax or shocking twist seamlessly without lingering fluff.
+   - Connect directly into the Enforced 2-Scene Outro (Penultimate: Historical Source Verification / Ultimate: Lingering Closure & Subscribe Call).
+
+=== ENFORCED 2-SCENE OUTRO STRUCTURE ===
+You MUST enforce a strict 2-scene Outro structure for the final two scenes of the generated timeline (Scenes N-1 and N, where N is the total scene count):
+1. Penultimate Scene (Scene N-1): 'Historical Evidence Verification'
+   - Theme: Historical source verification or historical context matching the identified historical era.
+   - Narration: Present the historical proof (e.g., referencing Samguk Sagi/Samguk Yusa for Silla/Goguryeo/Baekje, Goryeosa for Goryeo, or the Annals of the Joseon Dynasty for Joseon) clearly in Korean narration, tailored to the actual historical facts in the script. The text must be direct, clean, and conversational, so it can be pasted directly into a TTS program (e.g., "오늘의 기이한 이야기는 놀랍게도 상상력이 아닌, 실제 역사에 고스란히 기록된 사초를 바탕으로 재구성되었습니다. 과연 그 속의 감춰진 진실은 무엇이었을까요?").
+   - Setting: An ancient study (서고), open scroll (족자), historical record book (실록 서책), or royal map, matching the visual elements of the identified era.
+   - Refined Image Prompt: Evocative depiction of an ancient open paper scroll or a thick traditional book with calligraphy resting on an ornate low writing desk under soft, dim candlelight in a quiet traditional library room of that specific era, beautiful composition, detailed texture. No text or modern clutter.
+2. Ultimate Scene (Scene N): 'Cinematic Closing & Outro'
+   - Theme: Lingering closure, channel subscription and like call.
+   - Narration: A seamless bridge summarizing the philosophical lesson or lingering mystery of the tale, followed by a warm closing, subscription, and comment invitation (e.g., "역사 속 진실은 어둠 속에 묻혔지만, 여운은 깊게 남습니다. 재미있으셨다면 구독과 좋아요를 눌러 더 미스터리한 우리의 역사 속으로 함께 떠나보세요. 감사합니다.").
+   - Setting: A peaceful and atmospheric landscape or quiet interior matching the era and the tale's emotional peak, lingering mystery, cozy candlelight or cold moonlight, beautiful composition, fade-out mood. No text or modern clutter.
+   - Refined Image Prompt: A highly cinematic, peaceful, and atmospheric traditional Korean landscape or interior of that specific era matching the tale's emotional peak, lingering mystery, cozy candlelight or cold moonlight, beautiful composition, fade-out mood. No text or modern clutter.
+
+Ensure these two scenes are ALWAYS generated as the final two scenes. This keeps the historical details clean, preventing them from cluttering the main storyline beats, and guarantees a professional, high-retention video ending.
 
 === ACCURACY & FAITHFULNESS TO STAGE DIRECTIONS ===
 - The 'refinedImagePrompt' MUST serve as a highly faithful visual representation of the 'visualDescription' (Stage Direction/Depiction) and the scene's emotional context.
@@ -187,9 +261,14 @@ Your goals are:
               refinedImagePrompt: {
                 type: Type.STRING,
                 description: "English image generation prompt including characters present, background lighting, angle, Joseon period detail, and mood. Ensure physical acts are described safely and metaphorically."
+              },
+              cameraMotion: {
+                type: Type.STRING,
+                description: "The recommended cinematic camera motion effect. Choose from: 'none', 'dolly_in', 'dolly_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'orbit', 'slow_zoom'.",
+                enum: ["none", "dolly_in", "dolly_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit", "slow_zoom"]
               }
             },
-            required: ["id", "stage", "locationName", "characterNames", "narrationText", "visualDescription", "refinedImagePrompt"]
+            required: ["id", "stage", "locationName", "characterNames", "narrationText", "visualDescription", "refinedImagePrompt", "cameraMotion"]
           }
         }
       },
@@ -223,6 +302,57 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
     );
 
     const parsedJson = JSON.parse(response.text?.trim() || "{}");
+
+    // Post-process durationSeconds and SRT timecodes based on workflow rules
+    if (parsedJson.scenes && Array.isArray(parsedJson.scenes)) {
+      const totalScenes = parsedJson.scenes.length;
+      const isShorts = quantityOverride && quantityValue <= 15;
+      let cumulativeSec = 0;
+
+      parsedJson.scenes = parsedJson.scenes.map((sc: any, idx: number) => {
+        const sceneNum = sc.id || (idx + 1);
+        let duration = 15;
+
+        if (isShorts || totalScenes <= 15) {
+          // Shorts mode: 10 seconds per scene (10 scenes = 100 seconds total)
+          duration = 10;
+        } else {
+          // Longform mode (60 scenes = approx 14m 10s = 850s)
+          // Intro (Scenes 1 ~ 8): 10 seconds per scene
+          // Main Body (Scenes 9 ~ totalScenes - 2): 15 seconds per scene
+          // Outro (Scenes totalScenes - 1 ~ totalScenes): 10 seconds per scene
+          if (sceneNum <= 8) {
+            duration = 10;
+          } else if (sceneNum > totalScenes - 2) {
+            duration = 10;
+          } else {
+            duration = 15;
+          }
+        }
+
+        const startSec = cumulativeSec;
+        const endSec = startSec + duration;
+        cumulativeSec = endSec;
+
+        const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+        const formatSRT = (sec: number) => {
+          const h = Math.floor(sec / 3600);
+          const m = Math.floor((sec % 3600) / 60);
+          const s = Math.floor(sec % 60);
+          const ms = Math.floor((sec % 1) * 1000);
+          return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+        };
+
+        return {
+          ...sc,
+          id: sceneNum,
+          durationSeconds: duration,
+          startTimecode: formatSRT(startSec),
+          endTimecode: formatSRT(endSec),
+        };
+      });
+    }
+
     res.json(parsedJson);
 
   } catch (error: any) {
@@ -234,12 +364,14 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
 /**
  * Helper to wrap image prompts with art style modifiers
  */
-function injectArtStyle(prompt: string, style: "realistic" | "3d" | "anime" | "yadam"): string {
+function injectArtStyle(prompt: string, style: "realistic" | "3d" | "anime" | "yadam" | "claymation"): string {
   const cleanPrompt = prompt.trim().replace(/[\.+]$/, ""); // remove trailing dot
   // Strict negative visual directives to prevent subtitles, text overlays, watermarks, or literal Korean typography/names from cluttering the canvas
   const negativeDirectives = ", absolutely no text overlay, no watermarks, no logos, no subtitles, no captions, no hangul characters, no written letters, no lettering, no written Korean names on image, clean pure visual painting only";
   
   switch (style) {
+    case "claymation":
+      return `${cleanPrompt}, premium stop-motion claymation style, hand-crafted plasticine clay puppet figures with highly detailed clothing and expressive faces, realistic clay model textures with subtle soft fingerprints and delicate craft lines, masterfully constructed miniature Joseon Dynasty historical sets made of colored clay, wood, and textured papercraft, high-contrast dramatic studio cinematic lighting with deep shadows, volumetric atmospheric fog, cinema-grade grading, sophisticated mature stop-motion aesthetic, shallow depth of field, professional clay artist studio craftsmanship, same cohesive art style throughout entire story, consistent character shapes${negativeDirectives}`;
     case "yadam":
       return `${cleanPrompt}, premium Korean historical webtoon illustration style, high-contrast emotional Joseon dynasty storytelling manhwa, traditional folklore mystery atmosphere, detailed traditional Hanbok textures, clean line art with soft cinematic shading, warm lighting, same art style throughout entire story, consistent character appearance, consistent clothing, animation-friendly layout, high-CTR visual appeal${negativeDirectives}`;
     case "realistic":
@@ -372,7 +504,7 @@ Maximum 40 words.
 
       systemInstruction = `
 You are a translation assistant specializing in image generation prompt engineering.
-Translate the Korean storytelling narration and stage directions of a Joseon-era historical scene into a beautiful, evocative English image prompt.
+Translate the Korean storytelling narration and stage directions of a traditional Korean historical scene (such as Joseon, Goryeo, or the Three Kingdoms period - Goguryeo, Baekje, Silla) into a beautiful, evocative English image prompt.
 
 CRITICAL TASK: For the involved characters listed below, you MUST strictly inject and preserve their specific physical traits (such as face details, beard length/grooming, hairstyle, headwear) and clothing style/colors in the active scene. This is essential to enforce absolute storyboard character consistency across different images!
 Character Profiles to Enforce:
@@ -380,22 +512,32 @@ ${formattedChars}
 
 DYNAMIC EXCEPTION RULE: If the Korean narration or stage directions (the input text) explicitly describes temporary state changes, dramatic overrides, or historical age variations (such as childhood/youth memories, severe illness, being gaunt or pale, injuries, undercover disguises, or different garments), you must PRIORITIZE these contextual indicators! Keep the facial structure but adapt details logically:
 - DO NOT apply beards, mature wrinkles, or adult accessories if a character is depicted back in childhood/past memories.
-- JOSEON CHILDHOOD HAIRSTYLE RULE: When rendering a character in childhood/youth (such as a young prince/king, youth memory), **NEVER** write or generate shaved, bald, or closely cropped hair (as they are not Buddhist monks). Instead, specify traditional Korean child/youth hairstyles like neatly braided ribbon hair ("daenggi-meori braided ponytail", "long braided hair with a crimson ribbon") or classic traditional Joseon kids' hair.
+- KOREAN CHILDHOOD HAIRSTYLE RULE: When rendering a character in childhood/youth (such as a young prince/king/noble, youth memory), **NEVER** write or generate shaved, bald, or closely cropped hair (as they are not Buddhist monks). Instead, specify traditional Korean child/youth hairstyles like neatly braided ribbon hair ("daenggi-meori braided ponytail", "long braided hair with a crimson ribbon") or classic traditional Korean kids' hair.
 - DO NOT render them looking muscular or healthy if the narration describes them as starving, severely wounded, or sick (render pale skin, gaunt cheeks, etc. instead).
 - YOUTUBE COMPLIANCE & SAFETY RULE: If there is explicit blood, violence, or gore in the text, DO NOT describe graphic physical wounds or raw red blood splatter directly (this risks safety censorship and YouTube guidelines violations). Instead, render the violence artfully and metaphorically: use cues like "dramatic dark crimson lightning/mist", "fallen crimson petals scattered on the wet dark floor", "ominous shadow of a blade on a paper shoji screen door", "shattered porcelain cups on the ground with dark spill", or "an intense facial expression of physical shock/pain in deep shadows". Use cinematic, poetic expression to convey the tragedy.
 - Synthesize the base profile with the temporary dramatic states flawlessly.
 
-- KEY HISTORICAL OBJECTS & ARTIFACTS STABILITY RULE: If the Korean narration or stage directions refers to a narrative-crucial historical Joseon artifact or iconic object, you MUST use a highly standardized, precise English visual archetype to preserve flawless object stability across images:
-  * "뒤주" (Prince Sado's Rice Chest/Duiju) -> Translate as "a heavy, raw rectangular Joseon weathered dark-wood grain rice chest ('Duiju'), bound with thick flat black iron bands and a massive vintage dynamic padlock".
-  * "자격루" (Water Clock/Jagyeokru) -> Translate as "Jang Yeong-sil's grand mechanical water clock ('Jagyeokru'), showing hierarchical tiered bronze vessels feeding dark flowing water through detailed pipes into a main vertical metallic cylinder".
+- KEY HISTORICAL OBJECTS & ARTIFACTS STABILITY RULE: If the Korean narration or stage directions refers to a narrative-crucial historical Korean artifact or iconic object, you MUST use a highly standardized, precise English visual archetype to preserve flawless object stability across images:
+  * "뒤주" (Rice Chest/Duiju) -> Translate as "a heavy, raw rectangular weathered traditional Korean dark-wood grain rice chest ('Duiju'), bound with thick flat black iron bands and a massive vintage dynamic padlock".
+  * "자격루" (Water Clock/Jagyeokru) -> Translate as "a grand traditional mechanical water clock ('Jagyeokru') with hierarchical tiered bronze vessels feeding dark flowing water through detailed pipes into a main vertical metallic cylinder".
   * "혼천의" (Celestial Globe/Honcheonui) -> Translate as "a beautiful, complex orbital bronze astronomical model ('Honcheonui') with rotating concentric metallic rings, dense brass celestial gearings, and star map engravings".
   * "칼" (Cangue/Wooden Collar for prisoners) -> Translate as "a wide, split rectangular heavy raw-grain wooden stock collar ('Cangue') with splinters, clamped securely locked around the prisoner's neck".
-  * "거북선" / "귀선" (Turtle Ship) -> Translate as "a terrifying Joseon armored Turtle Ship ('Geobukseon') with a dark scale-plated iron roof covered in sharp spikes, a smoke-breathing dragon-head bow, and wooden oars dipping into sea".
-  * "신기전" (Rocket Launcher Cart) -> Translate as "a wooden Joseon multiple rocket launcher box ('Singijeon') holding dozens of black-powder tipped fire arrows mounted on a rugged vintage war-wagon".
+  * "거북선" / "귀선" (Turtle Ship) -> Translate as "a terrifying armored Turtle Ship ('Geobukseon') with a dark scale-plated iron roof covered in sharp spikes, a smoke-breathing dragon-head bow, and wooden oars dipping into sea".
+  * "신기전" (Rocket Launcher Cart) -> Translate as "a wooden traditional multiple rocket launcher box ('Singijeon') holding dozens of black-powder tipped fire arrows mounted on a rugged vintage war-wagon".
   * "마패" (Secret Inspector Seal) -> Translate as "a heavy circular bronze horse medallion inspector seal ('Mapae') with distinct deeply-engraved horse illustrations dangling on a coarse crimson silk tassels".
-  * "용포" / "곤룡포" (Dragon Robe) -> Translate as "a royal crimson-silk dragon robe ('Gonryongpo') featuring a meticulously hand-embroidered, gleaming fine-gold circular five-clawed dragon emblem on the center chest and shoulders".
+  * "용포" / "곤룡포" / "어의" (Dragon Robe/King's Robe) -> If Three Kingdoms period, translate as "a royal long silk robe featuring golden bird or wave border embroidery with a wide silk sash belt". If Goryeo, translate as "a royal Goryeo-style round-collared silk robe with delicate gold-embroidered roundels on the shoulders and chest". If Joseon, translate as "a royal crimson-silk dragon robe ('Gonryongpo') featuring a meticulously hand-embroidered, gleaming fine-gold circular five-clawed dragon emblem on the center chest and shoulders".
+  * "백제금동대향로" (Baekje Gilt-bronze Incense Burner) -> Translate as "the legendary Baekje gilt-bronze incense burner, a highly ornate crown-topped bronze vessel with intricate relief carvings of mountain peaks, musicians, animals, and a phoenix on top, emitting a thin wisp of incense smoke".
+  * "고려청자" (Goryeo Celadon) -> Translate as "an elegant Goryeo-period jade-green glazed celadon vase ('Goryeo Cheongja') with hand-carved flying crane and cloud patterns, boasting a smooth lustrous finish".
+  * "환두대도" (Ring-pommel Sword of Three Kingdoms) -> Translate as "a traditional ancient Korean ring-pommel iron sword ('Hwandudaedo'), featuring a circular decorative gold pommel ring with a dragon engraving and a polished dark wood sheath with brass fittings".
 
 Integrated Location Profile: ${locationDesc || "None"}
+
+- CLAYMATION & 2D COMPATIBILITY RULES:
+  1. Facial Expressions: Avoid microscopic facial details (e.g., "fine wrinkles on temple", "twitching cheek muscle"). Use bold, hand-molded expressive facial cues (e.g., "wide eyes of terror", "deep downward-curved mouth of intense grief", "raised surprised eyebrow", "beads of sweat on forehead").
+  2. Attire: Avoid hyper-intricate embroidery or ultra-detailed continuous floral silk weaves on hanbok garments, as these distort in clay Stop-Motion. Instead, specify solid-colored fabrics, bold solid silk borders, and clean layered folds with distinct silhouettes (e.g., "solid royal crimson robe with simple bold gold borders").
+  3. Text: Never describe tiny readable characters or small written letters on scrolls/screens. Use clean, bold symbolic items (e.g., "an open scroll with bold dark calligraphic brushstrokes", "a simple wooden tablet with a carved seal").
+  4. Motion & Physics: Avoid hyper-fluid complex multi-body physics interactions (e.g., "dozens of small arrows flying in all directions simultaneously through a dense forest"). Claymation stop-motion requires distinct, deliberate poses. Simplify action beats to a single focused, dramatic, frozen posture or concrete outcome (e.g., "a single arrow stuck on a thick wooden tree trunk", "a character in an active low sword-stance frozen in motion").
+  5. Violence / Distress: Never use gory open wounds. Represent distress or danger through symbolic metaphors (e.g., "dark crimson atmospheric lighting casting long shadows", "broken porcelain jar on a dark floor").
 
 Ensure no text overlay or modern elements. Focus strictly on Joseon-era historical accuracy, composition, color grading, lighting, facial expressions, and dynamic postures. Output ONLY the translated visual English rendering prompt.
 Maximum 65 words.
@@ -476,7 +618,7 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
     
     // Stitch modifiers together
-    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "yadam");
+    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "claymation");
     const activeModel = modelName || "gemini-2.5-flash-image";
 
     console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
@@ -558,7 +700,7 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
       basePrompt = `${translatedPrompt}, high-integrity WAN dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
     }
     
-    const finalPrompt = injectArtStyle(basePrompt, artStyle || "yadam");
+    const finalPrompt = injectArtStyle(basePrompt, artStyle || "claymation");
     const activeModel = modelName || "gemini-2.5-flash-image";
 
     console.log(`Generating scene image. Model: ${activeModel}, WAN-Intro: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
@@ -624,7 +766,7 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
  */
 app.post("/api/analyze-thumbnail-director", async (req, res): Promise<void> => {
   try {
-    const { script, scenes, characters, locations } = req.body;
+    const { script, scenes, characters, locations, compositionStyleOverride, colorMoodOverride } = req.body;
     if (!script || !scenes || !Array.isArray(scenes) || scenes.length === 0) {
       res.status(400).json({ error: "Script text and storyboard scenes array are required." });
       return;
@@ -633,47 +775,82 @@ app.post("/api/analyze-thumbnail-director", async (req, res): Promise<void> => {
     const ai = getGenAI(req);
 
     const systemInstruction = `
-You are a legendary YouTube Thumbnail Director specializing in historical story, folklore (야담), and dark mystery YouTube channels.
-Your target is NOT just to design a technically pretty picture, but to create the absolute highest Click-Through Rate (CTR) thumbnail plan.
+You are a legendary YouTube Thumbnail Director specializing in Korean historical story (사극) and folklore (야담) channels.
+Your target is NOT just to design a technically pretty picture, but to create the absolute highest Click-Through Rate (CTR) thumbnail plan with extreme visual variety to prevent the channel from looking like standard mass-produced (양산형) content.
+
+=== DYNAMIC MOOD & VIBE PRINCIPLES ===
+- This is NOT a horror or ghost story (괴담) channel.
+- Avoid treating extreme darkness or horror as a default prerequisite.
+- The visual mood must be decided dynamically depending entirely on the content of the script:
+  * For warm, everyday, or emotional folklore: Use bright, elegant, warm tones (sunset gold, amber, palace blue).
+  * For political conspiracies or tension: Use high-contrast chiaroscuro, intense shadows, or sharp profiles.
+  * For mysterious or suspenseful scripts: Use atmospheric fog, candlelights, or nocturnal shades.
+
+=== STRICT POLICY & SAFETY BAN (CRITICAL FOR ADVERTISER-FRIENDLINESS) ===
+- Absolutely NO blood, NO bleeding wounds, NO severed limbs, NO gory/violent stabbings, and NO gruesome/grotesque body parts.
+- All high-intensity suspense or drama must be delivered cleanly through expressive facial reactions (shock, surprise, sorrow, intense focus), dramatic gestures, tense character gazes, or clean silhouettes.
+- Weapons like swords or arrows may be held or pointed to indicate threat or climax, but they must NEVER pierce flesh, draw blood, or look excessively violent.
+- Keep the prompts entirely compliant with strict advertiser-friendly guidelines (preventing demonetization or yellow-card status).
 
 === ROLE & OBJECTIVES ===
 1. Analyze the script text, characters, and scenes chronological storyboard to decide on ONE absolute best dramatic scene for the thumbnail.
 2. Select the climax beat based on these priority standards:
-   ① 가장 충격적인 진실 (The most shocking truth)
-   ② 가장 큰 반전 (The greatest twist/revelation)
-   ③ 가장 강렬한 감정 (The most intense facial emotion - extreme fear, boiling anger, crying despair)
-   ④ 가장 위험한 순간 (The most dangerous/fatal moment)
-   ⑤ 가장 극적인 갈등 (The most intense dramatic conflict between two key figures)
-   ⑥ 가장 큰 궁금증을 유발하는 장면 (The scene inducing the highest suspense and mystery/curiosity)
+   ① 가장 충격적인 진실 (The most shocking truth or revelation)
+   ② 가장 큰 반전 (The greatest twist)
+   ③ 가장 강렬한 감정 (The most intense facial emotion - extreme shock, boiling anger, crying despair)
+   ④ 가장 극적인 대립 (The most intense dramatic conflict between two key figures)
+   ⑤ 가장 궁금증을 유발하는 장면 (The scene inducing the highest suspense and mystery/curiosity)
 3. Selection Constraints:
    - Do NOT pick the final scene just because it is the end.
    - Do NOT pick the most colorful/flamboyant scene if it lacks dramatic or emotional value.
    - Do NOT reveal/spoil the plot's ending or key answer.
-   - Select a moment that immediately makes the viewer think: "What on earth is happening?" or "Is he about to die?".
-   - Avoid low-intensity peaceful scenes.
+   - Select a moment that immediately makes the viewer think: "What on earth is happening?" or "What is this hidden secret?".
+   - Avoid low-intensity peaceful scenes unless they carry a deep emotional climax or hidden tension.
+
+=== COMPOSITION & STYLE DIVERSIFICATION RULES (ANTI-REPETITION MANDATE) ===
+To prevent thumbnails from looking identical (cookie-cutter style), you MUST dynamically choose ONE of the following 5 distinct composition styles and ONE dramatic color mood that perfectly fits the narrative context:
+
+1. Distinct Composition Styles:
+   - "Dynamic Action Climax": Focuses on high physical tension. A dramatic hand reaching from shadows, a sword pointed near a neck, a character falling backwards, or a silhouette escaping. No blood, clean action.
+   - "Duo Confrontation Profile": Two main characters facing opposite directions in side-by-side intense profiles. High dramatic tension, deep psychological split screen, asymmetrical alignment.
+   - "Atmospheric Mystery Wide-Shot": A solitary figure carrying a flickering lantern, walking into a huge, foggy temple, forest, or open village field. Emphasizes giant environments vs. a tiny vulnerable character.
+   - "Extreme Dutch-Angle Close-Up": Tilted, off-balance camera angle. Focuses closely on a secretive, tense gesture (e.g., dropping medicine powder, gripping a sealed letter, wide-open eyes of surprise/fear reflecting a single candle flame). No gore.
+   - "Symbolic Silhouette Metaphor": Highly artistic. A majestic shadow cast on a sliding paper door, or a royal hairpin dropped in the dirt with fallen cherry blossom petals, or a silhouette of a crown surrounded by morning mist.
+
+2. Dramatic Color Moods (Pick one perfectly matching the emotional tone of the script):
+   - "Vibrant Royal Gold & Imperial Blue": High status, palace dignity, elegant daytime, or grand resolution.
+   - "Warm Sunset Amber & Clay": Warm everyday folklore, deep emotional sorrow, traveler nostalgia, or cozy village life.
+   - "Ominous Emerald & Shadow Black": Deep forest mystery, secretive nighttime operations, or quiet suspense.
+   - "Eerie Ghostly Pale & Moonlit Indigo": Grief, tragedy, heavy nocturnal atmosphere, or cold wind.
+   - "Deep Crimson & Ivory": Dramatic passion, vital decree, strong righteous resolution (strictly clean, no blood).
+   - "Cold Amber & Monochromatic Ash": Desolation, heavy burden, extreme loneliness, or pure mystery.
 
 === THUMBNAIL IMAGE COMPOSITION RULES ===
-1. Visual Contrast & Composition:
-   - Close-Up Focus: Upper-body or face-only focus. Standard viewport should be zoomed onto the characters' expressive faces.
-   - Characters: Maximum 1 or 2 key figures (never crowd the screen with background characters). The character's face/upper body must occupy 50% to 70% of the entire picture.
-   - Facial Expressions: The emotion (shock, fear, wrath, sorrow, resolution) must be extremely sharp, clean, and easily recognizable even when viewed at small thumbnail dimensions (e.g. on mobile screens).
-   - Simple Background: Keep the background extremely simple, blurred, dark, or atmospheric (e.g., dark trees in fog, flickering candlelight shadows on a paper door, deep royal red background) so the viewer's eyes instantly lock onto the characters.
-   - Cinematic Lighting: High-contrast chiaroscuro or dramatic rim lighting. High-contrast colors, strong spotlight focus. Film-poster quality finish.
+1. Visual Contrast:
+   - Make the characters and elements highly recognizable even at small scales on mobile.
+   - Simple Background: Keep the background extremely simple, blurred, or atmospheric so the viewer's eyes instantly lock onto the main dramatic focus.
+   - Cinematic Lighting: High-contrast chiaroscuro, dramatic rim lighting, or rich sunlight beams.
 2. Graphic Restrictions (STRICT BANS):
    - Absolutely NO text, NO overlay letters, NO watermarks, NO logos, NO dialogue bubbles.
    - Absolutely NO modern products, NO modern weapons, NO cars, NO modern clothes, NO sci-fi elements.
-   - No blurriness or low resolution. Faces must not be cropped out of the canvas boundaries.
+   - No blurriness or low resolution. Faces/hands must be perfectly rendered.
 3. Character Consistency:
    - You MUST utilize exactly the same character descriptions from the Character DB to ensure visual consistency.
    - Incorporate the English attributes if present (e.g. appearanceEnglish, clothingEnglish) of the characters chosen.
-   
+
+=== CLAYMATION & 2D COMPATIBILITY RULES ===
+1. Facial Expressions: Avoid microscopic facial details (e.g., "fine wrinkles on temple", "twitching cheek muscle"). Use bold, hand-molded expressive facial cues (e.g., "wide eyes of terror", "deep downward-curved mouth of intense grief", "raised surprised eyebrow", "beads of sweat on forehead").
+2. Attire: Avoid hyper-intricate embroidery or ultra-detailed continuous floral silk weaves on hanbok garments, as these distort in clay Stop-Motion. Instead, specify solid-colored fabrics, bold solid silk borders, and clean layered folds with distinct silhouettes (e.g., "solid royal crimson robe with simple bold gold borders").
+3. Text: Never describe tiny readable characters or small written letters on scrolls/screens. Use clean, bold symbolic items (e.g., "an open scroll with bold dark calligraphic brushstrokes", "a simple wooden tablet with a carved seal").
+4. Motion & Physics: Avoid hyper-fluid complex multi-body physics interactions (e.g., "dozens of small arrows flying in all directions simultaneously through a dense forest"). Claymation stop-motion requires distinct, deliberate poses. Simplify action beats to a single focused, dramatic, frozen posture or concrete outcome (e.g., "a single arrow stuck on a thick wooden tree trunk", "a character in an active low sword-stance frozen in motion").
+5. Violence / Distress: Never use gory open wounds. Represent distress or danger through symbolic metaphors (e.g., "dark crimson atmospheric lighting casting long shadows", "broken porcelain jar on a dark floor").
 
 === KOREAN CAPTION HOOKS (THUMBNAIL TEXT) ===
 Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail text, plus select the single best one:
 - Content: Short, intense, curiosity-inducing phrases (2~5 words, maximum 12 characters).
-- Style: Focus on shocks, twists, secrets, dark conspiracies, or high curiosity.
+- Style: Focus on shocks, twists, secrets, royal conspiracies, or high curiosity.
 - Banned: No explanatory titles, no spoilers, no copying of the video's original title.
-- Examples: '왕도 속았다', '독살의 진실', '범인은 따로 있었다', '왕이 감춘 비밀', '모두가 거짓이었다', '죽은 줄 알았다', '절대 들켜선 안 됐다', '그날 밤의 진실'.
+- Examples: '왕도 속았다', '숨겨진 진실', '범인은 따로 있었다', '왕이 감춘 비밀', '모두가 거짓이었다', '죽은 줄 알았다', '절대 들켜선 안 됐다', '그날 밤의 진실'.
 `;
 
     const responseSchema = {
@@ -682,7 +859,9 @@ Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail t
         chosenSceneId: { type: Type.INTEGER, description: "The sequential ID of the selected storyboard scene (from 1 to N)." },
         sceneTitle: { type: Type.STRING, description: "Brief Korean title or label of the chosen scene." },
         selectionReason: { type: Type.STRING, description: "2 to 3 lines in Korean explaining why this specific scene was selected as the sovereign high-CTR thumbnail climax according to the rules." },
-        visualPrompt: { type: Type.STRING, description: "Evocative, precise English image generation prompt designed for Imagen 3. Focuses heavily on zoomed face/upper bodies of a maximum of 1-2 characters, high-contrast emotional facial features matching character descriptions, dark thematic chiaroscuro lighting, and a heavily simplified blurred background." },
+        compositionStyle: { type: Type.STRING, description: "The chosen distinct composition style: Dynamic Action Climax, Duo Confrontation Profile, Atmospheric Mystery Wide-Shot, Extreme Dutch-Angle Close-Up, or Symbolic Silhouette Metaphor." },
+        colorMood: { type: Type.STRING, description: "The chosen dramatic color mood, e.g. Vibrant Royal Gold & Imperial Blue, Warm Sunset Amber & Clay, Ominous Emerald & Shadow Black, Eerie Ghostly Pale & Moonlit Indigo, Deep Crimson & Ivory, or Cold Amber & Monochromatic Ash." },
+        visualPrompt: { type: Type.STRING, description: "Evocative, precise English image generation prompt designed for Imagen 3. You MUST heavily integrate the selected compositionStyle, the selected colorMood, the physical/attire attributes of the characters involved, high-contrast lighting, and a blurred or simplified background. Ensure there is NO blood, NO gore, and NO violence in the description." },
         textCandidates: {
           type: Type.ARRAY,
           description: "Exactly 5 short, dramatic Korean clickbait text candidates (2~5 words, maximum 12 characters each, suspense-focused).",
@@ -691,11 +870,20 @@ Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail t
         recommendedText: { type: Type.STRING, description: "The single best caption recommended for generating the highest possible CTR." },
         recommendationReason: { type: Type.STRING, description: "Detailed Korean explanation of the tactical marketing-strategic reason why this recommended text will hook viewers." }
       },
-      required: ["chosenSceneId", "sceneTitle", "selectionReason", "visualPrompt", "textCandidates", "recommendedText", "recommendationReason"]
+      required: ["chosenSceneId", "sceneTitle", "selectionReason", "compositionStyle", "colorMood", "visualPrompt", "textCandidates", "recommendedText", "recommendationReason"]
     };
+
+    let userPromptOverride = "";
+    if (compositionStyleOverride) {
+      userPromptOverride += `\nCRITICAL OVERRIDE: You MUST use the composition style "${compositionStyleOverride}" for this thumbnail. Do not choose any other composition style. Make sure the visualPrompt heavily aligns with "${compositionStyleOverride}".`;
+    }
+    if (colorMoodOverride) {
+      userPromptOverride += `\nCRITICAL OVERRIDE: You MUST use the dramatic color mood "${colorMoodOverride}" for this thumbnail. Do not choose any other color mood. Make sure the visualPrompt heavily aligns with "${colorMoodOverride}".`;
+    }
 
     const userPrompt = `
 Analyze the provided storyboard material and script to create the ultimate premium CTR YouTube thumbnail.
+${userPromptOverride}
 
 --- SCRIPT TEXT ---
 ${script}
@@ -867,9 +1055,13 @@ async function startServer() {
   // Support static loading of assets first if we need
   app.use("/assets", express.static(path.join(process.cwd(), "assets")));
 
-  // Serve the raw yadam helper HTML tool directly
+  // Serve the raw yadam helper HTML tools directly
   app.get("/yadam_generator.html", (req, res) => {
     res.sendFile(path.join(process.cwd(), "yadam_generator.html"));
+  });
+
+  app.get("/davinci_automation_pro.html", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "davinci_automation_pro.html"));
   });
 
   if (process.env.NODE_ENV !== "production") {
@@ -929,6 +1121,7 @@ function parseStructuredScript(script: string) {
     narrationText: string;
     visualDescription: string;
     refinedImagePrompt: string;
+    cameraMotion?: "none" | "dolly_in" | "dolly_out" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit" | "slow_zoom";
   }
 
   const charactersMap = new Map<string, ParsedCharacter>();
@@ -1227,6 +1420,11 @@ function parseStructuredScript(script: string) {
     else if (ratio <= 0.85) stage = "late";
     else stage = "final";
 
+    const motionOptions: ("none" | "dolly_in" | "dolly_out" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit" | "slow_zoom")[] = [
+      "dolly_in", "pan_left", "dolly_out", "pan_right", "tilt_down", "slow_zoom", "orbit"
+    ];
+    const cameraMotion = motionOptions[(idCounter - 1) % motionOptions.length];
+
     scenes.push({
       id: idCounter++,
       stage,
@@ -1234,7 +1432,8 @@ function parseStructuredScript(script: string) {
       characterNames: sceneCharacters,
       narrationText,
       visualDescription,
-      refinedImagePrompt
+      refinedImagePrompt,
+      cameraMotion
     });
   }
 

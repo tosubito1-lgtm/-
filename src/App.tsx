@@ -34,6 +34,7 @@ import {
   Percent,
   Film,
   Video,
+  Volume2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -111,6 +112,59 @@ const deleteIndexedDBValue = async (key: string): Promise<void> => {
   }
 };
 
+// Helper to format seconds to SRT timecode HH:MM:SS,mmm
+function formatSecondsToSRTTimecode(totalSec: number): string {
+  const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  const ms = Math.floor((totalSec % 1) * 1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+}
+
+// Helper to calculate exact scene durations and timecodes based on workflow rules
+function calculateSceneTimecodes<T extends { id?: number; durationSeconds?: number; startTimecode?: string; endTimecode?: string }>(
+  sceneList: T[]
+): T[] {
+  const total = sceneList.length;
+  const isShortsMode = total <= 15;
+  let currentSec = 0;
+
+  return sceneList.map((sc, idx) => {
+    const sceneNum = idx + 1;
+    let duration = 15;
+
+    if (isShortsMode) {
+      // Shorts Mode: 10s per scene (10 scenes = 100s / 1m 40s)
+      duration = 10;
+    } else {
+      // Longform Mode (60 scenes = approx 14m 10s = 850s):
+      // Intro (Scene 1 ~ 8): 10s
+      // Main Body (Scene 9 ~ total - 2): 15s
+      // Outro (Scene total - 1 ~ total): 10s
+      if (sceneNum <= 8) {
+        duration = 10;
+      } else if (sceneNum > total - 2) {
+        duration = 10;
+      } else {
+        duration = 15;
+      }
+    }
+
+    const startSec = currentSec;
+    const endSec = startSec + duration;
+    currentSec = endSec;
+
+    return {
+      ...sc,
+      id: sceneNum,
+      durationSeconds: duration,
+      startTimecode: formatSecondsToSRTTimecode(startSec),
+      endTimecode: formatSecondsToSRTTimecode(endSec),
+    };
+  });
+}
+
 // Korean folklore storytelling preset story (야담 템플릿)
 const YADAM_STORY_PRESET = `어느 깊은 밤, 조선 시대 최고의 젊은 선비인 이현은 과거 시험이 끝나고 한양을 떠나 사가로 향하던 중 충청도 산자락에서 깊이 길을 잃었다. 사방에는 음산하도록 무서운 검은 안개가 자욱하게 깔렸고, 오직 등뒤를 스치는 바람 소리와 부엉이의 날카로운 울음소리만이 사방을 위협하고 있었다. 심장이 덜컥 내려앉았을 때, 저 멀리 신새벽 등불이 희미하게 명멸하는 오두막이 눈에 들어왔다.
 
@@ -130,8 +184,8 @@ export default function App() {
     "1:1" | "9:16" | "16:9" | "3:4" | "4:3"
   >("16:9");
   const [artStyle, setArtStyle] = useState<
-    "realistic" | "3d" | "anime" | "yadam"
-  >("yadam");
+    "realistic" | "3d" | "anime" | "yadam" | "claymation"
+  >("claymation");
   const [quantityOverride, setQuantityOverride] = useState(false);
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
@@ -149,6 +203,8 @@ export default function App() {
   const [thumbnailData, setThumbnailData] = useState<ThumbnailDirectorData | null>(null);
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState<"16:9" | "9:16">("16:9");
+  const [selectedComposition, setSelectedComposition] = useState<string>("");
+  const [selectedColorMood, setSelectedColorMood] = useState<string>("");
   
   // Real-time Korean Calligraphy Thumbnail Text Overlay states
   const [overlayText, setOverlayText] = useState("");
@@ -161,13 +217,101 @@ export default function App() {
   const [enableBackingGlow, setEnableBackingGlow] = useState(true); // Outline glow border
   const [enableBackingRibbon, setEnableBackingRibbon] = useState(false); // Semi-transparent black plate
   const [optimizeForLtxStyle, setOptimizeForLtxStyle] = useState(true); // Option to inject LTX 2.3 cinematic style prompt
+  const [selectedTitleTemplate, setSelectedTitleTemplate] = useState<string>("template-01");
+  const [autoCompositeTitleText, setAutoCompositeTitleText] = useState(true); // Auto title template composite toggle
 
-  // Synchronize calligraphy text overlay when thumbnailData changes
+  // Title text overlay template preset mapper
+  const applyTitleTemplate = (templateId: string, customText?: string) => {
+    setSelectedTitleTemplate(templateId);
+    let textToUse = customText !== undefined ? customText : overlayText;
+    if (!textToUse && thumbnailData) {
+      textToUse = thumbnailData.recommendedText || thumbnailData.textCandidates?.[0] || "";
+    }
+
+    switch (templateId) {
+      case "template-01": // 👑 궁중 미스터리 (황금 붓글씨)
+        setOverlayStyle("classic-brush");
+        setOverlayColor("#facc15");
+        setOverlaySize(52);
+        setOverlayY(82);
+        setOverlayX(50);
+        setOverlayRotation(-3);
+        setEnableBackingGlow(true);
+        setEnableBackingRibbon(false);
+        if (textToUse) setOverlayText(textToUse);
+        showFeedback("템플릿 01: [👑 궁중 미스터리 / 황금 붓글씨] 제목 레이어가 자동 합성되었습니다.", "success");
+        break;
+      case "template-02": // 🩸 잔혹 서스펜스 (혈색 독도체)
+        setOverlayStyle("horror-mystery");
+        setOverlayColor("#ef4444");
+        setOverlaySize(64);
+        setOverlayY(50);
+        setOverlayX(50);
+        setOverlayRotation(-6);
+        setEnableBackingGlow(true);
+        setEnableBackingRibbon(false);
+        if (textToUse) setOverlayText(textToUse);
+        showFeedback("템플릿 02: [🩸 잔혹 서스펜스 / 혈색 독도체] 제목 레이어가 자동 합성되었습니다.", "success");
+        break;
+      case "template-03": // 🔥 하이라이트 킹고딕 (하단 리본)
+        setOverlayStyle("bold-modern");
+        setOverlayColor("#ffffff");
+        setOverlaySize(48);
+        setOverlayY(85);
+        setOverlayX(50);
+        setOverlayRotation(0);
+        setEnableBackingGlow(false);
+        setEnableBackingRibbon(true);
+        if (textToUse) setOverlayText(textToUse);
+        showFeedback("템플릿 03: [🔥 하이라이트 킹고딕 / 리본 패널] 제목 레이어가 자동 합성되었습니다.", "success");
+        break;
+      case "template-04": // 📜 정통 궁중 명조 (상단 오버레이)
+        setOverlayStyle("clean-serif");
+        setOverlayColor("#ffffff");
+        setOverlaySize(44);
+        setOverlayY(22);
+        setOverlayX(50);
+        setOverlayRotation(0);
+        setEnableBackingGlow(true);
+        setEnableBackingRibbon(false);
+        if (textToUse) setOverlayText(textToUse);
+        showFeedback("템플릿 04: [📜 정통 궁중 명조 / 상단 오버레이] 제목 레이어가 자동 합성되었습니다.", "success");
+        break;
+      case "template-05": // ⚡ Shorts 모바일 최적화 (중앙 고딕)
+        setOverlayStyle("bold-modern");
+        setOverlayColor("#fde047");
+        setOverlaySize(56);
+        setOverlayY(50);
+        setOverlayX(50);
+        setOverlayRotation(-2);
+        setEnableBackingGlow(true);
+        setEnableBackingRibbon(false);
+        if (textToUse) setOverlayText(textToUse);
+        showFeedback("템플릿 05: [⚡ Shorts 모바일 최적화 / 중앙 고딕] 제목 레이어가 자동 합성되었습니다.", "success");
+        break;
+    }
+  };
+
+  // Synchronize calligraphy text overlay, composition style, and color mood when thumbnailData changes
   useEffect(() => {
-    if (thumbnailData?.recommendedText) {
-      setOverlayText(thumbnailData.recommendedText);
+    if (thumbnailData) {
+      if (thumbnailData.recommendedText && (autoCompositeTitleText || !overlayText)) {
+        setOverlayText(thumbnailData.recommendedText);
+        // Automatically trigger template-01 if text layer auto-composite is active
+        if (autoCompositeTitleText) {
+          applyTitleTemplate("template-01", thumbnailData.recommendedText);
+        }
+      }
+      if (thumbnailData.compositionStyle) {
+        setSelectedComposition(thumbnailData.compositionStyle);
+      }
+      if (thumbnailData.colorMood) {
+        setSelectedColorMood(thumbnailData.colorMood);
+      }
     } else {
       setOverlayText("");
+      setSelectedComposition("");
+      setSelectedColorMood("");
     }
   }, [thumbnailData]);
 
@@ -227,8 +371,9 @@ export default function App() {
   const [editSceneCharacterNames, setEditSceneCharacterNames] = useState<string[]>([]);
   const [isTranslatingPrompt, setIsTranslatingPrompt] = useState(false);
 
-  // File upload ref helper
+  // File upload ref helpers
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const srtInputRef = useRef<HTMLInputElement>(null);
 
   // Custom API Key storage state
   const [customApiKey, setCustomApiKey] = React.useState<string>(() => {
@@ -239,6 +384,15 @@ export default function App() {
   const [batchConsoleLogs, setBatchConsoleLogs] = useState<string[]>([]);
   const [batchSavedTokens, setBatchSavedTokens] = useState(0);
   const [showBatchTelemetry, setShowBatchTelemetry] = useState(false);
+
+  // Beginner 3-Step Guide Modal State
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showSfxGuideModal, setShowSfxGuideModal] = useState(false);
+
+  // UI Compaction Accordion States for Clean UX
+  const [showThumbnailFineTune, setShowThumbnailFineTune] = useState(false);
+  const [showLtxOptions, setShowLtxOptions] = useState(false);
+  const [showDavinciDetailedGuide, setShowDavinciDetailedGuide] = useState(false);
 
   // WAN Intro Motion optimization toggle & queue Cancellation
   const [wanIntroOptimized, setWanIntroOptimized] = useState<boolean>(() => {
@@ -618,6 +772,8 @@ export default function App() {
             setBatchSavedTokens(parsed.batchSavedTokens);
           if (parsed.batchConsoleLogs)
             setBatchConsoleLogs(parsed.batchConsoleLogs);
+          if (parsed.sceneLtxMotions)
+            setSceneLtxMotions(parsed.sceneLtxMotions);
 
           // Intelligently restore tab based on workflow progression
           if (parsed.scenes && parsed.scenes.length > 0) {
@@ -652,6 +808,7 @@ export default function App() {
     currentThumbnail = thumbnailData,
     currentThumbnailRatio = thumbnailAspectRatio,
     currentSafetyReport = safetyReport,
+    currentLtxMotions = sceneLtxMotions,
   ) => {
     const sessionData = JSON.stringify({
       analysis: currentAnalysis,
@@ -670,6 +827,7 @@ export default function App() {
       thumbnailData: currentThumbnail,
       thumbnailAspectRatio: currentThumbnailRatio,
       safetyReport: currentSafetyReport,
+      sceneLtxMotions: currentLtxMotions,
     });
 
     // 1. Save to high-capacity IndexedDB (No quota limits)
@@ -791,6 +949,7 @@ export default function App() {
           script: scriptText,
           quantityOverride,
           quantityValue,
+          artStyle,
         }),
       });
 
@@ -866,17 +1025,27 @@ export default function App() {
           ? Math.max(...scenes.map((sc) => sc.id)) + 1
           : 1;
 
-      const preparedScenes = data.scenes.map((sc, idx) => ({
-        ...sc,
-        id: nextSceneId + idx,
-        imageUrl: undefined,
-        isGenerating: false,
-        error: undefined,
-      }));
+      const newLtxMotions = appendMode ? { ...sceneLtxMotions } : {};
+      const preparedScenes = data.scenes.map((sc, idx) => {
+        const sceneId = nextSceneId + idx;
+        if (sc.cameraMotion) {
+          newLtxMotions[sceneId] = sc.cameraMotion;
+        }
+        return {
+          ...sc,
+          id: sceneId,
+          imageUrl: undefined,
+          isGenerating: false,
+          error: undefined,
+        };
+      });
+      setSceneLtxMotions(newLtxMotions);
 
-      const finalScenes = appendMode
+      const rawScenes = appendMode
         ? [...scenes, ...preparedScenes]
         : preparedScenes;
+
+      const finalScenes = calculateSceneTimecodes(rawScenes);
 
       // Combine metadata responses cleanly
       const combinedAnalysis: StoryboardAnalysisResponse = {
@@ -897,6 +1066,10 @@ export default function App() {
         finalScenes,
         batchSavedTokens,
         batchConsoleLogs,
+        thumbnailData,
+        thumbnailAspectRatio,
+        safetyReport,
+        newLtxMotions,
       );
 
       if (appendMode) {
@@ -1131,11 +1304,8 @@ export default function App() {
     const sceneId = scenes[actualIndex]?.id;
     if (window.confirm(`스토리보드 장면 Scene #${sceneId} 를 삭제하시겠습니까? 전체 타임라인 일련번호가 안전하게 재배열됩니다.`)) {
       const filtered = scenes.filter((_, idx) => idx !== actualIndex);
-      // Re-sequence scene IDs nicely
-      const resequenced = filtered.map((sc, i) => ({
-        ...sc,
-        id: i + 1
-      }));
+      // Re-sequence scene IDs & timecodes nicely
+      const resequenced = calculateSceneTimecodes(filtered);
       setScenes(resequenced);
       saveSession(analysis, characters, locations, resequenced);
       showFeedback(`Scene #${sceneId} 장면이 적출된 뒤 타임라인이 온전히 재배열되었습니다.`, "info");
@@ -1157,10 +1327,10 @@ export default function App() {
       refinedImagePrompt: "masterpiece, artistic painting style, traditional Korean Joseon background landscape, dramatic moody atmosphere",
       isGenerating: false
     };
-    const updated = [...scenes, newScene];
+    const updated = calculateSceneTimecodes([...scenes, newScene]);
     setScenes(updated);
     saveSession(analysis, characters, locations, updated);
-    startEditingScene(newScene); // Highlight edit panel instantly!
+    startEditingScene(updated[updated.length - 1]); // Highlight edit panel instantly!
     showFeedback("새 스토리보드 장면이 타임라인 끝자락에 추가되었습니다. 세부 연출을 즉시 구성해 보세요.", "success");
   };
 
@@ -1171,11 +1341,8 @@ export default function App() {
     const temp = updated[actualIndex];
     updated[actualIndex] = updated[actualIndex - 1];
     updated[actualIndex - 1] = temp;
-    // Re-sequence IDs
-    const resequenced = updated.map((sc, i) => ({
-      ...sc,
-      id: i + 1
-    }));
+    // Re-sequence IDs and recalculate timecodes
+    const resequenced = calculateSceneTimecodes(updated);
     setScenes(resequenced);
     saveSession(analysis, characters, locations, resequenced);
     showFeedback(`장면 재생 순서가 위로 한 단계 상향 조정되었습니다.`, "success");
@@ -1188,11 +1355,8 @@ export default function App() {
     const temp = updated[actualIndex];
     updated[actualIndex] = updated[actualIndex + 1];
     updated[actualIndex + 1] = temp;
-    // Re-sequence IDs
-    const resequenced = updated.map((sc, i) => ({
-      ...sc,
-      id: i + 1
-    }));
+    // Re-sequence IDs and recalculate timecodes
+    const resequenced = calculateSceneTimecodes(updated);
     setScenes(resequenced);
     saveSession(analysis, characters, locations, resequenced);
     showFeedback(`장면 재생 순서가 아래로 한 단계 하향 조정되었습니다.`, "success");
@@ -1599,7 +1763,9 @@ export default function App() {
   const handleGenerateThumbnail = async (
     forceReanalyze = false,
     customScenes?: SceneItem[],
-    ratioOverride?: "16:9" | "9:16"
+    ratioOverride?: "16:9" | "9:16",
+    compositionStyleOverride?: string,
+    colorMoodOverride?: string
   ) => {
     const targetScenes = customScenes || scenes;
     if (targetScenes.length === 0) {
@@ -1614,7 +1780,7 @@ export default function App() {
     try {
       let finalPlan = thumbnailData;
 
-      if (!finalPlan || forceReanalyze || !finalPlan.visualPrompt) {
+      if (!finalPlan || forceReanalyze || !finalPlan.visualPrompt || compositionStyleOverride || colorMoodOverride) {
         const response = await fetch("/api/analyze-thumbnail-director", {
           method: "POST",
           headers: getHeaders(),
@@ -1623,6 +1789,8 @@ export default function App() {
             scenes: targetScenes,
             characters,
             locations,
+            compositionStyleOverride,
+            colorMoodOverride,
           }),
         });
 
@@ -1952,6 +2120,380 @@ export default function App() {
     }
   };
 
+  // Download the pristine davinci_automation_pro.html file from server
+  const handleDownloadDavinciTool = async () => {
+    try {
+      showFeedback?.("다빈치 리졸브 오토 배치 도구(HTML) 파일을 수급하는 중입니다...", "info");
+      const response = await fetch('/davinci_automation_pro.html?t=' + Date.now());
+      if (response.ok) {
+        const text = await response.text();
+        const blob = new Blob([text], { type: "text/html;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = 'davinci_automation_pro.html';
+        link.click();
+        showFeedback?.("다빈치 오토 배치 도구(HTML) 파일 다운로드 완료! 플래너 파일과 같은 폴더에 저장하세요.", "success");
+      } else {
+        throw new Error("서버에서 파일을 찾지 못했습니다.");
+      }
+    } catch (error: any) {
+      console.warn("[DAVINCI DOWNLOAD FALLBACK] Fetch error, triggering direct download link:", error);
+      const link = document.createElement("a");
+      link.href = "/davinci_automation_pro.html";
+      link.download = "davinci_automation_pro.html";
+      link.click();
+      showFeedback?.("오프라인 다빈치 도구 파일 다운로드 완료!", "success");
+    }
+  };
+
+  // Generate and download DaVinci Resolve Master Automation Python Script (.py)
+  const handleExportDavinciPythonScript = () => {
+    if (!scenes || scenes.length === 0) {
+      showFeedback("내보낼 스토리보드 씬이 존재하지 않습니다.", "error");
+      return;
+    }
+
+    let pyScript = `# -*- coding: utf-8 -*-\n`;
+    pyScript += `# DaVinci Resolve Pro Auto-Batch Master Integration Script\n`;
+    pyScript += `# Generated by Yadam Storyboard Engine on ${new Date().toISOString()}\n\n`;
+    pyScript += `import os\nimport sys\nimport time\n\n`;
+    pyScript += `print("[YADAM-DAVINCI] Starting DaVinci Resolve Master Script Execution...")\n\n`;
+    pyScript += `try:\n`;
+    pyScript += `    import DaVinciResolveScript as dvr_script\n`;
+    pyScript += `    resolve = dvr_script.scriptapp("Resolve")\n`;
+    pyScript += `except Exception:\n`;
+    pyScript += `    try:\n`;
+    pyScript += `        resolve = bmd.scriptapp("Resolve")\n`;
+    pyScript += `    except Exception:\n`;
+    pyScript += `        resolve = None\n\n`;
+    pyScript += `if not resolve:\n`;
+    pyScript += `    print("[ERROR] Could not connect to DaVinci Resolve. Please run inside DaVinci Resolve script console.")\n`;
+    pyScript += `    sys.exit(1)\n\n`;
+    pyScript += `pm = resolve.GetProjectManager()\n`;
+    pyScript += `proj = pm.GetCurrentProject()\n`;
+    pyScript += `if not proj:\n`;
+    pyScript += `    proj = pm.CreateProject("Yadam_Auto_Timeline_${new Date().toISOString().slice(0, 10)}")\n`;
+    pyScript += `    print("[INFO] Created new DaVinci project: Yadam_Auto_Timeline")\n\n`;
+    pyScript += `mediaPool = proj.GetMediaPool()\n`;
+    pyScript += `rootFolder = mediaPool.GetRootFolder()\n\n`;
+    pyScript += `# Asset Directory\n`;
+    pyScript += `ASSET_DIR = os.path.abspath(os.path.dirname(__file__))\n`;
+    pyScript += `print(f"[INFO] Asset search directory: {ASSET_DIR}")\n\n`;
+
+    pyScript += `# Storyboard Scenes Metadata\n`;
+    pyScript += `SCENES = [\n`;
+    scenes.forEach((sc) => {
+      const selectedMotion = sceneLtxMotions[sc.id] || "dolly_in";
+      const sanitizedNarr = sc.narrationText.replace(/"/g, '\\"').replace(/\n/g, ' ');
+      const dur = sc.durationSeconds || (scenes.length <= 15 ? 10 : (sc.id <= 8 || sc.id > scenes.length - 2 ? 10 : 15));
+      pyScript += `    {\n`;
+      pyScript += `        "id": ${sc.id},\n`;
+      pyScript += `        "num_str": "${sc.id.toString().padStart(3, "0")}",\n`;
+      pyScript += `        "num_short": "${sc.id.toString().padStart(2, "0")}",\n`;
+      pyScript += `        "narration": "${sanitizedNarr}",\n`;
+      pyScript += `        "motion": "${selectedMotion}",\n`;
+      pyScript += `        "duration": ${dur}\n`;
+      pyScript += `    },\n`;
+    });
+    pyScript += `]\n\n`;
+
+    pyScript += `print(f"[INFO] Total {len(SCENES)} scenes queued for processing.")\n\n`;
+    pyScript += `timeline = proj.GetCurrentTimeline()\n`;
+    pyScript += `if not timeline:\n`;
+    pyScript += `    timeline = mediaPool.CreateEmptyTimeline("Yadam_Master_Timeline")\n`;
+    pyScript += `    print("[INFO] Created target timeline: Yadam_Master_Timeline")\n\n`;
+
+    pyScript += `fps_val = float(proj.GetSetting("timelineFrameRate") or 24.0)\n`;
+    pyScript += `print(f"[INFO] Timeline Frame Rate: {fps_val} FPS")\n\n`;
+
+    pyScript += `# Auto-detect and import video/image/audio files\n`;
+    pyScript += `imported_count = 0\n`;
+    pyScript += `for sc in SCENES:\n`;
+    pyScript += `    s_id = sc["id"]\n`;
+    pyScript += `    s_3 = sc["num_str"]\n`;
+    pyScript += `    s_2 = sc["num_short"]\n\n`;
+    pyScript += `    candidates = [\n`;
+    pyScript += `        f"scene_{s_3}.mp4", f"scene_{s_3}.webm", f"Scene_{s_2}.mp4",\n`;
+    pyScript += `        f"scene_{s_3}.png", f"scene_{s_3}.jpg", f"Scene_{s_2}.png", f"Scene_{s_2}.jpg"\n`;
+    pyScript += `    ]\n`;
+    pyScript += `    found_media = None\n`;
+    pyScript += `    for fname in candidates:\n`;
+    pyScript += `        fpath = os.path.join(ASSET_DIR, fname)\n`;
+    pyScript += `        if os.path.exists(fpath):\n`;
+    pyScript += `            found_media = fpath\n`;
+    pyScript += `            break\n\n`;
+    pyScript += `    if found_media:\n`;
+    pyScript += `        items = mediaPool.ImportMedia([found_media])\n`;
+    pyScript += `        if items:\n`;
+    pyScript += `            sc["media_item"] = items[0]\n`;
+    pyScript += `            imported_count += 1\n`;
+    pyScript += `            print(f"[SUCCESS] Imported scene #{s_id}: {os.path.basename(found_media)}")\n`;
+    pyScript += `    else:\n`;
+    pyScript += `        print(f"[WARNING] Media file for Scene #{s_id} not found in {ASSET_DIR}. Skipping asset, timeline marker added.")\n\n`;
+
+    pyScript += `# Audio File Import\n`;
+    pyScript += `audio_candidates = ["voiceover.mp3", "narration.mp3", "full_tts.mp3", "audio.mp3", "tts_voice.mp3"]\n`;
+    pyScript += `found_audio = None\n`;
+    pyScript += `for afname in audio_candidates:\n`;
+    pyScript += `    afpath = os.path.join(ASSET_DIR, afname)\n`;
+    pyScript += `    if os.path.exists(afpath):\n`;
+    pyScript += `        found_audio = afpath\n`;
+    pyScript += `        break\n\n`;
+    pyScript += `if found_audio:\n`;
+    pyScript += `    a_items = mediaPool.ImportMedia([found_audio])\n`;
+    pyScript += `    if a_items:\n`;
+    pyScript += `        mediaPool.AppendToTimeline([a_items[0]])\n`;
+    pyScript += `        print(f"[SUCCESS] Master Voice Audio imported & appended: {os.path.basename(found_audio)}")\n\n`;
+
+    pyScript += `# Build Timeline Clips and Markers\n`;
+    pyScript += `current_frame = 0\n`;
+    pyScript += `for sc in SCENES:\n`;
+    pyScript += `    duration_sec = sc["duration"]\n`;
+    pyScript += `    dur_frames = int(duration_sec * fps_val)\n`;
+    pyScript += `    if "media_item" in sc:\n`;
+    pyScript += `        try:\n`;
+    pyScript += `            clip_info = {\n`;
+    pyScript += `                "mediaPoolItem": sc["media_item"],\n`;
+    pyScript += `                "startFrame": 0,\n`;
+    pyScript += `                "endFrame": dur_frames,\n`;
+    pyScript += `                "recordFrame": current_frame\n`;
+    pyScript += `            }\n`;
+    pyScript += `            mediaPool.AppendToTimeline([clip_info])\n`;
+    pyScript += `        except Exception as err:\n`;
+    pyScript += `            print(f"[NOTICE] Appending clip #{sc['id']} via standard fallback: {err}")\n`;
+    pyScript += `            mediaPool.AppendToTimeline([sc["media_item"]])\n\n`;
+    pyScript += `    if timeline:\n`;
+    pyScript += `        try:\n`;
+    pyScript += `            timeline.AddMarker(current_frame, "Blue", f"Scene #{sc['id']}", sc["narration"], dur_frames)\n`;
+    pyScript += `        except Exception:\n`;
+    pyScript += `            pass\n`;
+    pyScript += `    current_frame += dur_frames\n\n`;
+
+    pyScript += `print(f"[SUCCESS] DaVinci Resolve Master Automation Script completed! Imported {imported_count} assets.")\n`;
+
+    const blob = new Blob([pyScript], { type: "text/x-python;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `yadam_davinci_auto_batch_${new Date().toISOString().slice(0, 10)}.py`;
+    link.click();
+    showFeedback("다빈치 리졸브 원클릭 배치 자동화 마스터 스크립트(.py)가 다운로드되었습니다!", "success");
+  };
+
+  // Export narration as SRT subtitles and clean text file for external TTS tools
+  const handleExportTtsScriptAndSrt = () => {
+    if (!scenes || scenes.length === 0) {
+      showFeedback("내보낼 스토리보드 씬이 존재하지 않습니다.", "error");
+      return;
+    }
+
+    let srtContent = "";
+    // 순수 나레이션 대사만 담기 ([Scene #1] 등 씬 표식이 포함되어 있다면 자동 정제)
+    let cleanTxtContent = "";
+
+    let currentTime = 0;
+
+    scenes.forEach((sc, idx) => {
+      // SCENE #1 같은 씬 헤더 표식이 유저 대사 앞에 섞여 있을 경우 순수 대사만 정제
+      const pureNarration = sc.narrationText.replace(/^\[?\s*(scene|씬)\s*#?\d+\s*\]?:?\s*/i, '').trim();
+
+      const dur = sc.durationSeconds || (scenes.length <= 15 ? 10 : (sc.id <= 8 || sc.id > scenes.length - 2 ? 10 : 15));
+      const startTimeSec = currentTime;
+      const endTimeSec = startTimeSec + dur;
+      currentTime = endTimeSec;
+
+      const formatSrtTime = (sec: number) => {
+        const hrs = Math.floor(sec / 3600).toString().padStart(2, "0");
+        const mins = Math.floor((sec % 3600) / 60).toString().padStart(2, "0");
+        const secs = Math.floor(sec % 60).toString().padStart(2, "0");
+        const ms = Math.floor((sec % 1) * 1000).toString().padStart(3, "0");
+        return `${hrs}:${mins}:${secs},${ms}`;
+      };
+
+      srtContent += `${idx + 1}\n`;
+      srtContent += `${formatSrtTime(startTimeSec)} --> ${formatSrtTime(endTimeSec)}\n`;
+      srtContent += `${pureNarration || sc.narrationText}\n\n`;
+
+      if (pureNarration) {
+        cleanTxtContent += `${pureNarration}\n\n`;
+      } else if (sc.narrationText && sc.narrationText.trim()) {
+        cleanTxtContent += `${sc.narrationText.trim()}\n\n`;
+      }
+    });
+
+    const srtBlob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
+    const srtLink = document.createElement("a");
+    srtLink.href = URL.createObjectURL(srtBlob);
+    srtLink.download = `yadam_subtitles_${new Date().toISOString().slice(0, 10)}.srt`;
+    srtLink.click();
+
+    const txtBlob = new Blob([cleanTxtContent.trim()], { type: "text/plain;charset=utf-8" });
+    const txtLink = document.createElement("a");
+    txtLink.href = URL.createObjectURL(txtBlob);
+    txtLink.download = `yadam_tts_script_clean_${new Date().toISOString().slice(0, 10)}.txt`;
+    txtLink.click();
+
+    showFeedback("TTS 배치용 자막(.SRT) 및 100% 순수 대본 텍스트(.TXT) 파일이 동시 다운로드되었습니다!", "success");
+  };
+
+  const handleImportSrtTrigger = () => {
+    srtInputRef.current?.click();
+  };
+
+  const handleImportSrtFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rawText = event.target?.result as string;
+        if (!rawText) return;
+
+        // UTF-8 BOM(\uFEFF) 및 보이지 않는 zero-width space 유니코드 기호 100% 제거 정제
+        const cleanRawText = rawText
+          .replace(/^\uFEFF/, '')
+          .replace(/[\uFEFF\u200B\u200C\u200D]/g, '');
+
+        // Windows CRLF(\r\n) 및 Old Mac CR(\r) 개행을 표준 LF(\n)로 통일
+        const normalizedText = cleanRawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const blocks = normalizedText.trim().split(/\n\s*\n/);
+        if (blocks.length === 0) {
+          showFeedback("SRT 파일 내용이 올바르지 않습니다.", "error");
+          return;
+        }
+
+        const parseSec = (tStr: string) => {
+          // 00:00:01,000 또는 00:00:01.000 유연 처리
+          const cleanT = tStr.replace(',', '.');
+          const parts = cleanT.split(':');
+          if (parts.length === 3) {
+            return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+          } else if (parts.length === 2) {
+            return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+          }
+          return parseFloat(cleanT) || 0;
+        };
+
+        const parsedItems: { start: number; end: number; duration: number; text: string }[] = [];
+
+        blocks.forEach((b) => {
+          const lines = b.trim().split('\n').map((l) => l.trim());
+          if (lines.length >= 1) {
+            // 시간 표시 줄 찾기 (유연한 정규식: 00:00:00,000 --> 00:00:00,000)
+            let timeLineIdx = -1;
+            let timeMatch: RegExpMatchArray | null = null;
+
+            for (let i = 0; i < lines.length; i++) {
+              const match = lines[i].match(/(\d{1,2}:\d{2}:\d{2}[.,]\d{1,3}|\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d{1,3}|\d{1,2}:\d{2}[.,]\d{1,3})/);
+              if (match) {
+                timeLineIdx = i;
+                timeMatch = match;
+                break;
+              }
+            }
+
+            if (timeMatch && timeLineIdx !== -1) {
+              const startSec = parseSec(timeMatch[1]);
+              const endSec = parseSec(timeMatch[2]);
+              const subText = lines.slice(timeLineIdx + 1).join(" ");
+              parsedItems.push({
+                start: startSec,
+                end: endSec,
+                duration: Math.max(0.1, endSec - startSec),
+                text: subText
+              });
+            }
+          }
+        });
+
+        if (parsedItems.length === 0) {
+          showFeedback("SRT 파일에서 자막 타임코드를 추출하지 못했습니다.", "error");
+          return;
+        }
+
+        const updatedScenes = [...scenes];
+        let syncedCount = 0;
+
+        if (parsedItems.length === updatedScenes.length) {
+          // 1:1 정확 매칭 (씬 수와 자막 수 동일)
+          updatedScenes.forEach((sc, idx) => {
+            (sc as any).srtStart = parsedItems[idx].start;
+            (sc as any).srtEnd = parsedItems[idx].end;
+            (sc as any).srtDuration = parsedItems[idx].duration;
+            syncedCount++;
+          });
+        } else {
+          // SRT 자막 분할 개수가 씬 개수와 다를 때 (스마트 텍스트/시간 누적 매칭 & 마지막 씬 100% 흡수)
+          let srtIdx = 0;
+          const totalSrtCount = parsedItems.length;
+          const totalSceneCount = updatedScenes.length;
+
+          updatedScenes.forEach((sc, scIdx) => {
+            const isLastScene = (scIdx === totalSceneCount - 1);
+
+            // SCENE #1 같은 헤더 지우고 순수 대사로 텍스트 정제
+            const pureNarration = sc.narrationText ? sc.narrationText.replace(/^\[?\s*(scene|씬)\s*#?\d+\s*\]?:?\s*/i, '').trim() : "";
+            const scTextClean = pureNarration.replace(/\s+/g, '').toLowerCase();
+
+            if (srtIdx >= totalSrtCount) {
+              // 남은 SRT 항목이 없더라도 이전 씬 종결 시간 기반 보장
+              const prevEnd = scIdx > 0 ? ((updatedScenes[scIdx - 1] as any).srtEnd || 0) : 0;
+              (sc as any).srtStart = prevEnd;
+              (sc as any).srtEnd = prevEnd + 5.0;
+              (sc as any).srtDuration = 5.0;
+              syncedCount++;
+              return;
+            }
+
+            let firstStart = parsedItems[srtIdx].start;
+            let lastEnd = parsedItems[srtIdx].end;
+            let currentAccumText = "";
+
+            while (srtIdx < totalSrtCount) {
+              const curItem = parsedItems[srtIdx];
+              const itemTextClean = curItem.text.replace(/\s+/g, '').toLowerCase();
+
+              lastEnd = curItem.end;
+              currentAccumText += itemTextClean;
+              srtIdx++;
+
+              // 마지막 씬이면 남은 모든 SRT 자막 타임코드를 끝까지 100% 흡수
+              if (isLastScene) {
+                continue;
+              }
+
+              // 일반 씬: 대사 글자 수 누적이 기준에 달했거나 남은 씬 수가 남은 자막 수와 같아질 때 매칭 종료
+              const remainingScenes = totalSceneCount - (scIdx + 1);
+              const remainingSrts = totalSrtCount - srtIdx;
+
+              if (
+                currentAccumText.length >= Math.max(1, scTextClean.length * 0.75) ||
+                remainingSrts <= remainingScenes
+              ) {
+                break;
+              }
+            }
+
+            (sc as any).srtStart = firstStart;
+            (sc as any).srtEnd = lastEnd;
+            (sc as any).srtDuration = Math.max(0.5, lastEnd - firstStart);
+            syncedCount++;
+          });
+        }
+
+        setScenes(updatedScenes);
+        saveSession(analysis, characters, locations, updatedScenes);
+        showFeedback(`성공! 외부 SRT 자막 타임코드(${parsedItems.length}개 구간)가 ${syncedCount}개 씬 스토리보드에 완벽 매칭/동기화되었습니다.`, "success");
+      } catch (err) {
+        console.error("SRT parse error:", err);
+        showFeedback("SRT 파일 파싱에 실패했습니다.", "error");
+      }
+    };
+    reader.readAsText(file);
+    // 동일 파일 재선택 가능하도록 input 초기화
+    e.target.value = "";
+  };
+
   // Export current full session to JSON backup file
   const handleExportBackup = () => {
     const payload = {
@@ -2107,6 +2649,15 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowGuideModal(true)}
+              id="btn-open-guide-header"
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 hover:text-white rounded text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-amber-950/30 animate-pulse"
+              title="초보자를 위한 3단계 완전 제작 가이드 열기"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              🎬 초보자 제작 가이드
+            </button>
+            <button
               onClick={handleExportBackup}
               id="btn-export"
               className="px-3 py-1.5 bg-[#1a1a22] hover:bg-[#252530] border border-white/10 text-white/60 hover:text-white rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
@@ -2131,6 +2682,14 @@ export default function App() {
               onChange={handleImportBackup}
               className="hidden"
               id="backup-file-uploader"
+            />
+            <input
+              ref={srtInputRef}
+              type="file"
+              accept=".srt"
+              onChange={handleImportSrtFile}
+              className="hidden"
+              id="srt-file-uploader"
             />
             <button
               onClick={clearSession}
@@ -2198,16 +2757,49 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-2 md:mt-0 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto mt-2 md:mt-0 shrink-0">
+          {/* 초보자 10초 완벽 가이드 모달 열기 버튼 */}
+          <button
+            type="button"
+            onClick={() => setShowGuideModal(true)}
+            className="px-3.5 py-1.5 h-[38px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-purple-950/50 animate-pulse"
+            title="초보자를 위한 10초 완벽 자동화 워크플로우 4단계 가이드 보기"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            🚀 초보자 가이드 (필독)
+          </button>
+
           {/* 야담 플래너 오프라인 다운로드 버튼 */}
           <button
             type="button"
             onClick={handleDownloadPlannerFile}
-            className="px-3.5 py-1.5 h-[38px] bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-rose-950/40"
+            className="px-3 py-1.5 h-[38px] bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-rose-950/40"
             title="야담 대본 플래너 오프라인 단독 구동용 HTML 파일 다운로드"
           >
             <Download className="w-3.5 h-3.5 text-white" />
-            야담 플래너 다운로드 (HTML)
+            야담 플래너 (HTML)
+          </button>
+
+          {/* 다빈치 오토배치 도구 열기 및 다운로드 버튼 */}
+          <a
+            href="/davinci_automation_pro.html"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 h-[38px] bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-amber-950/40 no-underline"
+            title="다빈치 리졸브 오토 배치 도구 웹에서 즉시 열기"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            다빈치 도구 열기 🎬
+          </a>
+
+          <button
+            type="button"
+            onClick={handleDownloadDavinciTool}
+            className="px-2.5 py-1.5 h-[38px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors"
+            title="다빈치 리졸브 오토 배치 도구 HTML 오프라인 파일 다운로드"
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            다빈치 도구 다운로드
           </button>
 
           {/* 지속 누적 추가 모드 스위치컨트롤러 */}
@@ -3088,15 +3680,61 @@ export default function App() {
                   </button>
 
                   {scenes.length > 0 && (
-                    <button
-                      onClick={handleExtractAllLtxMotions}
-                      id="btn-extract-all-ltx-motions"
-                      className="px-4 py-1.5 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-300 hover:text-white font-bold text-xs rounded transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-950/20"
-                      title="스토리보드 모든 장면에 할당된 LTX 2.3 I2V 모션 비디오 프롬프트를 취합하여 한꺼번에 복사합니다."
-                    >
-                      <Video className="w-3.5 h-3.5 text-indigo-400" />
-                      LTX 모션 일괄 복사
-                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white/[0.03] border border-white/10 rounded-lg">
+                      <span className="text-[10px] font-mono font-semibold text-white/40 px-2 uppercase tracking-wider hidden sm:inline">
+                        원클릭 워크플로우:
+                      </span>
+                      
+                      <button
+                        onClick={handleExportTtsScriptAndSrt}
+                        id="btn-export-tts-srt"
+                        className="px-2.5 py-1.5 bg-sky-950/70 hover:bg-sky-900 border border-sky-500/30 text-sky-200 hover:text-white font-medium text-xs rounded transition-all flex items-center gap-1.5"
+                        title="1단계: TTS 생성용 순수 나레이션(.TXT) 및 기본 자막(.SRT) 추출 다운로드"
+                      >
+                        <Download className="w-3.5 h-3.5 text-sky-400" />
+                        1. TTS/SRT 대본
+                      </button>
+
+                      <button
+                        onClick={handleImportSrtTrigger}
+                        id="btn-import-srt-sync"
+                        className="px-2.5 py-1.5 bg-purple-950/70 hover:bg-purple-900 border border-purple-500/30 text-purple-200 hover:text-white font-medium text-xs rounded transition-all flex items-center gap-1.5"
+                        title="2단계: Vrew/ElevenLabs에서 완성된 .SRT 불러와 타임코드 자동 싱크"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-purple-400" />
+                        2. SRT 타임코드 동기화
+                      </button>
+
+                      <button
+                        onClick={handleExportDavinciPythonScript}
+                        id="btn-export-davinci-py"
+                        className="px-2.5 py-1.5 bg-amber-950/70 hover:bg-amber-900 border border-amber-500/30 text-amber-200 hover:text-white font-medium text-xs rounded transition-all flex items-center gap-1.5"
+                        title="3단계: 다빈치 리졸브 원클릭 오토 타임라인 생성 파이썬 스크립트(.py) 추출"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        3. 다빈치 스크립트(.py)
+                      </button>
+
+                      <button
+                        onClick={handleExtractAllLtxMotions}
+                        id="btn-extract-all-ltx-motions"
+                        className="px-2.5 py-1.5 bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-200 hover:text-white font-medium text-xs rounded transition-all flex items-center gap-1.5"
+                        title="모든 장면의 LTX 2.3 비디오 프롬프트 일괄 복사"
+                      >
+                        <Video className="w-3.5 h-3.5 text-indigo-400" />
+                        LTX 프롬프트
+                      </button>
+
+                      <button
+                        onClick={() => setShowSfxGuideModal(true)}
+                        id="btn-show-sfx-guide"
+                        className="px-2.5 py-1.5 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-200 hover:text-white font-medium text-xs rounded transition-all flex items-center gap-1.5"
+                        title="유튜브 저작권 무료 효과음(SFX) 100% 무료 조달 사이트 및 사용 팁 가이드"
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                        🔊 무료 SFX 조달 팁
+                      </button>
+                    </div>
                   )}
 
                   {successCount > 0 && (
@@ -3325,10 +3963,36 @@ export default function App() {
                       )}
 
                       {/* Header indicators overlaid */}
-                      <div className="absolute top-2.5 left-2.5 flex items-center gap-2 flex-wrap max-w-[calc(105%-2.5rem)]">
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap max-w-[calc(105%-2.5rem)]">
                         <span className="bg-blue-600 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded shadow shrink-0">
                           SCENE #{scene.id}
                         </span>
+                        {scenes.length <= 15 ? (
+                          <span className="bg-amber-950/90 text-amber-300 border border-amber-500/30 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
+                            📱 쇼츠 (10s 영상)
+                          </span>
+                        ) : scene.id <= 8 ? (
+                          <span className="bg-emerald-950/90 text-emerald-300 border border-emerald-500/30 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
+                            🎬 인트로 (10s 영상)
+                          </span>
+                        ) : scene.id > scenes.length - 2 ? (
+                          <span className="bg-rose-950/90 text-rose-300 border border-rose-500/30 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
+                            🏁 아웃트로 (10s 영상)
+                          </span>
+                        ) : (
+                          <span className="bg-blue-950/90 text-blue-300 border border-blue-500/30 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
+                            🖼️ 본문 (15s 슬라이드)
+                          </span>
+                        )}
+                        {scene.startTimecode && scene.endTimecode ? (
+                          <span className="bg-purple-950/90 text-purple-200 border border-purple-500/30 text-[8px] font-mono font-semibold px-1.5 py-0.5 rounded shadow shrink-0" title="SRT 타임코드 스마트 동기화 완료">
+                            ⏱️ {scene.startTimecode.split(',')[0]} - {scene.endTimecode.split(',')[0]}
+                          </span>
+                        ) : scene.durationSeconds ? (
+                          <span className="bg-black/75 text-white/80 border border-white/10 text-[8px] font-mono px-1.5 py-0.5 rounded shadow shrink-0">
+                            ⏱️ {scene.durationSeconds}초
+                          </span>
+                        ) : null}
                         <span className="bg-[#0a0a0c]/85 text-white/80 border border-white/5 text-[9px] font-mono px-1.5 py-0.5 rounded shadow truncate max-w-24 shrink-0">
                           {scene.locationName}
                         </span>
@@ -3337,7 +4001,7 @@ export default function App() {
                             className="bg-emerald-650/90 text-white font-bold text-[8px] px-1.5 py-0.5 rounded shadow border border-emerald-500/25 flex items-center gap-0.5 animate-pulse shrink-0 font-mono"
                             title="WAN image-to-video optimization template applied"
                           >
-                            🎬 WAN 모션 대기
+                            🎬 WAN 모션
                           </span>
                         )}
                       </div>
@@ -4012,6 +4676,70 @@ export default function App() {
                       </p>
                     </div>
                   </div>
+
+                  {/* 피드 중복 방지 - 구도 & 색상 다양화 엔진 */}
+                  <div className="bg-[#121216] border border-purple-900/30 shadow-md shadow-purple-950/10 rounded-lg p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-purple-400 uppercase tracking-widest font-mono font-bold flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping"></span>
+                        🎨 양산형 채널 방지 - 비주얼 다양성 가동 장치
+                      </span>
+                    </div>
+
+                    <p className="text-white/40 text-[10px] leading-relaxed">
+                      모든 썸네일이 비슷한 구도나 색감으로 만들어져 유튜브 필터링에 걸리지 않도록 방지합니다. AI 디렉터가 선정한 기본 연출을 유지하거나, 아래의 구도와 색상 무드를 사용자가 원하는 대로 직접 조합하여 개성 있는 독창적인 썸네일을 재발행할 수 있습니다.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Composition Select */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/50 font-bold block">
+                          📐 연출 및 화면 구도 (Composition)
+                        </label>
+                        <select
+                          value={selectedComposition}
+                          onChange={(e) => setSelectedComposition(e.target.value)}
+                          className="w-full bg-[#1b1b26] border border-white/10 rounded px-2.5 py-1.5 text-[11px] text-white/85 focus:outline-none focus:border-purple-500 cursor-pointer font-sans"
+                        >
+                          <option value="Dynamic Action Climax">Dynamic Action Climax (역동적 격투/액션)</option>
+                          <option value="Duo Confrontation Profile">Duo Confrontation Profile (강렬한 인물 대립)</option>
+                          <option value="Atmospheric Mystery Wide-Shot">Atmospheric Mystery Wide-Shot (광활한 배경과 홀로 남은 인물)</option>
+                          <option value="Extreme Dutch-Angle Close-Up">Extreme Dutch-Angle Close-Up (기울어진 미스터리 클로즈업)</option>
+                          <option value="Symbolic Silhouette Metaphor">Symbolic Silhouette Metaphor (은유적 실루엣/상징물)</option>
+                        </select>
+                      </div>
+
+                      {/* Color Mood Select */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/50 font-bold block">
+                          🎨 색상 및 감정 무드 (Color Mood)
+                        </label>
+                        <select
+                          value={selectedColorMood}
+                          onChange={(e) => setSelectedColorMood(e.target.value)}
+                          className="w-full bg-[#1b1b26] border border-white/10 rounded px-2.5 py-1.5 text-[11px] text-white/85 focus:outline-none focus:border-purple-500 cursor-pointer font-sans"
+                        >
+                          <option value="Vibrant Royal Gold & Imperial Blue">Vibrant Royal Gold & Imperial Blue (황실의 금빛 & 청람색 - 궁궐/품격)</option>
+                          <option value="Warm Sunset Amber & Clay">Warm Sunset Amber & Clay (따뜻한 노을빛 & 황토색 - 서정/서사/일상)</option>
+                          <option value="Ominous Emerald & Shadow Black">Ominous Emerald & Shadow Black (비취색 & 암흑 - 숲속/신비/의혹)</option>
+                          <option value="Eerie Ghostly Pale & Moonlit Indigo">Eerie Ghostly Pale & Moonlit Indigo (창백한 서리색 & 청색 - 밤/비장/슬픔)</option>
+                          <option value="Deep Crimson & Ivory">Deep Crimson & Ivory (홍색 & 상아색 - 결의/의지 - 안전한 무혈 연출)</option>
+                          <option value="Cold Amber & Monochromatic Ash">Cold Amber & Monochromatic Ash (고독한 호박색 & 미스터리 회색)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={() => handleGenerateThumbnail(true, undefined, undefined, selectedComposition, selectedColorMood)}
+                        disabled={isGeneratingThumbnail}
+                        className="w-full py-2.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 disabled:from-purple-800/20 disabled:to-indigo-800/20 disabled:text-white/30 rounded text-xs font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingThumbnail ? "animate-spin" : ""}`} />
+                        선택한 구도 및 색감으로 썸네일 재빌드
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Analysis / Captions: Right Column (lg:col-span-5) */}
@@ -4020,10 +4748,92 @@ export default function App() {
                   <div className="bg-[#121216] border border-white/10 rounded-lg p-5 space-y-4">
                     <span className="text-[9px] text-purple-400 uppercase tracking-widest font-mono block font-bold flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-purple-400" />
-                      실시간 캘리그래피 텍스트 오버레이 엔진
+                      실시간 캘리그래피 텍스트 오버레이 엔진 (자동 합성)
                     </span>
 
                     <div className="space-y-3.5">
+                      {/* Title Text Template Presets Integration */}
+                      <div className="space-y-2 bg-[#171722] p-3 rounded-lg border border-purple-500/20 shadow-inner">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] text-purple-300 font-bold block flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-purple-400 animate-pulse" />
+                            제목 텍스트 레이어 합성 템플릿 연동 (5종)
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/50 hover:text-white">
+                            <input
+                              type="checkbox"
+                              checked={autoCompositeTitleText}
+                              onChange={(e) => setAutoCompositeTitleText(e.target.checked)}
+                              className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent cursor-pointer"
+                            />
+                            <span>이미지 생성시 자동 합성</span>
+                          </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-1.5 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => applyTitleTemplate("template-01")}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              selectedTitleTemplate === "template-01"
+                                ? "bg-purple-600/20 border-purple-500 text-white font-bold"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">👑 템플릿 01: [궁중 미스터리] 황금 붓글씨 (하단)</span>
+                            <span className="text-[9px] font-mono text-purple-400 shrink-0 ml-1">원클릭 적용 ⚡</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyTitleTemplate("template-02")}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              selectedTitleTemplate === "template-02"
+                                ? "bg-purple-600/20 border-purple-500 text-white font-bold"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">🩸 템플릿 02: [잔혹 서스펜스] 혈색 독도체 (중앙)</span>
+                            <span className="text-[9px] font-mono text-rose-400 shrink-0 ml-1">원클릭 적용 ⚡</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyTitleTemplate("template-03")}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              selectedTitleTemplate === "template-03"
+                                ? "bg-purple-600/20 border-purple-500 text-white font-bold"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">🔥 템플릿 03: [하이라이트] 킹고딕 리본 (하단)</span>
+                            <span className="text-[9px] font-mono text-amber-400 shrink-0 ml-1">원클릭 적용 ⚡</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyTitleTemplate("template-04")}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              selectedTitleTemplate === "template-04"
+                                ? "bg-purple-600/20 border-purple-500 text-white font-bold"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">📜 템플릿 04: [정통 서사] 궁중 명조체 (상단)</span>
+                            <span className="text-[9px] font-mono text-emerald-400 shrink-0 ml-1">원클릭 적용 ⚡</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyTitleTemplate("template-05")}
+                            className={`p-2 rounded border text-left transition-all cursor-pointer flex items-center justify-between ${
+                              selectedTitleTemplate === "template-05"
+                                ? "bg-purple-600/20 border-purple-500 text-white font-bold"
+                                : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">⚡ 템플릿 05: [Shorts 숏츠] 모바일 중앙 대형 고딕</span>
+                            <span className="text-[9px] font-mono text-cyan-400 shrink-0 ml-1">원클릭 적용 ⚡</span>
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Text Input */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] text-white/50 font-bold block">썸네일 삽입 문구 편집</label>
@@ -4108,119 +4918,139 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Font Color & Size */}
-                      <div className="grid grid-cols-2 gap-3.5">
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-white/50 font-bold block">글자 크기: {overlaySize}px</label>
-                          <input
-                            type="range"
-                            min="24"
-                            max="100"
-                            value={overlaySize}
-                            onChange={(e) => setOverlaySize(Number(e.target.value))}
-                            className="w-full accent-purple-500 h-1 bg-white/5 rounded-lg appearance-none cursor-pointer"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-white/50 font-bold block font-mono">글자 색상</label>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <input
-                              type="color"
-                              value={overlayColor}
-                              onChange={(e) => setOverlayColor(e.target.value)}
-                              className="w-6 h-6 bg-transparent border-0 cursor-pointer"
-                            />
-                            <div className="flex gap-1">
-                              {["#facc15", "#ef4444", "#ffffff", "#50e3c2"].map((c) => (
-                                <button
-                                  key={c}
-                                  type="button"
-                                  onClick={() => setOverlayColor(c)}
-                                  className="w-4 h-4 rounded-full border border-white/10 shrink-0"
-                                  style={{ backgroundColor: c }}
+                      {/* Fine Tune Accordion Toggle */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowThumbnailFineTune(!showThumbnailFineTune)}
+                          className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[11px] font-medium text-white/70 hover:text-white transition-all flex items-center justify-between px-3 cursor-pointer"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span>⚙️ 위치 및 미세 조율 (글자 크기 / 위치 X·Y / 각도 / 테두리)</span>
+                          </span>
+                          <span className="text-xs text-purple-400 font-mono font-bold">
+                            {showThumbnailFineTune ? "▲ 접기" : "▼ 펼치기"}
+                          </span>
+                        </button>
+
+                        {showThumbnailFineTune && (
+                          <div className="space-y-3.5 pt-3 border-t border-white/5 mt-2 animate-fade-in">
+                            {/* Font Color & Size */}
+                            <div className="grid grid-cols-2 gap-3.5">
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-white/50 font-bold block">글자 크기: {overlaySize}px</label>
+                                <input
+                                  type="range"
+                                  min="24"
+                                  max="100"
+                                  value={overlaySize}
+                                  onChange={(e) => setOverlaySize(Number(e.target.value))}
+                                  className="w-full accent-purple-500 h-1 bg-white/5 rounded-lg appearance-none cursor-pointer"
                                 />
-                              ))}
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-white/50 font-bold block font-mono">글자 색상</label>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <input
+                                    type="color"
+                                    value={overlayColor}
+                                    onChange={(e) => setOverlayColor(e.target.value)}
+                                    className="w-6 h-6 bg-transparent border-0 cursor-pointer"
+                                  />
+                                  <div className="flex gap-1">
+                                    {["#facc15", "#ef4444", "#ffffff", "#50e3c2"].map((c) => (
+                                      <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => setOverlayColor(c)}
+                                        className="w-4 h-4 rounded-full border border-white/10 shrink-0"
+                                        style={{ backgroundColor: c }}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Position & Angle */}
+                            <div className="space-y-2.5 bg-white/5 p-3 rounded border border-white/5">
+                              <span className="text-[9px] text-white/40 uppercase font-mono font-bold block">글자 배치 조율</span>
+                              
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] text-white/50">
+                                  <span>세로 위치 Y (위 ↔ 아래)</span>
+                                  <span>{overlayY}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="10"
+                                  max="90"
+                                  value={overlayY}
+                                  onChange={(e) => setOverlayY(Number(e.target.value))}
+                                  className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] text-white/50">
+                                  <span>가로 위치 X (좌 ↔ 우)</span>
+                                  <span>{overlayX}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="10"
+                                  max="90"
+                                  value={overlayX}
+                                  onChange={(e) => setOverlayX(Number(e.target.value))}
+                                  className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] text-white/50">
+                                  <span>회전 각도 (Visual Tension)</span>
+                                  <span>{overlayRotation}°</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="-15"
+                                  max="15"
+                                  value={overlayRotation}
+                                  onChange={(e) => setOverlayRotation(Number(e.target.value))}
+                                  className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Effects */}
+                            <div className="flex items-center gap-4 text-[10px] bg-white/5 p-2 rounded">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
+                                <input
+                                  type="checkbox"
+                                  checked={enableBackingGlow}
+                                  onChange={(e) => {
+                                    setEnableBackingGlow(e.target.checked);
+                                    if (e.target.checked) setEnableBackingRibbon(false);
+                                  }}
+                                  className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
+                                />
+                                <span>글자 뒤 그림자/두꺼운 테두리</span>
+                              </label>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
+                                <input
+                                  type="checkbox"
+                                  checked={enableBackingRibbon}
+                                  onChange={(e) => {
+                                    setEnableBackingRibbon(e.target.checked);
+                                    if (e.target.checked) setEnableBackingGlow(false);
+                                  }}
+                                  className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
+                                />
+                                <span>어두운 리본 반투명판</span>
+                              </label>
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Position & Angle */}
-                      <div className="space-y-2.5 bg-white/5 p-3 rounded border border-white/5">
-                        <span className="text-[9px] text-white/40 uppercase font-mono font-bold block">글자 배치 조율</span>
-                        
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-white/50">
-                            <span>세로 위치 Y (위 ↔ 아래)</span>
-                            <span>{overlayY}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="10"
-                            max="90"
-                            value={overlayY}
-                            onChange={(e) => setOverlayY(Number(e.target.value))}
-                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-white/50">
-                            <span>가로 위치 X (좌 ↔ 우)</span>
-                            <span>{overlayX}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="10"
-                            max="90"
-                            value={overlayX}
-                            onChange={(e) => setOverlayX(Number(e.target.value))}
-                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-white/50">
-                            <span>회전 각도 (Visual Tension)</span>
-                            <span>{overlayRotation}°</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="-15"
-                            max="15"
-                            value={overlayRotation}
-                            onChange={(e) => setOverlayRotation(Number(e.target.value))}
-                            className="w-full accent-purple-500 h-1 bg-[#1a1a24] rounded-lg appearance-none cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Effects */}
-                      <div className="flex items-center gap-4 text-[10px] bg-white/5 p-2 rounded">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
-                          <input
-                            type="checkbox"
-                            checked={enableBackingGlow}
-                            onChange={(e) => {
-                              setEnableBackingGlow(e.target.checked);
-                              if (e.target.checked) setEnableBackingRibbon(false);
-                            }}
-                            className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
-                          />
-                          <span>글자 뒤 그림자/두꺼운 테두리</span>
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-white/80">
-                          <input
-                            type="checkbox"
-                            checked={enableBackingRibbon}
-                            onChange={(e) => {
-                              setEnableBackingRibbon(e.target.checked);
-                              if (e.target.checked) setEnableBackingGlow(false);
-                            }}
-                            className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
-                          />
-                          <span>어두운 리본 반투명판</span>
-                        </label>
+                        )}
                       </div>
 
                       {/* Options & Export Actions */}
@@ -4968,6 +5798,11 @@ export default function App() {
                       desc: "Traditional Joseon Illust",
                     },
                     {
+                      key: "claymation",
+                      label: "클레이 점토 인형",
+                      desc: "Claymation Stop-Motion",
+                    },
+                    {
                       key: "realistic",
                       label: "역사 극사실주의",
                       desc: "Cinematic Realistic",
@@ -5343,6 +6178,230 @@ export default function App() {
                     창 닫기
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Beginner Step-by-Step Interactive Guide Modal */}
+      <AnimatePresence>
+        {showGuideModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setShowGuideModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#121216] border border-amber-500/30 w-full max-w-3xl rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 text-white/90 relative my-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      유튜브 완전 자동화 초보자 3단계 마스터 가이드
+                    </h2>
+                    <p className="text-xs text-amber-400/80 font-mono">
+                      내 시스템 + 외부 TTS 생성기 + 다빈치 리졸브 완벽 연동 워크플로우
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowGuideModal(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
+                {/* Step 1 */}
+                <div className="bg-[#181820] border border-sky-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-xs">1</span>
+                    대본 작성 및 외부 TTS / SRT 타임코드 동기화
+                  </div>
+                  <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
+                    <li>
+                      <strong className="text-white">대본 추출:</strong> 야담에서 분석 완료 후 스토리보드 상단의 <span className="text-sky-300 font-bold">[TTS / SRT 대본]</span> 버튼을 클릭하여 <code className="text-sky-200 bg-sky-950/60 px-1 rounded">.txt</code> 대본과 기본 자막파일을 내보냅니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">외부 TTS 오디오 생성:</strong> 기존에 사용하시던 외부 TTS/SRT 프로그램에 대본을 넣고 통합 오디오 파일(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">voiceover.mp3</code>)과 타임코드 자막(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">.srt</code>)을 만듭니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">타임코드 100% 동기화:</strong> 야담으로 돌아와 <span className="text-purple-300 font-bold">[SRT 타임코드 동기화]</span> 버튼을 눌러 다운받은 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">.srt</code> 파일을 선택합니다. 전체 스토리보드의 씬별 오디오 시작시간과 길이가 실제 음성에 맞춰 정밀 자동 수정됩니다.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Step 2 */}
+                <div className="bg-[#181820] border border-indigo-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs">2</span>
+                    이미지 및 LTX 2.3 비디오 연출 영상 생성
+                  </div>
+                  <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
+                    <li>
+                      <strong className="text-white">이미지 & 비디오 제작:</strong> 야담 씬 카드에 적힌 영문 프롬프트로 이미지를 만들고, LTX 모션 프롬프트를 활용해 5초 영상(<code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">.mp4</code>)으로 변환합니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">파일명 정리:</strong> 완성된 영상이나 이미지 파일을 <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_001.mp4</code>, <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_002.mp4</code> ... 형태로 이름을 지정하여 하나의 작업 폴더에 모아둡니다.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Step 3 */}
+                <div className="bg-[#181820] border border-amber-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xs">3</span>
+                    다빈치 리졸브 원클릭 배치 자동화 실행
+                  </div>
+                  <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
+                    <li>
+                      <strong className="text-white">스크립트 추출:</strong> 상단의 <span className="text-amber-300 font-bold">[다빈치 스크립트 (.py)]</span> 버튼을 누르면 마스터 자동화 스크립트가 다운로드됩니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">작업 폴더에 배치:</strong> 다운받은 파이썬 스크립트(<code className="text-amber-200 bg-amber-950/60 px-1 rounded">.py</code>)를 비디오 영상 파일들과 MP3 음성이 들어있는 폴더에 넣습니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">다빈치 콘솔 실행:</strong> 다빈치 리졸브 프로그램 상단 메뉴에서 <span className="text-white font-bold">Workspace ➔ Console ➔ Python</span> 탭을 열고 생성된 스크립트를 드래그해 실행하면 비디오 트랙 배치, 자막 마커, 오디오 타임라인이 1초 만에 완성됩니다!
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 text-emerald-300 font-mono text-[11px] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>💡 <strong>Tip:</strong> 이 방식은 외부 프로그램의 연동 오류나 유료 API 과금 없이, 100% 무료이면서도 완벽한 고화질 영상 결과물을 제공합니다.</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-end">
+                <button
+                  onClick={() => setShowGuideModal(false)}
+                  className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-amber-950/40"
+                >
+                  가이드 확인 완료 (닫기)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Free SFX Guide Modal */}
+      <AnimatePresence>
+        {showSfxGuideModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setShowSfxGuideModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#10131a] border border-emerald-500/30 w-full max-w-3xl rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 text-white/90 relative my-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <Volume2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      유튜브 100% 저작권 무료 효과음(SFX) 조달 마스터 가이드
+                    </h2>
+                    <p className="text-xs text-emerald-400/80 font-mono">
+                      효과음 파일이 전혀 없어도 OK! 클릭 한 번에 100% 상업용 무료 SFX 조달법 3가지
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSfxGuideModal(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
+                {/* Method 1: Built-in Search (No Download Required) */}
+                <div className="bg-[#141b24] border border-emerald-500/25 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs">1</span>
+                    가장 쉬운 방법: 편집 프로그램 내장 효과음 키워드 검색 (다운로드 X)
+                  </div>
+                  <p className="text-white/70 pl-8">
+                    Vrew, DaVinci Resolve(Sound Library), Premiere Pro 등 거의 모든 영상 편집기에는 자체 무료 SFX 라이브러리가 기본 탑재되어 있습니다. 별도로 파일을 다운받지 말고, 검색창에 아래 한글 키워드를 입력해 타임라인에 바로 끌어다 놓으세요:
+                  </p>
+                  <div className="pl-8 grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🍃 바람 / 산울림 / 산길</div>
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🚪 한옥 문 / 삐걱이는 나무문</div>
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🥁 저음 쿵 / 긴장감 심장소리</div>
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🌧️ 빗소리 / 초막 지붕 비</div>
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">⚔️ 검 / 칼 스릉 마찰음</div>
+                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🦗 밤벌레 / 풀벌레 / 부엉이</div>
+                  </div>
+                </div>
+
+                {/* Method 2: Top 4 Free SFX Sites */}
+                <div className="bg-[#141b24] border border-sky-500/25 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-xs">2</span>
+                    100% 저작권 안전! 무료 상업용 효과음 웹사이트 4선 (수익창출 Safe)
+                  </div>
+                  <ul className="space-y-2 text-white/80 pl-8">
+                    <li className="bg-black/30 p-2 rounded border border-white/5">
+                      <strong className="text-sky-300">1. YouTube Audio Library (구글 공식)</strong>
+                      <p className="text-white/60 text-[11px] mt-0.5">studio.youtube.com 접속 ➔ 왼쪽 [오디오 보관함] ➔ [효과음] 탭. 구글이 직접 검증한 100% 안전한 수익창출 무료 음원만 모여 있습니다.</p>
+                    </li>
+                    <li className="bg-black/30 p-2 rounded border border-white/5">
+                      <strong className="text-sky-300">2. Pixabay Sound Effects (pixabay.com/sound-effects)</strong>
+                      <p className="text-white/60 text-[11px] mt-0.5">회원가입 필요 없이 'wind', 'door creak', 'sword', 'rain' 검색 시 즉시 MP3 무료 다운로드 가능.</p>
+                    </li>
+                    <li className="bg-black/30 p-2 rounded border border-white/5">
+                      <strong className="text-sky-300">3. Mixkit (mixkit.co/free-sound-effects)</strong>
+                      <p className="text-white/60 text-[11px] mt-0.5">영화 및 사극에 어울리는 고품질 Foley(발소리, 옷깃 쓸리는 소리, 바람소리) 효과음 무료 제공.</p>
+                    </li>
+                    <li className="bg-black/30 p-2 rounded border border-white/5">
+                      <strong className="text-sky-300">4. Freesound (freesound.org)</strong>
+                      <p className="text-white/60 text-[11px] mt-0.5">세계 최대 사운드 DB. 검색 후 라이선스 필터에서 'Creative Commons 0 (CC0)' 선택 시 자유 사용 가능.</p>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Method 3: AI Sound Generation via Text */}
+                <div className="bg-[#141b24] border border-purple-500/25 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xs">3</span>
+                    야담 시스템이 씬별로 자동 추천해주는 영문 사운드 키워드 활용
+                  </div>
+                  <p className="text-white/70 pl-8">
+                    야담 스토리보드의 각 씬 카드를 보시면 <span className="text-emerald-400 font-mono font-bold">🔊 LTX 사운드 디자인 추천</span> 칸에 해당 장면 분위기에 딱 맞는 영어 프롬프트(예: <code className="text-emerald-200 bg-emerald-950/60 px-1 rounded">haunting mountain wind, creaking door</code>)가 들어있습니다.
+                    해당 문구를 클릭해 복사한 뒤, ElevenLabs Sound Effects 또는 Suno/LTX Audio에 붙여넣으면 3초 만에 나만의 오리지널 SFX가 생성됩니다!
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-end">
+                <button
+                  onClick={() => setShowSfxGuideModal(false)}
+                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-emerald-950/40"
+                >
+                  가이드 확인 완료 (닫기)
+                </button>
               </div>
             </motion.div>
           </motion.div>

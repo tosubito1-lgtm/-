@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DaVinci Resolve 21 Free Auto-Batch & Timeline Optimizer PRO</title>
+    <style>
+        :root {
+            --bg-color: #0f1015;
+            --card-bg: #181920;
+            --card-border: #282a36;
+            --accent: #ff5500;
+            --accent-hover: #ff6a1a;
+            --python-green: #00e676;
+            --python-green-hover: #00c853;
+            --text-main: #f8f8f2;
+            --text-dim: #9ea3b5;
+            --border: #2a2d3d;
+            --success: #50fa7b;
+            --warning: #ffb86c;
+            --info: #8be9fd;
+            --purple: #bd93f9;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px;
+            line-height: 1.6;
+        }
+        .wrapper { max-width: 1280px; margin: 0 auto; }
+        
+        header { 
+            margin-bottom: 24px; 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        header h1 { font-size: 1.75rem; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+        header p { color: var(--text-dim); font-size: 0.9rem; margin-top: 4px; }
+        .version-badge { 
+            background: rgba(255, 85, 0, 0.15); 
+            border: 1px solid var(--accent);
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            font-size: 0.8rem; 
+            color: var(--accent); 
+            font-weight: bold; 
+        }
+
+        /* 스마트 통합 가이드북 */
+        .guide-container {
+            background: #141721;
+            border: 1px solid #283044;
+            border-radius: 10px;
+            margin-bottom: 28px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .guide-header {
+            padding: 16px 24px;
+            background: #1b202e;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .guide-header:hover { background: #22293b; }
+        .guide-content {
+            padding: 24px;
+            font-size: 0.9rem;
+            color: #d1d5db;
+            border-top: 1px solid #283044;
+            display: none;
+        }
+        .guide-content.show { display: block; }
+        
+        /* 도움말 내부 탭 메뉴 */
+        .tab-menu { display: flex; flex-wrap: wrap; border-bottom: 1px solid #2e384e; margin-bottom: 20px; gap: 6px; }
+        .tab-btn {
+            padding: 10px 16px; background: #11141d; color: #94a3b8; border: none;
+            border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.83rem; font-weight: bold;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: #1e2535; color: #fff; }
+        .tab-btn.active { background: #2e384e; color: #fff; border-bottom: 2px solid var(--accent); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .guide-content ol, .guide-content ul { padding-left: 22px; margin-bottom: 15px; }
+        .guide-content li { margin-bottom: 10px; }
+        .shortcut { background: #000000; padding: 3px 8px; border-radius: 4px; font-family: monospace; color: #ffeb3b; font-size: 0.82rem; border: 1px solid #333; }
+        .code-block { background: #090a0f; padding: 12px 16px; border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 0.82rem; color: #50fa7b; border: 1px solid #222; margin: 8px 0; overflow-x: auto; }
+        .key-tip { color: var(--info); font-weight: bold; }
+        .important-tip { color: var(--warning); font-weight: bold; }
+        .python-tip { color: var(--python-green); font-weight: bold; }
+
+        /* 🔥 LTX 모션 추천 카드 */
+        .motion-recommend-card {
+            background: linear-gradient(135deg, rgba(255,85,0,0.12) 0%, rgba(255,184,108,0.05) 100%);
+            border: 1px solid rgba(255,85,0,0.4);
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .motion-recommend-title { font-size: 0.98rem; font-weight: bold; color: #ff8833; display: flex; align-items: center; gap: 8px; }
+        .motion-recommend-desc { font-size: 0.83rem; color: #d1d5db; margin-top: 4px; }
+        .tag-badge.tag-motion { background: rgba(255, 85, 0, 0.25); color: #ff9955; border: 1px solid #ff5500; font-weight: bold; }
+
+        /* 대시보드 카드 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 18px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-card span { display: block; }
+        .stat-val { font-size: 1.5rem; font-weight: bold; color: var(--accent); margin-top: 6px; }
+        .stat-lbl { font-size: 0.78rem; color: var(--text-dim); }
+
+        /* 진행률 바 */
+        .progress-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 16px 24px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .progress-label { font-size: 0.88rem; font-weight: bold; color: var(--text-dim); white-space: nowrap; }
+        .progress-bg { background: #111218; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid #2a2d3d; }
+        .progress-bar { background: var(--success); width: 0%; height: 100%; transition: width 0.3s ease; }
+        .progress-text { font-size: 0.88rem; font-weight: bold; color: var(--success); white-space: nowrap; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+        @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 22px; }
+        .card h3 { font-size: 1.1rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        
+        .file-box {
+            border: 2px dashed var(--card-border);
+            border-radius: 8px;
+            padding: 38px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #121319;
+        }
+        .file-box:hover, .file-box.dragover { border-color: var(--accent); background: rgba(255, 85, 0, 0.05); }
+
+        textarea {
+            width: 100%; height: 160px;
+            background: #121319; border: 1px solid var(--card-border);
+            color: #fff; padding: 12px; border-radius: 6px;
+            resize: none; font-size: 0.85rem; line-height: 1.5; outline: none;
+        }
+        textarea:focus { border-color: var(--accent); }
+
+        /* 세부 제어 패널 */
+        .control-panel {
+            background: var(--card-bg);
+            padding: 20px 24px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+            border: 1px solid var(--card-border);
+            font-size: 0.85rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { color: var(--text-dim); font-weight: bold; font-size: 0.82rem; }
+        .control-group input, .control-group select {
+            background: #121319; border: 1px solid var(--card-border);
+            color: white; padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.85rem;
+        }
+        .control-group input:focus, .control-group select:focus { border-color: var(--accent); }
+
+        /* 메인 버튼군 */
+        .btn-group-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 640px) { .btn-group-main { grid-template-columns: 1fr; } }
+
+        .btn-action {
+            padding: 16px; color: white;
+            border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+            font-size: 1rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .btn-primary { background: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-python { background: #00ab55; color: #fff; }
+        .btn-python:hover { background: #008f45; }
+        .btn-action:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        /* 결과 영역 */
+        .result-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+        @media (max-width: 960px) { .result-layout { grid-template-columns: 1fr; } }
+
+        .search-box {
+            background: #121319; border: 1px solid var(--card-border);
+            color: white; padding: 8px 14px; border-radius: 6px;
+            width: 240px; font-size: 0.82rem; outline: none;
+        }
+        .search-box:focus { border-color: var(--accent); }
+
+        .table-wrapper { overflow-x: auto; background: var(--card-bg); border-radius: 10px; border: 1px solid var(--card-border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--card-border); }
+        th { background: #121319; color: var(--text-dim); font-weight: bold; }
+        tr.gap-row { background: rgba(255, 184, 108, 0.05); }
+        tr.intro-row { background: rgba(255, 85, 0, 0.06); }
+        tr.video-row { background: rgba(139, 233, 253, 0.05); }
+        tr.completed { opacity: 0.45; background: rgba(80, 250, 123, 0.03); }
+
+        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+        .btn-sub {
+            padding: 7px 14px; background: #222533; color: white; border: 1px solid var(--card-border);
+            border-radius: 6px; cursor: pointer; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-sub:hover { background: #2e3247; }
+        .btn-sub.accent { background: var(--accent); border-color: var(--accent); }
+        .btn-sub.accent:hover { background: var(--accent-hover); }
+        .btn-sub.green { background: #00ab55; border-color: #00ab55; }
+        .btn-sub.green:hover { background: #008f45; }
+
+        .shot-list {
+            background: #090a0f; padding: 20px; border-radius: 10px;
+            font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #c3e88d;
+            white-space: pre-wrap; max-height: 520px; overflow-y: auto;
+            border: 1px solid var(--card-border); line-height: 1.6;
+        }
+
+        .tag-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;
+        }
+        .tag-mp4 { background: rgba(139, 233, 253, 0.2); color: var(--info); border: 1px solid var(--info); }
+        .tag-png { background: rgba(189, 147, 249, 0.2); color: var(--purple); border: 1px solid var(--purple); }
+        .tag-gap { background: rgba(255, 184, 108, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--accent); color: white; padding: 12px 24px;
+            border-radius: 8px; font-size: 0.9rem; font-weight: bold; display: none; z-index: 1000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <header>
+        <div>
+            <h1>🎬 DaVinci Resolve 21 Free Auto-Batch & Timeline Optimizer PRO</h1>
+            <p>SRT 자막 분석 ➔ LTX 비디오/PNG 에셋 구분 ➔ 다빈치 타임라인 0.1초 원클릭 오토 로봇 스크립트(.py)</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="version-badge">DR 21 FREE & STUDIO 100% COMPATIBLE</span>
+            <button onclick="openYadamPlanner()" style="background:#222533; color:#fff; border:1px solid #2a2d3d; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">📜 야담 대본 플래너 열기</button>
+            <button onclick="downloadYadamPlanner()" style="background:#3b1e2e; color:#ff99c8; border:1px solid #5c2848; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; display:inline-flex; align-items:center; gap:6px;" title="야담 대본 플래너 HTML 오프라인 파일 다운로드">💾 야담 플래너(HTML) 받기</button>
+            <button onclick="downloadSelf()" style="background:#ff5500; color:#ffffff; border:1px solid #ff7722; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">💾 다빈치 도구(HTML) 다운로드</button>
+        </div>
+    </header>
+
+    <!-- 초보자 및 숙련자 통합 매뉴얼 가이드북 -->
+    <div class="guide-container">
+        <div class="guide-header" onclick="toggleGuide()">
+            <span>📕 [초보자&숙련자 가이드] 다빈치 타임라인 10초 원클릭 파이썬 배치 스크립트 사용법 & 무브먼트 노하우 (클릭하여 열기)</span>
+            <span id="guideArrow">▼</span>
+        </div>
+        <div class="guide-content" id="guideContent">
+            
+            <div class="tab-menu">
+                <button class="tab-btn active" onclick="openTab(event, 'tab-python')">1. 🤖 파이썬 오토 배치 로봇 (핵심)</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-folder')">2. 📂 에셋 파일 이름 규격 규칙</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-fps')">3. 🎬 FPS & 프로젝트 세팅</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-csv')">4. 📌 마커(CSV) 임포트 가이드</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-camera')">5. 🎥 Dynamic Zoom & 카메라 무브</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-audio')">6. 🎙️ 저음량 마이크 & 오디오 더킹</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-shortcuts')">7. ⚡ 필수 에디터 단축키</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-mass-prod')">8. 🚀 60씬 양산형 공장 세팅</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-motion-rec')" style="background:#3d1a00; color:#ffaa55;">9. 🔥 LTX 모션 추천 알고리즘</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-mistakes')" style="background:#4a1515; color:#ff9999;">10. 🚨 트러블슈팅 & 싱크 복구</button>
+            </div>
+
+            <!-- 탭 1: 파이썬 오토 로봇 -->
+            <div id="tab-python" class="tab-panel active">
+                <h4 style="color:var(--python-green); margin-bottom:8px;">🤖 [혁신] 다빈치 리졸브 타임라인 원클릭 파이썬 스크립트 사용법</h4>
+                <p>더 이상 마우스로 60개 이미지와 LTX 비디오, 오디오, SRT를 일일이 드래그하여 타임라인에 올리지 마세요!</p>
+                <ol style="margin-top: 10px;">
+                    <li><b>폴더 정렬:</b> 작업 폴더 하나에 오디오(<span class="code-block" style="display:inline; padding:2px 6px;">audio.wav</span> 또는 <span class="code-block" style="display:inline; padding:2px 6px;">audio.mp3</span>), 자막(<span class="code-block" style="display:inline; padding:2px 6px;">subtitles.srt</span>), 그리고 씬 이미지/영상들(<span class="code-block" style="display:inline; padding:2px 6px;">scene_01.png</span>, <span class="code-block" style="display:inline; padding:2px 6px;">scene_03.mp4</span> 등)을 모아둡니다.</li>
+                    <li>이 웹 도구에서 SRT 파일을 올린 후 <b>[🤖 다빈치 타임라인 자동배치 스크립트 (.py) 다운로드]</b>를 클릭합니다.</li>
+                    <li><b>다빈치 실행:</b> 다빈치 리졸브를 열고 프로젝트와 빈 타임라인을 하나 만듭니다.</li>
+                    <li><b>Console 창 열기:</b> 다빈치 상단 메뉴 <b>[Workspace] ➔ [Console]</b>을 누르거나, 우측 콘솔 패널을 엽니다.</li>
+                    <li>상단 탭에서 <b>[Py3]</b> (Python 3)을 선택합니다.</li>
+                    <li>다운받은 <span class="python-tip">davinci_auto_batch.py</span> 파일을 텍스트 에디터로 열어 내용 전체 복사 후, 다빈치 Console 입력창에 <b>붙여넣기(Ctrl+V) ➔ Enter</b>를 누릅니다.</li>
+                    <li><b>결과:</b> 0.1초 만에 오디오, 자막, PNG 이미지, LTX MP4 비디오가 자막 타임코드 길이에 맞춰 칼같이 배치 및 정렬됩니다!</li>
+                </ol>
+            </div>
+
+            <!-- 탭 2: 파일 이름 규격 -->
+            <div id="tab-folder" class="tab-panel">
+                <h4 style="color:var(--info); margin-bottom:8px;">📂 씬 번호 일관성 규칙 (PNG와 LTX MP4 혼합 배치)</h4>
+                <p>자동 스크립트가 파일을 정확히 인식하도록 폴더 안의 에셋 파일명을 아래 규격대로 유지해주세요.</p>
+                <div class="code-block">
+E:/MyProjectFolder/
+  ├── audio.wav            (또는 audio.mp3 - 음성 파일)
+  ├── subtitles.srt        (자막 파일)
+  ├── scene_01.png         (1번 씬 이미지)
+  ├── scene_02.png         (2번 씬 이미지)
+  ├── scene_03.mp4         (3번 씬 LTX 생성 비디오 - 자동으로 MP4 우선 선택!)
+  ├── scene_04.png         (4번 씬 이미지)
+  └── scene_05.mp4         (5번 씬 LTX 생성 비디오)
+                </div>
+                <p style="margin-top:10px;">💡 <b>팁:</b> 동일 씬 번호에 <span class="key-tip">.mp4</span>와 <span class="key-tip">.png</span>가 동시에 존재하는 경우, 스크립트가 <b>MP4 비디오를 우선 적용</b>합니다!</p>
+            </div>
+
+            <!-- 탭 3: FPS 설정 -->
+            <div id="tab-fps" class="tab-panel">
+                <h4 style="color:var(--warning); margin-bottom:8px;">🛠️ 다빈치 리졸브 프레임 레이트(FPS) 동기화</h4>
+                <p>편집 전 다빈치 리졸브의 프레임과 이 도구의 FPS를 똑같이 맞춰야 1프레임의 오차도 없이 타임라인이 일치합니다.</p>
+                <ol style="margin-top: 10px;">
+                    <li>다빈치 우측 하단 <b>톱니바퀴 아이콘 (Project Settings)</b> 클릭 (<span class="shortcut">Shift + 9</span>)</li>
+                    <li><b>[Master Settings] ➔ [Timeline frame rate]</b> 확인 (유튜브 추천: <span class="key-tip">24 fps</span> 또는 <span class="key-tip">30 fps</span>)</li>
+                    <li>이 웹 도구의 하단 설정 패널에서도 동일한 FPS를 선택해 주세요.</li>
+                </ol>
+            </div>
+
+            <!-- 탭 4: CSV 마커 가이드 -->
+            <div id="tab-csv" class="tab-panel">
+                <h4 style="color:var(--accent); margin-bottom:8px;">📌 오디오 트랙 마커 가이드 심기</h4>
+                <p>파이썬 스크립트 외에 수동 보조 작업용으로 마커 가이드선이 필요할 때 사용합니다.</p>
+                <ol style="margin-top: 10px;">
+                    <li>분석 후 <b>[🎬 정밀 마커(CSV) 다운로드]</b>를 누릅니다.</li>
+                    <li>다빈치 미디어 풀(Media Pool) 속 오디오 녹음 파일(MP3/WAV)을 우클릭합니다.</li>
+                    <li><b>[Import Markers from CSV...]</b>를 선택하고 CSV 파일을 지정합니다.</li>
+                    <li>오디오 클립에 알록달록한 마커가 심겨 클립 이동 시 가이드선이 따라 움직입니다.</li>
+                </ol>
+            </div>
+
+            <!-- 탭 5: 카메라 무브먼트 -->
+            <div id="tab-camera" class="tab-panel">
+                <h4 style="color:var(--info); margin-bottom:8px;">🎥 Dynamic Zoom & 인스펙터 키프레임 연출법</h4>
+                <h5 style="color:#fff; margin-top:10px; margin-bottom:5px;">💡 방법 A. 클릭 한 번으로 끝내기: Dynamic Zoom</h5>
+                <ol>
+                    <li>타임라인 비디오 클립 클릭 ➔ 우측 상단 <b>Inspector</b> 창 열기</li>
+                    <li><b>[Dynamic Zoom]</b> 오른쪽 스위치 ON (기본: 서서히 축소)</li>
+                    <li>반대로 서서히 확대하려면 하단 <b>Swap</b> 버튼 클릭</li>
+                </ol>
+                <h5 style="color:#fff; margin-top:12px; margin-bottom:5px;">🛠️ 방법 B. 정밀 키프레임 (Zoom & Position)</h5>
+                <p>클립 첫 프레임에서 Inspector의 <b>Zoom / Position</b> 옆 <span class="key-tip">◆ 다이아몬드</span> 클릭 ➔ 마지막 프레임으로 이동하여 수치 조절 (예: 1.0 ➔ 1.25).</p>
+            </div>
+
+            <!-- 탭 6: 저음량 마이크 & 더킹 -->
+            <div id="tab-audio" class="tab-panel">
+                <h4 style="color:var(--success); margin-bottom:8px;">🎙️ 저음량 마이크(-20dB) 심폐소생술 & 오디오 더킹</h4>
+                <ol>
+                    <li><b>Fairlight 탭 이동:</b> 우측 상단 Effects ➔ <b>Noise Reduction</b> 드래그 ➔ <span class="key-tip">Auto Speech Mode</span> 클릭 (전기 노이즈 즉시 차단)</li>
+                    <li><b>Dynamics Gate:</b> Threshold를 <span class="important-tip">-35 dB ~ -45 dB</span>로 설정하여 무음 구간 완전 정적 처리</li>
+                    <li><b>Normalize Audio:</b> 오디오 우클릭 ➔ <b>[Normalize Audio Levels...]</b> ➔ True Peak <span class="key-tip">-2.0 dB</span> 설정</li>
+                </ol>
+            </div>
+
+            <!-- 탭 7: 필수 단축키 -->
+            <div id="tab-shortcuts" class="tab-panel">
+                <h4 style="color:#fff; margin-bottom:8px;">⚡ 에디터 필수 단축키</h4>
+                <table style="width:100%; font-size:0.85rem; border-collapse:collapse; margin-top:10px;">
+                    <tr style="background:#1f2433;">
+                        <th style="padding:8px; border:1px solid #2e384e;">기능</th>
+                        <th style="padding:8px; border:1px solid #2e384e;">단축키</th>
+                        <th style="padding:8px; border:1px solid #2e384e;">설명</th>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border:1px solid #2e384e;"><b>타임라인 전체보기</b></td>
+                        <td style="padding:8px; border:1px solid #2e384e;"><span class="shortcut">Shift + Z</span></td>
+                        <td>전체 타임라인을 한눈에 피팅합니다.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border:1px solid #2e384e;"><b>잔물결 삭제</b></td>
+                        <td style="padding:8px; border:1px solid #2e384e;"><span class="shortcut">Shift + Delete</span></td>
+                        <td>클립 삭제 후 뒤 클립들을 자동으로 끌어옵니다.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border:1px solid #2e384e;"><b>클립 위치 맞바꾸기</b></td>
+                        <td style="padding:8px; border:1px solid #2e384e;"><span class="shortcut">Ctrl + Shift + , / .</span></td>
+                        <td>선택한 클립을 좌우 클립과 밀어서 위치를 바꿉니다.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border:1px solid #2e384e;"><b>정밀 자르기</b></td>
+                        <td style="padding:8px; border:1px solid #2e384e;"><span class="shortcut">Ctrl + B</span></td>
+                        <td>현재 플레이헤드 위치를 즉시 자릅니다.</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- 탭 8: 양산형 공장 세팅 -->
+            <div id="tab-mass-prod" class="tab-panel">
+                <h4 style="color:var(--purple); margin-bottom:8px;">🚀 60씬 양산 공장형 템플릿 연출법</h4>
+                <p>1~8번 인트로 씬은 LTX MP4 비디오를 그대로 활용하고, 9번 씬부터 파워 빈(Power Bins) 조정 클립 4가지(<span class="key-tip">Zoom In ➔ Zoom Out ➔ Pan L ➔ Pan R</span>)를 바둑판처럼 번갈아 배치하세요. 1분 만에 60씬 역동적 연출이 완성됩니다.</p>
+            </div>
+
+            <!-- 탭 9: LTX 모션 추천 알고리즘 -->
+            <div id="tab-motion-rec" class="tab-panel">
+                <h4 style="color:#ff8833; margin-bottom:8px;">🔥 LTX 모션 영상화 클라이맥스 스마트 추천 패널</h4>
+                <p>영상의 초반 1~8번 인트로뿐만 아니라, **대본 중간중간 시청자 이탈을 방지할 극적 클라이맥스 씬(싸움, 무기, 호랑이, 벼락, 비명, 절규 등)**을 AI가 자동 스캔하여 LTX 비디오화 추천 씬으로 선정해 드립니다.</p>
+                <ol style="margin-top:10px;">
+                    <li>자막 분석 후 결과창 상단에 나타나는 <b>[🔥 AI 모션 추천 씬 일괄 반영]</b> 버튼을 누릅니다.</li>
+                    <li>설정창의 <b>[🎥 LTX 비디오 적용 씬 번호]</b>에 인트로(1-8) 및 본문 추천 씬 번호가 자동으로 합산 입력됩니다.</li>
+                    <li>파이썬 배치 스크립트 실행 시, 추천 씬들에 생성된 <span class="key-tip">.mp4</span> 동영상 파일이 다빈치 타임라인 상에서 자동으로 이미지 대신 영상 트랙으로 정밀 정렬됩니다!</li>
+                </ol>
+            </div>
+
+            <!-- 탭 9: 트러블슈팅 -->
+            <div id="tab-mistakes" class="tab-panel">
+                <h4 style="color:#ff5555; margin-bottom:8px;">🚨 트러블슈팅 & 싱크 복구</h4>
+                <ul>
+                    <li><b>미디어 오프라인 에러:</b> 미디어 풀 파일 우클릭 ➔ <b>[Relink Selected Clips...]</b> ➔ 폴더 지정</li>
+                    <li><b>오디오 싱크 어긋남 (+12, -24 배지):</b> 빨간색 프레임 숫자를 우클릭 ➔ <b>[Slip Into Sync]</b> 클릭</li>
+                    <li><b>검은 빈틈 지우기:</b> 상단 메뉴 <b>[Edit] ➔ [Delete Gaps]</b></li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 대시보드 통계 -->
+    <div class="dashboard">
+        <div class="stat-card">
+            <span class="stat-lbl">총 오디오 시간</span>
+            <span class="stat-val" id="totalDuration">0.0초</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-lbl">총 생성 씬 수</span>
+            <span class="stat-val" id="totalScenes">0</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-lbl">LTX 비디오 적용 씬</span>
+            <span class="stat-val" id="videoScenesCount" style="color: var(--info);">0</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-lbl">PNG 이미지 적용 씬</span>
+            <span class="stat-val" id="imageScenesCount" style="color: var(--purple);">0</span>
+        </div>
+    </div>
+
+    <!-- 진행률 트래커 -->
+    <div class="progress-container" id="progressSection" style="display: none;">
+        <span class="progress-label">🎬 작업 진행 트래커:</span>
+        <div class="progress-bg">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <span class="progress-text" id="progressText">0 / 0 씬 완료 (0%)</span>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>📂 1. SRT 자막 파일 업로드</h3>
+            <div class="file-box" id="dropZone">
+                <span style="font-size: 2.2rem;">🎙️</span>
+                <p id="fileStatus" style="margin-top: 10px; font-weight: bold;">자막(.srt) 파일을 드래그하여 놓거나 클릭하세요</p>
+                <input type="file" id="srtFile" accept=".srt" style="display:none">
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📝 2. 수동 대본 원고 매칭 (선택사항)</h3>
+            <textarea id="scriptInput" placeholder="대본 원고 텍스트가 있다면 여기에 줄바꿈(Enter) 단위로 넣어주세요.
+자막 타임라인과 문장을 자동으로 대조하여 씬을 나누어 드립니다.
+입력하지 않으면 아래 무음 설정 시간을 기준으로 자동 씬이 생성됩니다." oninput="saveSetting('saved_script', this.value)"></textarea>
+        </div>
+    </div>
+
+    <!-- 제어 옵션 패널 -->
+    <div class="control-panel">
+        <div class="control-group">
+            <label for="fpsSelect">🎬 타임라인 FPS 설정:</label>
+            <select id="fpsSelect" onchange="saveSetting('saved_fps', this.value)">
+                <option value="23.976">23.976 fps (영화 규격)</option>
+                <option value="24" selected>24 fps (영화/쇼츠 기본)</option>
+                <option value="29.97">29.97 fps (방송 규격)</option>
+                <option value="30">30 fps (유튜브 기본)</option>
+                <option value="59.94">59.94 fps (고화질 방송)</option>
+                <option value="60">60 fps (게임/액션)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="silenceGap">⏱️ 무음 판정 임계치:</label>
+            <input type="number" id="silenceGap" value="1.5" step="0.5" min="0.5" onchange="saveSetting('saved_gap', this.value)">
+        </div>
+        <div class="control-group">
+            <label for="introScenes">⚠️ 인트로 장면 수 (LTX 비디오):</label>
+            <input type="number" id="introScenes" value="8" min="0" onchange="saveSetting('saved_intro', this.value)">
+        </div>
+        <div class="control-group">
+            <label for="videoSceneList">🎥 LTX 비디오 적용 씬 번호 (예: 1-8, 12, 15):</label>
+            <input type="text" id="videoSceneList" value="1-8" placeholder="예: 1-8 또는 1,2,3,8,12" onchange="saveSetting('saved_video_list', this.value)">
+        </div>
+        <div class="control-group">
+            <label for="assetFolderPath">📁 내 PC 에셋 폴더 경로 (파이썬용):</label>
+            <input type="text" id="assetFolderPath" value="C:/ProjectAssets" placeholder="예: C:/ProjectAssets 또는 E:/Shorts/Scene01" onchange="saveSetting('saved_folder_path', this.value)">
+        </div>
+        <div class="control-group" style="justify-content: flex-end;">
+            <label>&nbsp;</label>
+            <button class="btn-sub" onclick="clearSettings()" style="background:#2a1a1b; border-color:#5c1b1b; color:#ff6666;">🔄 설정 초기화</button>
+        </div>
+    </div>
+
+    <!-- 원클릭 자동화 실행 버튼군 -->
+    <div class="btn-group-main">
+        <button class="btn-action btn-primary" onclick="processMarkers()">⚡ 1. 자막 및 씬 타임라인 정밀 분석</button>
+        <button class="btn-action btn-python" id="btnDownloadPython" onclick="downloadPythonScript()" disabled>🤖 2. 다빈치 원클릭 오토 파이썬 (.py) 다운로드</button>
+    </div>
+
+    <!-- 결과 디스플레이 -->
+    <div id="outputSection" style="display: none;">
+        <!-- 🔥 AI LTX 모션 클라이맥스 추천 카드 -->
+        <div class="motion-recommend-card" id="motionRecommendBanner">
+            <div>
+                <div class="motion-recommend-title">
+                    <span>🔥 AI LTX 모션 영상화 추천 클라이맥스 씬</span>
+                    <span id="motionRecCountBadge" class="tag-badge tag-motion" style="font-size:0.75rem;">0개 씬 발견</span>
+                </div>
+                <div class="motion-recommend-desc" id="motionRecDesc">
+                    대본 본문 중 고동적 액션, 전투, 피, 무기, 통곡, 반전 어휘가 감지된 씬들입니다. LTX 비디오로 생성하면 몰입감이 극대화됩니다.
+                </div>
+            </div>
+            <button class="btn-sub" onclick="applyRecommendedMotionScenes()" style="background:#ff5500; color:#ffffff; font-weight:bold; border:1px solid #ff7722; padding:8px 16px; border-radius:6px; cursor:pointer;">
+                🔥 추천 씬 LTX 비디오 목록에 일괄 반영
+            </button>
+        </div>
+
+        <div class="result-layout">
+            <div>
+                <div class="action-bar">
+                    <h3 style="font-size: 1rem; color:var(--accent);">📍 다빈치 리졸브 타임라인 씬 목록</h3>
+                    <input type="text" id="tableSearch" class="search-box" placeholder="🔍 대사 검색..." oninput="filterTable()">
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn-sub green" onclick="downloadPythonScript()">🤖 파이썬 스크립트</button>
+                        <button class="btn-sub accent" onclick="exportResolveCSV()">🎬 마커 CSV</button>
+                        <button class="btn-sub" onclick="exportEDL()">📜 EDL 다운로드</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="50">완료</th>
+                                <th width="100">씬 번호</th>
+                                <th width="90">타입</th>
+                                <th width="150">타임코드 (In ~ Out)</th>
+                                <th width="70">길이</th>
+                                <th>미리보기 대사</th>
+                            </tr>
+                        </thead>
+                        <tbody id="markerTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <div class="action-bar">
+                    <h3 style="font-size: 1rem; color:var(--info);">📋 AI 비디오 소스 주문서</h3>
+                    <button class="btn-sub" onclick="copyShotList()">전체 복사</button>
+                </div>
+                <div class="shot-list" id="shotListContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast">복사 완료!</div>
+
+<script>
+    let srtData = [];
+    let scenes = [];
+
+    window.onload = () => {
+        if(localStorage.getItem('saved_gap')) document.getElementById('silenceGap').value = localStorage.getItem('saved_gap');
+        if(localStorage.getItem('saved_fps')) document.getElementById('fpsSelect').value = localStorage.getItem('saved_fps');
+        if(localStorage.getItem('saved_intro')) document.getElementById('introScenes').value = localStorage.getItem('saved_intro');
+        if(localStorage.getItem('saved_script')) document.getElementById('scriptInput').value = localStorage.getItem('saved_script');
+        if(localStorage.getItem('saved_video_list')) document.getElementById('videoSceneList').value = localStorage.getItem('saved_video_list');
+        if(localStorage.getItem('saved_folder_path')) document.getElementById('assetFolderPath').value = localStorage.getItem('saved_folder_path');
+
+        const dz = document.getElementById('dropZone');
+        const fi = document.getElementById('srtFile');
+        dz.onclick = () => fi.click();
+        fi.onchange = (e) => { if(e.target.files[0]) updateFileUI(e.target.files[0].name); };
+        dz.ondragover = (e) => { e.preventDefault(); dz.classList.add('dragover'); };
+        dz.ondragleave = () => dz.classList.remove('dragover');
+        dz.ondrop = (e) => {
+            e.preventDefault(); dz.classList.remove('dragover');
+            if(e.dataTransfer.files[0]) { fi.files = e.dataTransfer.files; updateFileUI(fi.files[0].name); }
+        };
+    };
+
+    function saveSetting(key, val) {
+        localStorage.setItem(key, val);
+    }
+
+    function toggleGuide() {
+        const content = document.getElementById('guideContent');
+        const arrow = document.getElementById('guideArrow');
+        if(content.classList.contains('show')) {
+            content.classList.remove('show');
+            arrow.innerText = "▼";
+        } else {
+            content.classList.add('show');
+            arrow.innerText = "▲";
+        }
+    }
+
+    function openTab(evt, tabName) {
+        const tabPanels = document.getElementsByClassName("tab-panel");
+        for (let i = 0; i < tabPanels.length; i++) tabPanels[i].classList.remove("active");
+        const tabBtns = document.getElementsByClassName("tab-btn");
+        for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    function updateFileUI(name) {
+        document.getElementById('fileStatus').innerText = "파일 준비 완료: " + name;
+        document.getElementById('fileStatus').style.color = "var(--info)";
+    }
+
+    function clearSettings() {
+        if(confirm("저장된 대본 내용 및 설정값을 모두 초기화하시겠습니까?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    function parseSRT(data) {
+        const out = [];
+        const blocks = data.trim().split(/\n\s*\n/);
+        if (blocks.length === 0 || data.trim() === "") throw new Error("SRT 자막 파일이 비어 있습니다.");
+
+        blocks.forEach((b) => {
+            const lines = b.trim().split('\n').map(l => l.trim());
+            if(lines.length >= 3) {
+                const t = lines[1].match(/(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/);
+                if(t) {
+                    out.push({ 
+                        start: s2sec(t[1]), 
+                        end: s2sec(t[2]), 
+                        text: lines.slice(2).join(" ").replace(/<[^>]*>/g, "")
+                    });
+                }
+            }
+        });
+        if (out.length === 0) throw new Error("올바른 SRT 자막 형식이 아닙니다.");
+        return out;
+    }
+
+    function s2sec(t) { 
+        const parts = t.replace(',', '.').split(':');
+        return parseFloat(parts[0])*3600 + parseFloat(parts[1])*60 + parseFloat(parts[2]);
+    }
+
+    function sec2timecode(secs, fps) {
+        const wholeSecs = Math.floor(secs);
+        const remainder = secs - wholeSecs;
+        const frames = Math.floor(remainder * fps);
+        
+        const h = Math.floor(wholeSecs / 3600).toString().padStart(2, '0');
+        const m = Math.floor((wholeSecs % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(wholeSecs % 60).toString().padStart(2, '0');
+        const f = frames.toString().padStart(2, '0');
+        return `${h}:${m}:${s}:${f}`;
+    }
+
+    const MOTION_KEYWORDS = [
+        '싸움', '검', '칼', '찌르', '베어', '피', '호랑이', '짐승', '달려', '덮쳐', 
+        '벼락', '불길', '폭발', '창', '활', '화살', '말', '도망', '쏜살', '격동', 
+        '격렬', '흔들', '눈물', '비명', '절규', '통곡', '참수', '번개', '귀신', '환영', 
+        '소리치', '깜짝', '소름', '경악', '습격', '회오리', '파도', '질주', '뛰어', 
+        '쓰러', '무너', '움켜', '반전', '충격', '비밀', '들통', '발각', '분노', '살기'
+    ];
+
+    function analyzeMotionScores(scenesList) {
+        let recommended = [];
+        scenesList.forEach(s => {
+            if (s.isGap) {
+                s.motionScore = 0;
+                s.isMotionRecommended = false;
+                return;
+            }
+            let score = 0;
+            const txt = s.preview || '';
+            MOTION_KEYWORDS.forEach(kw => {
+                if (txt.includes(kw)) score += 2;
+            });
+            if (txt.includes('!') || txt.includes('!!')) score += 1;
+
+            s.motionScore = score;
+            if (score >= 2) {
+                s.isMotionRecommended = true;
+                recommended.push(s);
+            } else {
+                s.isMotionRecommended = false;
+            }
+        });
+
+        // 배너 UI 업데이트
+        const badge = document.getElementById('motionRecCountBadge');
+        const desc = document.getElementById('motionRecDesc');
+        if (badge && desc) {
+            badge.innerText = `${recommended.length}개 클라이맥스 씬 발견`;
+            if (recommended.length > 0) {
+                const recNames = recommended.map(s => s.name).slice(0, 6).join(', ') + (recommended.length > 6 ? ' 등' : '');
+                desc.innerHTML = `대본 내 고동적 액션/클라이맥스 어휘가 감지된 추천 씬: <b style="color:#ffaa55;">${recNames}</b><br>LTX 비디오로 제작 시 시청 몰입도가 크게 증가합니다!`;
+            } else {
+                desc.innerText = "대본 내 극적 클라이맥스 키워드가 감지되면 여기에 추천 목록이 생성됩니다.";
+            }
+        }
+        return recommended;
+    }
+
+    function applyRecommendedMotionScenes() {
+        if (!scenes || scenes.length === 0) return alert("먼저 자막 분석을 실행해 주세요.");
+        const introCount = parseInt(document.getElementById('introScenes').value) || 8;
+        const currentVideoList = document.getElementById('videoSceneList').value;
+        const set = parseVideoSceneNumbers(currentVideoList, 200);
+
+        // 기본 인트로 씬 추가
+        for (let i = 1; i <= introCount; i++) set.add(i);
+
+        // 추천 씬 추가
+        const recs = scenes.filter(s => s.isMotionRecommended && !s.isGap);
+        recs.forEach(s => set.add(s.id));
+
+        const sorted = Array.from(set).sort((a, b) => a - b);
+        const formattedStr = formatSceneRanges(sorted);
+
+        document.getElementById('videoSceneList').value = formattedStr;
+        saveSetting('saved_video_list', formattedStr);
+
+        scenes.forEach(s => {
+            if (!s.isGap) {
+                s.isVideo = set.has(s.id);
+            }
+        });
+
+        renderOutput();
+        showToast(`🔥 AI 모션 추천 씬(${recs.length}개)이 LTX 비디오 목록에 일괄 반영되었습니다!`);
+    }
+
+    function formatSceneRanges(nums) {
+        if (nums.length === 0) return '';
+        let result = [];
+        let start = nums[0];
+        let prev = nums[0];
+
+        for (let i = 1; i < nums.length; i++) {
+            if (nums[i] === prev + 1) {
+                prev = nums[i];
+            } else {
+                if (start === prev) result.push(`${start}`);
+                else result.push(`${start}-${prev}`);
+                start = nums[i];
+                prev = nums[i];
+            }
+        }
+        if (start === prev) result.push(`${start}`);
+        else result.push(`${start}-${prev}`);
+
+        return result.join(', ');
+    }
+
+    function openYadamPlanner() {
+        if (window.location.protocol.startsWith('http')) {
+            window.open('/yadam_generator.html', '_blank');
+        } else {
+            // 로컬 파일 프로토콜
+            const win = window.open('yadam_generator.html', '_blank');
+            if (!win) {
+                alert("⚠️ 로컬 폴더에 'yadam_generator.html' (야담 플래너) 파일이 없거나 브라우저에서 차단되었습니다.\n\n[해결 방법]\n1. 상단 [💾 야담 플래너(HTML) 받기] 버튼을 눌러 내려받은 후 현재 파일과 같은 폴더에 놓아주세요.\n2. 혹은 온라인 주소에서도 바로 이용하실 수 있습니다.");
+            }
+        }
+    }
+
+    async function downloadYadamPlanner() {
+        try {
+            const response = await fetch('/yadam_generator.html?t=' + Date.now());
+            if (response.ok) {
+                const text = await response.text();
+                const blob = new Blob([text], { type: 'text/html;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'yadam_generator.html';
+                link.click();
+                showToast("💾 야담 대본 플래너 오프라인 단독 파일(yadam_generator.html) 다운로드 완료!");
+            } else {
+                throw new Error("서버 응답 없음");
+            }
+        } catch (err) {
+            const link = document.createElement('a');
+            link.href = 'yadam_generator.html';
+            link.download = 'yadam_generator.html';
+            link.click();
+        }
+    }
+
+    function parseVideoSceneNumbers(inputStr, totalCount) {
+        const set = new Set();
+        if(!inputStr) return set;
+        const parts = inputStr.split(',');
+        parts.forEach(p => {
+            p = p.trim();
+            if(p.includes('-')) {
+                const [start, end] = p.split('-').map(v => parseInt(v.trim()));
+                if(!isNaN(start) && !isNaN(end)) {
+                    for(let i=start; i<=end; i++) set.add(i);
+                }
+            } else {
+                const num = parseInt(p);
+                if(!isNaN(num)) set.add(num);
+            }
+        });
+        return set;
+    }
+
+    async function processMarkers() {
+        const file = document.getElementById('srtFile').files[0];
+        if(!file) return alert("자막 파일(.srt) 또는 스토리보드 백업 파일(.json)을 선택해 주세요.");
+
+        if(file.name.toLowerCase().endsWith('.json')) {
+            try {
+                const text = await file.text();
+                const json = JSON.parse(text);
+                if(json && json.scenes && Array.isArray(json.scenes)) {
+                    scenes = [];
+                    let defaultTime = 0;
+                    json.scenes.forEach((sc, idx) => {
+                        const dur = sc.srtDuration || 5.0;
+                        const start = sc.srtStart !== undefined ? sc.srtStart : defaultTime;
+                        const end = sc.srtEnd !== undefined ? sc.srtEnd : (start + dur);
+                        defaultTime = end;
+
+                        scenes.push({
+                            id: sc.id || (idx + 1),
+                            isGap: false,
+                            isVideo: false,
+                            name: `Scene ${String(sc.id || (idx + 1)).padStart(2, '0')}`,
+                            start: start,
+                            end: end,
+                            duration: dur,
+                            preview: sc.narrationText || sc.visualDescription || `Scene #${sc.id}`
+                        });
+                    });
+
+                    if(json.scriptText) {
+                        document.getElementById('scriptInput').value = json.scriptText;
+                    }
+
+                    analyzeMotionScores(scenes);
+                    renderOutput();
+                    document.getElementById('btnDownloadPython').disabled = false;
+                    showToast("✨ 백업 JSON 스토리보드가 성공적으로 로드되었습니다!");
+                    return;
+                }
+            } catch(err) {
+                console.error("JSON parse error:", err);
+                alert("유효한 야담 스토리보드 백업 JSON 파일이 아닙니다.");
+                return;
+            }
+        }
+
+        try {
+            const text = await file.text();
+            srtData = parseSRT(text);
+            
+            const scriptText = document.getElementById('scriptInput').value.trim();
+            const silenceGap = parseFloat(document.getElementById('silenceGap').value) || 1.5;
+            const videoScenesSet = parseVideoSceneNumbers(document.getElementById('videoSceneList').value, 100);
+
+            scenes = [];
+            let gapCount = 0;
+
+            if(scriptText) {
+                const lines = scriptText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                let srtIdx = 0;
+                lines.forEach((line, i) => {
+                    let start = srtData[srtIdx] ? srtData[srtIdx].start : (scenes[scenes.length-1] ? scenes[scenes.length-1].end : 0);
+                    let end = start;
+                    let matchedText = "";
+                    
+                    while(srtIdx < srtData.length) {
+                        const entry = srtData[srtIdx];
+                        end = entry.end;
+                        matchedText += " " + entry.text;
+                        srtIdx++;
+                        if(matchedText.replace(/\s/g, "").includes(line.substring(0, 8).replace(/\s/g, "")) && matchedText.length > line.length * 0.75) break;
+                    }
+                    
+                    const sceneNum = i + 1;
+                    const isVideo = videoScenesSet.has(sceneNum);
+                    scenes.push({
+                        id: sceneNum,
+                        isGap: false,
+                        isVideo: isVideo,
+                        name: `Scene ${String(sceneNum).padStart(2, '0')}`,
+                        start: start,
+                        end: end,
+                        duration: end - start,
+                        preview: line
+                    });
+                });
+            } else {
+                let currentScene = { id: 1, name: "Scene 01", start: srtData[0].start, end: srtData[0].end, preview: srtData[0].text, isGap: false };
+                let sceneCount = 1;
+
+                if (srtData[0].start > 0.5) {
+                    scenes.push({
+                        id: 1, isGap: true, isVideo: false, name: "Gap 01",
+                        start: 0, end: srtData[0].start, duration: srtData[0].start, preview: "[대사 없는 무음 구간]"
+                    });
+                    gapCount++;
+                    currentScene.id = 2; currentScene.name = "Scene 02"; sceneCount = 2;
+                }
+
+                for(let i = 1; i < srtData.length; i++) {
+                    const prev = srtData[i-1];
+                    const curr = srtData[i];
+
+                    if(curr.start - prev.end >= silenceGap) {
+                        const isVideo = videoScenesSet.has(currentScene.id);
+                        scenes.push({
+                            id: currentScene.id, isGap: false, isVideo: isVideo,
+                            name: `Scene ${String(currentScene.id).padStart(2, '0')}`,
+                            start: currentScene.start, end: prev.end, duration: prev.end - currentScene.start, preview: currentScene.preview
+                        });
+                        
+                        gapCount++;
+                        scenes.push({
+                            id: currentScene.id + 1, isGap: true, isVideo: false,
+                            name: `Gap ${String(gapCount).padStart(2, '0')}`,
+                            start: prev.end, end: curr.start, duration: curr.start - prev.end, preview: "[대사 없는 무음 구간]"
+                        });
+
+                        sceneCount += 2;
+                        currentScene = { id: sceneCount, isGap: false, name: `Scene ${String(sceneCount).padStart(2, '0')}`, start: curr.start, end: curr.end, preview: curr.text };
+                    } else {
+                        currentScene.preview += " " + curr.text;
+                        currentScene.end = curr.end;
+                    }
+                }
+                
+                const isVideoFinal = videoScenesSet.has(currentScene.id);
+                scenes.push({
+                    id: currentScene.id, isGap: false, isVideo: isVideoFinal,
+                    name: `Scene ${String(currentScene.id).padStart(2, '0')}`,
+                    start: currentScene.start, end: srtData[srtData.length-1].end,
+                    duration: srtData[srtData.length-1].end - currentScene.start, preview: currentScene.preview
+                });
+            }
+
+            analyzeMotionScores(scenes);
+            renderOutput();
+            document.getElementById('btnDownloadPython').disabled = false;
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    function renderOutput() {
+        const tbody = document.getElementById('markerTableBody');
+        tbody.innerHTML = '';
+        const fps = parseFloat(document.getElementById('fpsSelect').value);
+        
+        let videoCount = 0;
+        let imageCount = 0;
+        let totalTime = scenes.length > 0 ? scenes[scenes.length-1].end : 0;
+
+        let shotListText = `🎬 AI VIDEO SHOT LIST (LTX 비디오 vs PNG 소스 구분)\n`;
+        shotListText += `FPS: ${fps} | 생성일시: ${new Date().toLocaleString()}\n`;
+        shotListText += `==========================================\n\n`;
+
+        scenes.forEach((s) => {
+            const tr = document.createElement('tr');
+            const dur = s.duration.toFixed(1);
+            
+            let typeBadge = "";
+            if (s.isGap) {
+                typeBadge = `<span class="tag-badge tag-gap">GAP 무음</span>`;
+                tr.className = 'gap-row';
+            } else if (s.isVideo) {
+                videoCount++;
+                typeBadge = `<span class="tag-badge tag-mp4">LTX MP4</span>` + (s.isMotionRecommended ? ` <span class="tag-badge tag-motion">🔥 모션강추</span>` : '');
+                tr.className = 'video-row';
+            } else {
+                imageCount++;
+                typeBadge = `<span class="tag-badge tag-png">PNG 이미지</span>` + (s.isMotionRecommended ? ` <span class="tag-badge tag-motion">🔥 모션강추</span>` : '');
+            }
+
+            const inTC = sec2timecode(s.start, fps);
+            const outTC = sec2timecode(s.end, fps);
+
+            tr.innerHTML = `
+                <td><input type="checkbox" class="editor-check" onchange="updateProgress(this)"></td>
+                <td><b>${s.name}</b></td>
+                <td>${typeBadge}</td>
+                <td style="color:#8be9fd; font-family: monospace; font-size:0.8rem;">${inTC} ~ ${outTC}</td>
+                <td><b style="color:var(--success);">${dur}초</b></td>
+                <td>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <span class="preview-text" style="font-size:0.8rem;">${s.preview}</span>
+                        <button class="btn-sub" onclick="copyText('${s.preview.replace(/'/g, "\\'")}')">복사</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            shotListText += `[${s.name}] (${dur}초) ➔ ${s.isVideo ? '🎥 LTX 비디오 MP4' : '🖼️ PNG 이미지'}\n`;
+            shotListText += ` - 대사: "${s.preview}"\n\n`;
+        });
+
+        document.getElementById('totalDuration').innerText = totalTime.toFixed(1) + "초";
+        document.getElementById('totalScenes').innerText = scenes.filter(s => !s.isGap).length;
+        document.getElementById('videoScenesCount').innerText = videoCount;
+        document.getElementById('imageScenesCount').innerText = imageCount;
+
+        document.getElementById('shotListContent').innerText = shotListText;
+        document.getElementById('outputSection').style.display = 'block';
+        document.getElementById('progressSection').style.display = 'flex';
+        
+        updateProgress();
+        document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function updateProgress(checkbox) {
+        if (checkbox) {
+            const tr = checkbox.closest('tr');
+            if (checkbox.checked) tr.classList.add('completed');
+            else tr.classList.remove('completed');
+        }
+
+        const total = document.querySelectorAll('.editor-check').length;
+        const checked = document.querySelectorAll('.editor-check:checked').length;
+        
+        const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
+        document.getElementById('progressBar').style.width = pct + "%";
+        document.getElementById('progressText').innerText = `${checked} / ${total} 씬 완료 (${pct}%)`;
+    }
+
+    function filterTable() {
+        const query = document.getElementById('tableSearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#markerTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+
+    // 🤖 다빈치 원클릭 파이썬 스크립트 (.py) 다운로드 핵심 함수
+    function downloadPythonScript() {
+        if(scenes.length === 0) return alert("먼저 자막 분석을 진행해 주세요.");
+        
+        const fps = parseFloat(document.getElementById('fpsSelect').value);
+        const folderPath = document.getElementById('assetFolderPath').value.replace(/\\/g, '/');
+
+        let pyScript = `# -*- coding: utf-8 -*-
+"""
+DaVinci Resolve Pro Auto-Timeline Builder Robot
+Generated: ${new Date().toLocaleString()}
+FPS: ${fps}
+Folder: ${folderPath}
+"""
+
+import sys, os
+
+def run_davinci_autobatch():
+    try:
+        import DaVinciResolveScript as dvr
+        resolve = dvr.scriptapp("Resolve")
+    except ImportError:
+        try:
+            resolve = bmd.scriptapp("Resolve")
+        except Exception:
+            resolve = None
+
+    if not resolve:
+        print("❌ Error: DaVinci Resolve가 실행되어 있지 않거나 Script API 연결 실패")
+        return
+
+    projectManager = resolve.GetProjectManager()
+    project = projectManager.GetCurrentProject()
+    if not project:
+        print("❌ Error: 열려있는 다빈치 프로젝트가 없습니다.")
+        return
+
+    mediaPool = project.GetMediaPool()
+    rootFolder = mediaPool.GetRootFolder()
+
+    # 에셋 폴더 경로
+    asset_dir = r"${folderPath}"
+    if not os.path.exists(asset_dir):
+        print(f"⚠️ 경고: 지정한 에셋 폴더가 존재하지 않습니다: {asset_dir}")
+
+    print(f"🚀 DaVinci Auto Batch 시작 - 대상 폴더: {asset_dir}")
+
+    # 타임라인 생성 또는 가져오기
+    timeline = project.GetCurrentTimeline()
+    if not timeline:
+        timeline = mediaPool.CreateEmptyTimeline("Auto_Shorts_Timeline")
+        print("✨ 새 타임라인 'Auto_Shorts_Timeline' 생성 완료!")
+
+    # 씬 타임코드 매핑 데이터
+    scene_data = [
+`;
+
+        scenes.forEach(s => {
+            const numStr = String(s.id).padStart(2, '0');
+            const num3Str = String(s.id).padStart(3, '0');
+            const sanitizedPreview = (s.preview || "").replace(/"/g, '\\"').replace(/\n/g, ' ');
+            pyScript += `        {"id": ${s.id}, "name": "${s.name}", "start": ${s.start}, "end": ${s.end}, "duration": ${s.duration || 5.0}, "is_video": ${s.isVideo ? 'True' : 'False'}, "is_gap": ${s.isGap ? 'True' : 'False'}, "num_str": "${numStr}", "num_3": "${num3Str}", "preview": "${sanitizedPreview}"},\n`;
+        });
+
+        pyScript += `    ]
+
+    print(f"📊 총 {len(scene_data)}개 씬 정렬 진행 중...")
+
+    fps_val = float(project.GetSetting("timelineFrameRate") or ${fps})
+
+    imported_count = 0
+    for sc in scene_data:
+        s_id = sc["id"]
+        s_2 = sc["num_str"]
+        s_3 = sc["num_3"]
+
+        candidates = [
+            f"scene_{s_3}.mp4", f"scene_{s_3}.webm", f"Scene_{s_2}.mp4",
+            f"scene_{s_3}.png", f"scene_{s_3}.jpg", f"Scene_{s_2}.png", f"Scene_{s_2}.jpg"
+        ]
+        found_media = None
+        for fname in candidates:
+            fpath = os.path.join(asset_dir, fname)
+            if os.path.exists(fpath):
+                found_media = fpath
+                break
+
+        if found_media:
+            items = mediaPool.ImportMedia([found_media])
+            if items:
+                sc["media_item"] = items[0]
+                imported_count += 1
+                print(f"[SUCCESS] 에셋 임포트 완료 - Scene #{s_id}: {os.path.basename(found_media)}")
+        else:
+            print(f"[NOTICE] Scene #{s_id} 파일 없음 ({asset_dir}). 마커로 대체 배치됩니다.")
+
+    # 음성 파일 검색 및 오디오 트랙 임포트
+    audio_candidates = ["voiceover.mp3", "narration.mp3", "full_tts.mp3", "audio.mp3", "tts_voice.mp3"]
+    for afname in audio_candidates:
+        afpath = os.path.join(asset_dir, afname)
+        if os.path.exists(afpath):
+            a_items = mediaPool.ImportMedia([afpath])
+            if a_items:
+                mediaPool.AppendToTimeline([a_items[0]])
+                print(f"[SUCCESS] 통합 오디오 트랙 배치 완료: {afname}")
+            break
+
+    # 타임라인 클립 및 마커 배치
+    current_frame = 0
+    for sc in scene_data:
+        dur_sec = sc["end"] - sc["start"]
+        if dur_sec <= 0:
+            dur_sec = sc.get("duration", 5.0)
+        dur_frames = int(dur_sec * fps_val)
+
+        if "media_item" in sc:
+            try:
+                clip_info = {
+                    "mediaPoolItem": sc["media_item"],
+                    "startFrame": 0,
+                    "endFrame": dur_frames,
+                    "recordFrame": current_frame
+                }
+                mediaPool.AppendToTimeline([clip_info])
+            except Exception as err:
+                mediaPool.AppendToTimeline([sc["media_item"]])
+
+        if timeline:
+            marker_color = "Blue" if sc.get("is_video") else ("Yellow" if sc.get("is_gap") else "Green")
+            try:
+                timeline.AddMarker(current_frame, marker_color, sc["name"], sc.get("preview", ""), dur_frames)
+            except Exception:
+                pass
+
+        current_frame += dur_frames
+
+    print(f"✅ 배치 작업 성공! 총 {imported_count}개 에셋이 타임라인에 배치되었습니다.")
+
+run_davinci_autobatch()
+`;
+
+        const blob = new Blob([pyScript], { type: 'text/x-python;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `davinci_auto_batch_${fps}FPS.py`;
+        a.click();
+        showToast("🤖 파이썬 오토 배치 스크립트 (.py)가 내려받아졌습니다!");
+    }
+
+    function exportResolveCSV() {
+        if(scenes.length === 0) return;
+        const fps = parseFloat(document.getElementById('fpsSelect').value);
+        let csvContent = "Marker Name,Description,In,Out,Duration,Marker Color\n";
+        
+        scenes.forEach(s => {
+            const desc = s.preview.replace(/"/g, "'");
+            const inTC = sec2timecode(s.start, fps);
+            const outTC = sec2timecode(s.end, fps);
+            const durationTC = sec2timecode(s.duration, fps);
+            const activeColor = s.isVideo ? "Blue" : (s.isGap ? "Yellow" : "Green");
+            csvContent += `"${s.name}","${desc}",${inTC},${outTC},${durationTC},${activeColor}\n`;
+        });
+
+        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `DR21_Markers_${fps}FPS.csv`;
+        a.click();
+    }
+
+    function exportEDL() {
+        if(scenes.length === 0) return;
+        const fps = parseFloat(document.getElementById('fpsSelect').value);
+        let edlContent = `TITLE: SHORTS_AUTO_TIMELINE\nFCM: NON-DROP FRAME\n\n`;
+
+        scenes.forEach((s, idx) => {
+            const num = String(idx + 1).padStart(3, '0');
+            const inTC = sec2timecode(s.start, fps);
+            const outTC = sec2timecode(s.end, fps);
+            edlContent += `${num}  AX       V  C        ${inTC} ${outTC} ${inTC} ${outTC}\n`;
+            edlContent += `* FROM CLIP: ${s.name}\n\n`;
+        });
+
+        const blob = new Blob([edlContent], { type: 'text/plain;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `DR21_Timeline_${fps}FPS.edl`;
+        a.click();
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => showToast("텍스트가 복사되었습니다!"));
+    }
+
+    function copyShotList() {
+        const text = document.getElementById('shotListContent').innerText;
+        navigator.clipboard.writeText(text).then(() => showToast("전체 AI 가이드가 복사되었습니다!"));
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 2200);
+    }
+
+    function downloadSelf() {
+        const docClone = document.cloneNode(true);
+        const htmlContent = '<!DOCTYPE html>\n' + docClone.documentElement.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'davinci_automation_pro.html';
+        link.click();
+        showToast("💾 다빈치 배치 도구 HTML 오프라인 파일이 브라우저로 내려받아졌습니다!");
+    }
+</script>
+</body>
+</html>

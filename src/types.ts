@@ -32,6 +32,7 @@ export interface SceneItem {
   narrationText: string;
   visualDescription: string;
   refinedImagePrompt: string;
+  cameraMotion?: "none" | "dolly_in" | "dolly_out" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit" | "slow_zoom";
   imageUrl?: string;
   isGenerating?: boolean;
   error?: string;
@@ -47,7 +48,7 @@ export interface StoryboardAnalysisResponse {
 export interface GenerationConfig {
   model: "gemini-2.5-flash-image" | "gemini-3.1-flash-image";
   aspectRatio: "1:1" | "9:16" | "16:9" | "3:4" | "4:3";
-  artStyle: "realistic" | "3d" | "anime" | "yadam";
+  artStyle: "realistic" | "3d" | "anime" | "yadam" | "claymation";
   quantityOverride: boolean;
   quantityValue: number;
 }
@@ -60,6 +61,8 @@ export interface ThumbnailDirectorData {
   textCandidates: string[];
   recommendedText: string;
   recommendationReason: string;
+  compositionStyle?: string;
+  colorMood?: string;
   imageUrl?: string;
   isGenerating?: boolean;
   error?: string;

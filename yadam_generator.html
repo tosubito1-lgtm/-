@@ -402,7 +402,11 @@
     <!-- 헤더 -->
     <header>
         <h1>역사 야담 대본 생성기 & LTX 2.3 프롬프트 빌더 <span>V1.5.0 PRO</span></h1>
-        <button class="header-btn" onclick="downloadSelf()">이 도구(HTML) 다운로드</button>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button onclick="openDavinciTool()" style="background:#ff5500; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; border:1px solid #ff7722; display:inline-flex; align-items:center; gap:6px;">🎬 다빈치 리졸브 오토 배치 도구 열기</button>
+            <button onclick="downloadDavinciTool()" style="background:#222533; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; border:1px solid #2a2d3d; display:inline-flex; align-items:center; gap:6px;" title="다빈치 배치 도구 HTML 오프라인 파일 다운로드">💾 다빈치 도구(HTML) 다운로드</button>
+            <button class="header-btn" onclick="downloadSelf()">이 도구(HTML) 다운로드</button>
+        </div>
     </header>
 
     <!-- 메인 컨테이너 (6:4 분할) -->
@@ -587,7 +591,7 @@
    - **Ch_G** (또는 Ch_G_Hongbonghan): 중신/외척/조정 관리 (예: 홍봉한, 영의정 등)
    - **Ch_H** (또는 Ch_H_Jeongjo): 후계자/새 임금/진실을 파헤치는 후대 왕 (예: 정조, 효종 등)
 
-   * 대본 기획 초기(1단계 및 상세기획 서두)에 등장인물을 선언해 줄 때는 반드시 아래와 같은 포맷으로 표기하라. 파서의 정규식 \`/(Ch_[A-Za-z0-9_]+)\\s*\\(([^)]+)\\)/g\`이 인지할 수 있도록 괄호 스펙을 철저히 따른다.
+   * 대본 기획 초기(1단계 및 상세기획 서두)에 등장인물을 선언해 줄 때는 반드시 아래와 같은 포맷으로 표기하라. 파서의 정규식 '/(Ch_[A-Za-z0-9_]+)\\s*\\(([^)]+)\\)/g'이 인지할 수 있도록 괄호 스펙을 철저히 따른다.
    - Ch_ID(나이대 및 성별, 세부 얼굴 및 표정 묘사, Joseon dynasty traditional 한복 복색)
    (예:
    - Ch_A(20대 청년 남성, 병약하고 수척하여 핏기 없는 파리한 안색)
@@ -606,14 +610,28 @@
    [IMAGE GENERATION PROMPT]: A masterpiece cinematic widescreen shot of pale Joseon king Ch_A lying sick on a dark bed, a trembling young court lady Ch_D watching him in fear, dimly lit traditional bedroom backdrop, candle flame flickering quietly, ambient moody lighting, slow dynamic zoom-in, Joseon dynasty style.
    )
 
-★ [정통 역사적 고증 및 기록 미등재 공백의 개연성 있는 재구성 규칙] ★
-1. **역사 기록(조선왕조실록, 야사, 승정원일기 등)에 대한 철저한 존중**: 모든 대본 기획과 씬 구성의 출발점은 엄연히 기록된 역사적 사실(실존 인물, 사건, 연대, 조정의 대립구도)을 정밀히 학습하고 준수해야 한다. 인위적인 역사적 왜곡이나 억지스러운 각색을 지양하며, 실록이 증명하는 실제 역사적 맥락에 탄탄하게 발을 디뎌야 한다.
-2. **기록에 존재하지 않는 공백의 '개연성 있는 추론 및 재구성'**: 공식 역사적 기록이 비어있거나 누락된 영역(예: 임금의 갑작스러운 의문사 배후, 궁궐 비사의 알려지지 않은 조력자들의 비밀 밀담, 진실을 담고 사라진 상자의 행방 등)을 메울 때는 결코 당치 않은 현대적 상상력이나 비현실적 판타지/무협 요소를 대입해서는 안 된다. 오로지 당시 조선시대의 정세(당쟁, 당파 싸움 - 노론/소론, 외척 정치), 조선의 법률 및 제도(경국대전, 의금부, 포도청), 그리고 당시의 신분적 질서와 사대부/상민들의 유교적 윤리관 및 풍습에 완벽히 부합하도록 지극히 개연성 있고 정교하게 내막을 논리적으로 재구성하고 추론해야 한다.
+★ [정통 역사 고증 및 기록 미등재 공백의 개연성 있는 재구성 규칙] ★
+1. **대상 역사적 시대 자동 감지 및 고증 적용**: 본 기획기는 사용자의 입력 키워드나 역사적 맥락에 따라 해당 시대(삼국시대 - 고구려/백제/신라, 고려시대, 조선시대 등)를 자동으로 판별하여 맞춤 고증을 적용한다.
+   - **삼국시대 (신라, 고구려, 백제, 가야)**:
+     * 문헌 인용: 삼국사기, 삼국유사 등
+     * 의복/장신구: 긴 허리띠와 다른 배색의 깃/소매단이 들어간 비단 두루마기형 포(포 - Po), 바지와 치마 차림. 화려한 금속 관이나 깃털 장식이 있는 조우관(조우관). 갓이나 조선 두루마기 배제.
+     * 관직/기타: 대대로, 막리지, 좌평, 아찬, 화백회의 등 시대에 걸맞은 명칭 사용.
+     * 실내/배경: 붉은 옻칠 나무 기둥, 고분 벽화 양식, 금동 대향로 및 청동 그릇, 석조성벽 및 고식적인 도자기.
+   - **고려시대**:
+     * 문헌 인용: 고려사, 고려사절요 등
+     * 의복/장신구: 고유한 고려식 한복, 둥근 칼라 형태의 원령의, 주름치마, 사모 및 복두.
+     * 관직/기타: 시중, 평장사, 낭장, 중서문하성 등 고려 관제 사용.
+     * 실내/배경: 청자 향로(고려청자), 다포/주심포식 화려한 사찰/궁궐 나무 가구 등 고려 미술의 품위 고수.
+   - **조선시대 (기본값)**:
+     * 문헌 인용: 조선왕조실록, 승정원일기, 일성록 등
+     * 의복/장신구: 곤룡포, 도포, 당의, 두루마기, 갓, 족두리, 가체, 혜 등.
+     * 관직/기타: 영의정, 우의정, 판서, 의금부, 포도청, 동헌, 현감 등 조선 관제 사용.
+     * 실내/배경: 서안(낮은 책상), 문갑, 병풍, 반닫이, 촛대 등 유교 기반 절제미 묘사.
+2. **기록에 존재하지 않는 공백의 '개연성 있는 추론 및 재구성'**: 공식 역사 기록이 유실되거나 비어있는 영역을 메울 때는 결코 당치 않은 현대적 상상력이나 비현실적 무협/판타지 요소를 대입해서는 안 된다. 오로지 해당 시대의 정세(권력 투쟁, 파벌, 신분 제도), 당대의 법률 및 제도, 그리고 시대 신분적 질서와 가치관, 유교적/도교적/불교적 윤리관 및 풍습에 완벽히 부합하도록 지극히 개연성 있고 정교하게 내막을 논리적으로 재구성해야 한다.
 3. **시대착오적 오류(Anachronism) 원천 차단 및 언어 고증**:
-   - 신분(사대부, 중인, 상민, 천민)과 관직(영의정, 판서, 참판, 현감, 사또, 이방)에 걸맞은 정확한 예법, 언행, 호칭을 사용한다.
-   - 의복(곤룡포, 도포, 당의, 군복) 및 일상 가구(서안, 문갑, 촛대, 병풍) 등을 엄격한 조선시대 고증에 의거해 묘사한다.
-   - 엽전, 상평통보 등 실제 통용되던 조선 화폐와 경제 기준을 준수한다.
-   - 나레이션 및 인물 대사에는 결코 현대적 표현, 유행어, 신조어, 한자어 오용 등을 원천 차단하고, 조선왕조의 엄숙하고 우아한 풍미가 깃든 진중하고 고전적인 어투(예: "~하옵니다", "~했사옵니다", "~의 주범이라 일컬어지던")를 전면 고수한다.
+   - 나레이션 및 인물 대사에는 결코 현대적 표현, 유행어, 신조어, 한자어 오용 등을 원천 차단하고, 해당 시대의 엄숙하고 우아한 풍미가 깃든 진중하고 고전적인 어투(예: "~하옵니다", "~했사옵니다", "~의 주범이라 일컬어지던")를 전면 고수한다.
+   - 의복과 소품 묘사 역시 자동 판별된 각 시대 고증에 의거해 엄격히 적용한다.
+   - 화폐 단위를 기술할 때도 조선의 '상평통보'나 고려의 '해동통보' 또는 삼국시대의 청동/은화/금화 등 시대적 화폐 및 가치관을 분별 적용한다.
 
 ★ [2026년 6월 유튜브 '반복적인 콘텐츠' 수익정지 우회 공식 탑재] ★
 유튜브의 자동 AI 심사 필터는 "동일 템플릿의 화면 반복" + "기계적인 TTS 패턴"을 감지해 수익을 원천 박탈한다. 이를 우회하기 위한 아래 4대 구성 방식을 기획안에 자동으로 반영해야 한다:
@@ -629,7 +647,7 @@
 - **인트로 파트: Scene 1-8 (8개 씬) [재생시간: 10.5초 기준 지향]**
   - 초반 이탈방지 및 오프닝 몰입 극대화를 위해 각 씬당 **10.5초 정도의 전체 씬 재생 시간**을 설계한다.
   - 가이드라인 글자수: 성우 실제 낭독 시 **9.5초 정도의 실 낭독 시간**이 나오도록 각 씬당 **한글 공백 포함 약 75자 ~ 90자 내외**로 정확하게 글자수를 채워주며, 낭독 호흡과 뜸을 가미해 정밀한 10.5초가 유기적으로 흐르게 한다.
-  - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트(`[IMAGE GENERATION PROMPT]`)는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유의 몰입감을 극대화한다.
+  - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트('[IMAGE GENERATION PROMPT]')는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유 of 몰입감을 극대화한다.
   - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 60개 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 Scene 8에서 자아내며 마무리하도록 설계한다.
 - **서사 본론 파트: Scene 9-59 (51개 씬) [재생시간: 16초 기준 지향]**
   - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **16초 정도의 충분한 씬 재생 시간**을 일괄 부여한다.
@@ -649,6 +667,13 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
 이 영문 프롬프트는 사용자가 복사하여 즉시 LTX Video 2.3(혹은 Runway, Kling 등) 비디오 인공지능 도구에 붙여넣을 수 있게 다음과 같이 구성한다:
 - 형상(Formula): **[등장인물 성향/성별/나이/의복/자세/표정] + [배경 공간의 미미한 움직임(양초의 흔들림, 안개의 흐름, 눈발의 흩날림, 먼지의 부유 등)] + [카메라 무빙 특화 지시어(Slow dynamic zoom-in, smooth left-panning, 3D space camera tilt, dramatic Ken burns motion, hyper-realistic, joseon dynasty style)]**
 - 절대로 텍스트나 현대적 인공적 간편 프레이즈를 넣지 말 것!
+- **[클레이 및 2D 연출 호환성 제약 준수 규칙]**:
+  1. 인물 표정: 미세한 근육 움직임(뺨 떨림 등) 대신, 진흙 인형 형태에 맞는 굵고 명확하게 손으로 빚은 표정 묘사 지향(예: 공포로 커진 동공, 깊은 슬픔으로 일그러진 입꼬리, 이마의 땀방울 등).
+  2. 복색/의상: 한복의 극도로 세밀한 금박 자수나 꽃무늬를 피하고, 클레이 및 애니메이션에서 깔끔하게 구현될 수 있는 단색조 원단, 굵은 동정선, 선명한 주름과 실루엣 묘사(예: solid crimson silk royal robe with simple bold gold borders).
+  3. 문자 요소 배제: 화면 내 자잘한 책이나 족자의 한문 세부 텍스트는 클레이 렌더링 시 뭉개지므로 묘사를 차단하고, 굵직한 브러시 붓놀림이나 기호 형태로 대체.
+  4. 다중 물리 충돌 제약: 숲속 수십 개의 화살이 동시에 비처럼 쏟아지는 극도로 복잡하고 산만한 물리적 충돌 연출을 피하고, 굵직하고 극적인 단일 정지 동작 연출 지향(예: 두꺼운 나무 기둥에 꽂힌 단 한 발의 부러진 화살, 칼날을 굳건히 겨눈 채 정지된 사투 순간).
+  5. 고어 및 잔인함 배제: 상처나 핏자국을 노골적으로 표현하는 대신 붉은 등불 조명이나 깨진 그릇, 땅에 흩어진 붉은 꽃잎 등의 시각적 은유를 활용할 것.
+
 
 ────────────────────────────
 ■ 4단계: 유튜브 최적화 기획 (썸네일)
@@ -1456,6 +1481,41 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
             link.download = 'yadam_planner_v15_pro.html';
             link.click();
             console.log('[HTML BACKUP] Clean local clone backup triggered.');
+        }
+
+        function openDavinciTool() {
+            if (window.location.protocol.startsWith('http')) {
+                window.open('/davinci_automation_pro.html', '_blank');
+            } else {
+                // Local file protocol
+                const targetUrl = 'davinci_automation_pro.html';
+                const win = window.open(targetUrl, '_blank');
+                if (!win) {
+                    alert("⚠️ 다빈치 오토 배치 도구('davinci_automation_pro.html')를 열 수 없습니다.\n\n[해결 방법]\n1. 상단 [💾 다빈치 도구(HTML) 다운로드] 버튼으로 HTML 파일 받아 내 PC의 현재 야담 플래너 파일과 같은 폴더에 놓아주세요.\n2. 혹은 온라인 서버 주소에서도 즉시 실행하실 수 있습니다.");
+                }
+            }
+        }
+
+        async function downloadDavinciTool() {
+            try {
+                const response = await fetch('/davinci_automation_pro.html?t=' + Date.now());
+                if (response.ok) {
+                    const text = await response.text();
+                    const blob = new Blob([text], { type: 'text/html;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'davinci_automation_pro.html';
+                    link.click();
+                    alert("💾 다빈치 리졸브 오토 배치 도구(davinci_automation_pro.html) 파일이 무사히 내려받아졌습니다!\n\n이 파일을 현재 야담 플래너 HTML 파일과 같은 폴더에 보관하시면 오프라인 환경에서도 원클릭으로 서로 자유롭게 오갈 수 있습니다.");
+                } else {
+                    throw new Error("서버 응답 없음");
+                }
+            } catch (err) {
+                const link = document.createElement('a');
+                link.href = 'davinci_automation_pro.html';
+                link.download = 'davinci_automation_pro.html';
+                link.click();
+            }
         }
     </script>
 </body>
