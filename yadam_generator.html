@@ -403,6 +403,7 @@
     <header>
         <h1>역사 야담 대본 생성기 & LTX 2.3 프롬프트 빌더 <span>V1.5.0 PRO</span></h1>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button onclick="openTtsStudio()" style="background:#059669; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; border:1px solid #10b981; display:inline-flex; align-items:center; gap:6px;">🎙️ 야담 TTS & 자막 스튜디오 열기</button>
             <button onclick="openDavinciTool()" style="background:#ff5500; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; border:1px solid #ff7722; display:inline-flex; align-items:center; gap:6px;">🎬 다빈치 리졸브 오토 배치 도구 열기</button>
             <button onclick="downloadDavinciTool()" style="background:#222533; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:0.85rem; font-weight:bold; cursor:pointer; border:1px solid #2a2d3d; display:inline-flex; align-items:center; gap:6px;" title="다빈치 배치 도구 HTML 오프라인 파일 다운로드">💾 다빈치 도구(HTML) 다운로드</button>
             <button class="header-btn" onclick="downloadSelf()">이 도구(HTML) 다운로드</button>
@@ -643,16 +644,16 @@
 총 20분 가량 of 장편 야담 영상을 완성하기 위해 60개의 씬(Scene 1 ~ 60)으로 견고하게 쪼갠다.
 각 씬의 한국어 나레이션은 음독 낭독 시 자연스럽고 품격 있는 우리말 숨쉬기 및 끊어읽기 호흡(구두점, 띄어쓰기 100% 한글 맞춤법)을 빈틈없이 준수해야 한다. 띄어쓰기가 누락되면 TTS 낭독의 억양과 발음이 급격히 망가지므로 정교하게 띄어쓰기를 적용하여 작성한다. 띄어쓰기를 절대 생략하지 마라.
 
-각 파트와 씬별 재생 시간 및 한글 글자수 가이드라인:
-- **인트로 파트: Scene 1-8 (8개 씬) [재생시간: 10.5초 기준 지향]**
-  - 초반 이탈방지 및 오프닝 몰입 극대화를 위해 각 씬당 **10.5초 정도의 전체 씬 재생 시간**을 설계한다.
-  - 가이드라인 글자수: 성우 실제 낭독 시 **9.5초 정도의 실 낭독 시간**이 나오도록 각 씬당 **한글 공백 포함 약 75자 ~ 90자 내외**로 정확하게 글자수를 채워주며, 낭독 호흡과 뜸을 가미해 정밀한 10.5초가 유기적으로 흐르게 한다.
-  - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트('[IMAGE GENERATION PROMPT]')는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유 of 몰입감을 극대화한다.
+각 파트와 씬별 재생 시간 및 한글 글자수 가이드라인 (N6 오디오북 성우 1.00x 속도 + 0.3s 무음 기준):
+- **인트로 파트: Scene 1-8 (8개 씬) [재생시간: 10초 기준]**
+  - 초반 이탈방지 및 오프닝 몰입 극대화를 위해 각 씬당 **10초 전체 씬 재생 시간**을 설계한다.
+  - 가이드라인 글자수: N6 성우 낭독 호흡과 0.3초 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 35자 ~ 45자 범위**로 정확하게 글자수를 채워준다.
+  - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트('[IMAGE GENERATION PROMPT]')는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유의 몰입감을 극대화한다.
   - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 60개 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 Scene 8에서 자아내며 마무리하도록 설계한다.
-- **서사 본론 파트: Scene 9-59 (51개 씬) [재생시간: 16초 기준 지향]**
-  - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **16초 정도의 충분한 씬 재생 시간**을 일괄 부여한다.
-  - 가이드라인 글자수: 성우 실제 낭독 시 **15초 정도의 풍부한 실 낭독 시간**이 확보될 수 있도록 각 씬당 **한글 공백 포함 약 110자 ~ 130자 내외**로 촘촘하고 호소력 짙게 작성하며, 미장센 공간 여운을 더해 자연스럽게 16초를 채운다.
-  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에 속하는 Scene 58, 59 등에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(110자~130자 내외)를 끝까지 듬직하게 유지해야 한다.
+- **서사 본론 파트: Scene 9-59 (51개 씬) [재생시간: 15초 기준]**
+  - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **15초의 충분한 씬 재생 시간**을 일괄 부여한다.
+  - 가이드라인 글자수: N6 성우 낭독 호흡과 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 55자 ~ 65자 범위**로 촘촘하고 호소력 짙게 작성하며, 미장센 공간 여운을 더해 15초를 채운다.
+  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에 속하는 Scene 58, 59 등에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(55자~65자 범위)를 끝까지 듬직하게 유지해야 한다.
 - 모든 씬의 구조적 포맷을 완벽하게 통일해야 한다.
 - 최후의 씬(Scene 60)은 시스템 고정 규칙을 필히 따른다.
 
@@ -1481,6 +1482,18 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
             link.download = 'yadam_planner_v15_pro.html';
             link.click();
             console.log('[HTML BACKUP] Clean local clone backup triggered.');
+        }
+
+        function openTtsStudio() {
+            if (window.location.protocol.startsWith('http')) {
+                window.open('/yadam_tts_studio.html', '_blank');
+            } else {
+                const targetUrl = 'yadam_tts_studio.html';
+                const win = window.open(targetUrl, '_blank');
+                if (!win) {
+                    alert("⚠️ 야담 TTS & 자막 스튜디오('yadam_tts_studio.html')를 열 수 없습니다.\n\n같은 폴더에 'yadam_tts_studio.html' 파일이 있는지 확인해 주세요.");
+                }
+            }
         }
 
         function openDavinciTool() {

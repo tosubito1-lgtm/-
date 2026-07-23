@@ -184,8 +184,11 @@ Ensure these two scenes are ALWAYS generated as the final two scenes. This keeps
   - If specific physical focal points or scene directions are mentioned, make sure they are the primary subject of the prompt.
 - NEVER omit active characters or the main subject of action from the 'refinedImagePrompt'.
 
-=== SPEED & TIMEOUT OPTIMIZATIONS ===
-- Avoid extremely long or repetitive explanations. Keep 'narrationText' and 'visualDescription' crisp, natural, and concise (under 2 sentences per field, maximum 50 characters).
+=== NARRATION CHARACTER LENGTH RULES (N6 VOICE TTS OPTIMIZED) ===
+- You MUST calibrate the length of 'narrationText' for each scene according to its duration, tailored for N6 voice at 1.00x speed + 0.3s pause:
+  * For 10-Second Scenes (Intro Scenes 1~8, Outro Scenes 59~60, or Shorts Scenes 1~10): 'narrationText' MUST be strictly between 35 and 45 Korean characters (including spaces).
+  * For 15-Second Scenes (Main Story Body Scenes 9~58): 'narrationText' MUST be strictly between 55 and 65 Korean characters (including spaces).
+- Keep 'narrationText' and 'visualDescription' crisp, natural, and concise (under 2 sentences per field).
 - Keep 'refinedImagePrompt' and 'characterSheetPrompt' highly descriptive but compact (under 55 words). Focus strictly on key items: subject with precise pose/gesture/action/expression, setting, weather/lighting, and style.
 - This is a critical latency optimization. Fields under 55 words guarantee the analysis completes rapidly in 15-20 seconds without timing out.
 `;
@@ -1056,6 +1059,10 @@ async function startServer() {
   app.use("/assets", express.static(path.join(process.cwd(), "assets")));
 
   // Serve the raw yadam helper HTML tools directly
+  app.get("/yadam_tts_studio.html", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "yadam_tts_studio.html"));
+  });
+
   app.get("/yadam_generator.html", (req, res) => {
     res.sendFile(path.join(process.cwd(), "yadam_generator.html"));
   });

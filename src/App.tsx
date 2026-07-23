@@ -35,6 +35,10 @@ import {
   Film,
   Video,
   Volume2,
+  BookOpen,
+  HelpCircle,
+  Layers,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -388,6 +392,8 @@ export default function App() {
   // Beginner 3-Step Guide Modal State
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showSfxGuideModal, setShowSfxGuideModal] = useState(false);
+  const [showFullUserManualModal, setShowFullUserManualModal] = useState(false);
+  const [manualActiveTab, setManualActiveTab] = useState<"overview" | "script" | "image" | "davinci" | "thumbnail" | "safety">("overview");
 
   // UI Compaction Accordion States for Clean UX
   const [showThumbnailFineTune, setShowThumbnailFineTune] = useState(false);
@@ -838,6 +844,9 @@ export default function App() {
     // 2. Try to save to LocalStorage as a fallback, but catch QuotaExceededError
     try {
       localStorage.setItem("yadam_storyboard_session", sessionData);
+      if (scriptText) {
+        localStorage.setItem("yadam_planner_script", scriptText);
+      }
     } catch (e: any) {
       if (e.name === "QuotaExceededError" || e.code === 22) {
         console.warn("LocalStorage quota exceeded, relying on IndexedDB for primary storage.");
@@ -2120,6 +2129,32 @@ export default function App() {
     }
   };
 
+  // Download the pristine yadam_tts_studio.html file from server
+  const handleDownloadTtsStudioFile = async () => {
+    try {
+      showFeedback?.("TTS & 자막 스튜디오(HTML) 파일을 서버로부터 수급하는 중입니다...", "info");
+      const response = await fetch('/yadam_tts_studio.html?t=' + Date.now());
+      if (response.ok) {
+        const text = await response.text();
+        const blob = new Blob([text], { type: "text/html;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = 'yadam_tts_studio.html';
+        link.click();
+        showFeedback?.("야담 TTS & 자막 스튜디오(HTML) 오프라인 파일 다운로드 완료!", "success");
+      } else {
+        throw new Error("서버에서 파일을 찾지 못했습니다.");
+      }
+    } catch (error: any) {
+      console.warn("[TTS STUDIO DOWNLOAD FALLBACK] Fetch error, triggering direct download link:", error);
+      const link = document.createElement("a");
+      link.href = "/yadam_tts_studio.html";
+      link.download = "yadam_tts_studio.html";
+      link.click();
+      showFeedback?.("오프라인 야담 TTS & 자막 스튜디오 파일 다운로드 완료!", "success");
+    }
+  };
+
   // Download the pristine davinci_automation_pro.html file from server
   const handleDownloadDavinciTool = async () => {
     try {
@@ -2649,13 +2684,22 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowFullUserManualModal(true)}
+              id="btn-open-full-manual-header"
+              className="px-3 py-1.5 bg-gradient-to-r from-blue-600/30 to-cyan-600/30 hover:from-blue-600/40 hover:to-cyan-600/40 border border-cyan-500/50 text-cyan-300 hover:text-white rounded text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-950/40"
+              title="전체 배포 기능 및 워크플로우 매뉴얼 열기"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+              📖 전체 사용자 매뉴얼
+            </button>
+            <button
               onClick={() => setShowGuideModal(true)}
               id="btn-open-guide-header"
               className="px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 hover:text-white rounded text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-amber-950/30 animate-pulse"
               title="초보자를 위한 3단계 완전 제작 가이드 열기"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              🎬 초보자 제작 가이드
+              🎬 초보자 가이드
             </button>
             <button
               onClick={handleExportBackup}
@@ -2758,16 +2802,17 @@ export default function App() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto mt-2 md:mt-0 shrink-0">
-          {/* 초보자 10초 완벽 가이드 모달 열기 버튼 */}
-          <button
-            type="button"
-            onClick={() => setShowGuideModal(true)}
-            className="px-3.5 py-1.5 h-[38px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-purple-950/50 animate-pulse"
-            title="초보자를 위한 10초 완벽 자동화 워크플로우 4단계 가이드 보기"
+          {/* 야담 TTS & 자막 스튜디오 열기 버튼 */}
+          <a
+            href="/yadam_tts_studio.html"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 h-[38px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-950/40 no-underline"
+            title="야담 TTS & 자막(SRT/VTT) 스튜디오 웹 도구 즉시 열기"
           >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            🚀 초보자 가이드 (필독)
-          </button>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+            TTS/자막 스튜디오 🎙️
+          </a>
 
           {/* 야담 플래너 오프라인 다운로드 버튼 */}
           <button
@@ -6224,6 +6269,32 @@ export default function App() {
               </div>
 
               <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
+                {/* Folder Structure Highlight Box */}
+                <div className="bg-[#0f1015] border border-amber-500/40 rounded-xl p-4 space-y-2 font-mono">
+                  <div className="flex items-center justify-between text-amber-400 font-bold text-xs pb-2 border-b border-white/10">
+                    <span className="flex items-center gap-1.5">
+                      📁 필수 폴더 에셋 구조 (다빈치 파이썬 스크립트 & SRT 연동 규격)
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                      100% 자동 인식
+                    </span>
+                  </div>
+                  <pre className="text-emerald-300 text-[11px] leading-relaxed overflow-x-auto p-3 bg-black/50 rounded-lg border border-white/5 font-mono select-all">
+{`📂 내 작업 폴더 (예: E:/MyYadamProject/)
+  ├── 🎵 audio.mp3            (성우 오디오 - voiceover.mp3 / audio.wav / narration.mp3 인식)
+  ├── 📜 subtitles.srt        (타임코드 자막 파일)
+  ├── 🤖 yadam_davinci_auto_batch_2026-07-23.py (다빈치 원클릭 자동 스크립트)
+  ├── 🖼️ scene_001.png       (1번 씬 이미지)
+  ├── 🖼️ scene_002.png       (2번 씬 이미지)
+  ├── 🎬 scene_003.mp4       (3번 씬 LTX 비디오 - 동일 번호 시 MP4를 최우선 자동 배치!)
+  ├── 🖼️ scene_004.png       (4번 씬 이미지)
+  └── 🎬 scene_005.mp4       (5번 씬 LTX 비디오)`}
+                  </pre>
+                  <p className="text-[11px] text-white/70 pt-1 font-sans">
+                    💡 <strong>파일명 규칙:</strong> 이미지/영상의 파일명은 <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">scene_001.png</code>, <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">scene_002.mp4</code>, <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">scene_03.png</code>, <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">01.png</code> 등의 형태로 지정하시면 파이썬 스크립트가 타임코드 순서대로 100% 자동 감지하여 다빈치 타임라인에 배치합니다.
+                  </p>
+                </div>
+
                 {/* Step 1 */}
                 <div className="bg-[#181820] border border-sky-500/20 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
@@ -6235,10 +6306,10 @@ export default function App() {
                       <strong className="text-white">대본 추출:</strong> 야담에서 분석 완료 후 스토리보드 상단의 <span className="text-sky-300 font-bold">[TTS / SRT 대본]</span> 버튼을 클릭하여 <code className="text-sky-200 bg-sky-950/60 px-1 rounded">.txt</code> 대본과 기본 자막파일을 내보냅니다.
                     </li>
                     <li>
-                      <strong className="text-white">외부 TTS 오디오 생성:</strong> 기존에 사용하시던 외부 TTS/SRT 프로그램에 대본을 넣고 통합 오디오 파일(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">voiceover.mp3</code>)과 타임코드 자막(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">.srt</code>)을 만듭니다.
+                      <strong className="text-white">외부 TTS 오디오 생성:</strong> 오프라인 야담 TTS 스튜디오(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">yadam_tts_studio.html</code>) 또는 사용 중이신 TTS 프로그램에 대본을 넣고 전체 오디오 파일(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">audio.mp3</code>)과 타임코드 자막(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">subtitles.srt</code>)을 생성합니다.
                     </li>
                     <li>
-                      <strong className="text-white">타임코드 100% 동기화:</strong> 야담으로 돌아와 <span className="text-purple-300 font-bold">[SRT 타임코드 동기화]</span> 버튼을 눌러 다운받은 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">.srt</code> 파일을 선택합니다. 전체 스토리보드의 씬별 오디오 시작시간과 길이가 실제 음성에 맞춰 정밀 자동 수정됩니다.
+                      <strong className="text-white">타임코드 100% 동기화:</strong> 야담으로 돌아와 상단의 <span className="text-purple-300 font-bold">[SRT 타임코드 동기화]</span> 버튼을 눌러 다운받은 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">.srt</code> 파일을 선택합니다. 전체 스토리보드의 씬별 오디오 시작시간과 길이가 실제 음성에 맞춰 정밀 자동 수정됩니다.
                     </li>
                   </ul>
                 </div>
@@ -6254,7 +6325,7 @@ export default function App() {
                       <strong className="text-white">이미지 & 비디오 제작:</strong> 야담 씬 카드에 적힌 영문 프롬프트로 이미지를 만들고, LTX 모션 프롬프트를 활용해 5초 영상(<code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">.mp4</code>)으로 변환합니다.
                     </li>
                     <li>
-                      <strong className="text-white">파일명 정리:</strong> 완성된 영상이나 이미지 파일을 <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_001.mp4</code>, <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_002.mp4</code> ... 형태로 이름을 지정하여 하나의 작업 폴더에 모아둡니다.
+                      <strong className="text-white">파일명 정리:</strong> 완성된 영상이나 이미지 파일을 위의 파일 구조 트리처럼 <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_001.png</code>, <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_003.mp4</code> ... 형태로 이름을 지정하여 하나의 작업 폴더에 모아둡니다.
                     </li>
                   </ul>
                 </div>
@@ -6267,20 +6338,20 @@ export default function App() {
                   </div>
                   <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
                     <li>
-                      <strong className="text-white">스크립트 추출:</strong> 상단의 <span className="text-amber-300 font-bold">[다빈치 스크립트 (.py)]</span> 버튼을 누르면 마스터 자동화 스크립트가 다운로드됩니다.
+                      <strong className="text-white">스크립트 추출:</strong> 스토리보드 패널 상단의 <span className="text-amber-300 font-bold">[다빈치 스크립트 (.py)]</span> 버튼을 누르면 마스터 파이썬 스크립트가 다운로드됩니다.
                     </li>
                     <li>
                       <strong className="text-white">작업 폴더에 배치:</strong> 다운받은 파이썬 스크립트(<code className="text-amber-200 bg-amber-950/60 px-1 rounded">.py</code>)를 비디오 영상 파일들과 MP3 음성이 들어있는 폴더에 넣습니다.
                     </li>
                     <li>
-                      <strong className="text-white">다빈치 콘솔 실행:</strong> 다빈치 리졸브 프로그램 상단 메뉴에서 <span className="text-white font-bold">Workspace ➔ Console ➔ Python</span> 탭을 열고 생성된 스크립트를 드래그해 실행하면 비디오 트랙 배치, 자막 마커, 오디오 타임라인이 1초 만에 완성됩니다!
+                      <strong className="text-white">다빈치 콘솔 실행:</strong> 다빈치 리졸브 프로그램 상단 메뉴에서 <span className="text-white font-bold">Workspace ➔ Console ➔ Py3</span> 탭을 열고 다운받은 스크립트(.py) 내용을 복사해 붙여넣거나 드래그해 실행하면 비디오 트랙 배치, 자막 마커, 오디오 타임라인이 1초 만에 완성됩니다!
                     </li>
                   </ul>
                 </div>
 
                 <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 text-emerald-300 font-mono text-[11px] flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  <span>💡 <strong>Tip:</strong> 이 방식은 외부 프로그램의 연동 오류나 유료 API 과금 없이, 100% 무료이면서도 완벽한 고화질 영상 결과물을 제공합니다.</span>
+                  <span>💡 <strong>Tip:</strong> 동일한 씬 번호에 <code className="text-emerald-200 bg-black/40 px-1 rounded">.mp4</code> 동영상과 <code className="text-emerald-200 bg-black/40 px-1 rounded">.png</code> 이미지가 같이 있으면, 다빈치 파이썬 배치 스크립트가 <strong>.mp4 동영상을 최우선 선택</strong>하여 정밀 트랙에 올려놓습니다.</span>
                 </div>
               </div>
 
@@ -6401,6 +6472,308 @@ export default function App() {
                   className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-emerald-950/40"
                 >
                   가이드 확인 완료 (닫기)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Deployable Workflow User Manual Modal */}
+      <AnimatePresence>
+        {showFullUserManualModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setShowFullUserManualModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              className="bg-[#0f1117] border border-cyan-500/40 w-full max-w-4xl rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 text-white/90 relative my-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 shadow-inner">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      야담 스토리보드 제어 엔진 — 전체 워크플로우 사용자 매뉴얼
+                    </h2>
+                    <p className="text-xs text-cyan-400/90 font-mono">
+                      주제 선정부터 썸네일 합성 & 2026년 유튜브 수익정지 안전 진단기까지 배포형 종합 가이드
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFullUserManualModal(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Internal Tab Bar */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3 font-mono text-xs">
+                <button
+                  onClick={() => setManualActiveTab("overview")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "overview"
+                      ? "bg-cyan-500/20 border-cyan-400 text-cyan-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  🌐 1. 시스템 개요
+                </button>
+                <button
+                  onClick={() => setManualActiveTab("script")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "script"
+                      ? "bg-blue-500/20 border-blue-400 text-blue-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  📜 2. 주제 & 대본 플래닝
+                </button>
+                <button
+                  onClick={() => setManualActiveTab("image")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "image"
+                      ? "bg-purple-500/20 border-purple-400 text-purple-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  🎨 3. 캐릭터/장소 & LTX 비디오
+                </button>
+                <button
+                  onClick={() => setManualActiveTab("davinci")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "davinci"
+                      ? "bg-amber-500/20 border-amber-400 text-amber-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  🎬 4. 자막, TTS & 다빈치 배치
+                </button>
+                <button
+                  onClick={() => setManualActiveTab("thumbnail")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "thumbnail"
+                      ? "bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  🖼️ 5. 썸네일 & 타이틀 레이어
+                </button>
+                <button
+                  onClick={() => setManualActiveTab("safety")}
+                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                    manualActiveTab === "safety"
+                      ? "bg-rose-500/20 border-rose-400 text-rose-200 font-bold"
+                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  🛡️ 6. 수익정지 안전 진단기
+                </button>
+              </div>
+
+              {/* Tab Content Panels */}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
+                {manualActiveTab === "overview" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-cyan-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-cyan-400" />
+                        배포 아키텍처 및 7대 핵심 기능 통합 워크플로우
+                      </h3>
+                      <p className="text-white/80">
+                        본 시스템은 유튜브 역사·야담 전문 채널의 콘텐츠 제작 시간을 기존 8시간에서 <strong className="text-cyan-300">15분 내외로 단축</strong>하는 풀스택 스토리보드 제어 엔진입니다. Cloud Run 웹 애플리케이션 및 오프라인 도구(HTML/Python) 하이브리드로 작동합니다.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-cyan-400 font-bold font-mono">STEP 1. 주제 선정 및 원고 기획</span>
+                        <p className="text-white/70 text-[11px]">조선왕조실록·고려사·삼국유사 등 시대별 사료 기반 0~15초 후킹 대본 구성.</p>
+                      </div>
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-blue-400 font-bold font-mono">STEP 2. AI 대본 정밀 스캔</span>
+                        <p className="text-white/70 text-[11px]">Gemini 3.5 Flash 엔진이 캐릭터 DB, 장소 DB, 60씬 스토리보드 블루프린트 파싱.</p>
+                      </div>
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-purple-400 font-bold font-mono">STEP 3. 비주얼 일관성 유지</span>
+                        <p className="text-white/70 text-[11px]">Strict Consistency 모드로 캐릭터 의상/얼굴과 시대별 배경 고증 완벽 인지.</p>
+                      </div>
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-amber-400 font-bold font-mono">STEP 4. Imagen 3 & LTX 비디오</span>
+                        <p className="text-white/70 text-[11px]">Imagen 3 고화질 일러스트 및 LTX 2.3/WAN 2.1 호환 비디오 카메라 모션 렌더링.</p>
+                      </div>
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-emerald-400 font-bold font-mono">STEP 5. TTS & 다빈치 오토배치</span>
+                        <p className="text-white/70 text-[11px]">Google Cloud TTS 고음질 성우 생성 및 파이썬 원클릭 타임라인 마스터 연동.</p>
+                      </div>
+                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-rose-400 font-bold font-mono">STEP 6. 썸네일 & 안전 진단</span>
+                        <p className="text-white/70 text-[11px]">고CTR 캘리그라피 타이틀 오버레이 및 2026년 유튜브 수익정지 자가 진단기 리포트.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {manualActiveTab === "script" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-blue-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-blue-300">1~2단계: 대본 작성, 시청 지속률 3단계 구조 및 AI 정밀 스캔</h3>
+                      <p className="text-white/80">
+                        유튜브 알고리즘이 중시하는 <strong className="text-blue-300">시청 지속률(Retention Rate)</strong>을 최대화하기 위해 스토리보드가 3단계 극적 구조로 자동 배정됩니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">📌 retention 3-Stage 스토리보드 규격</h4>
+                      <ul className="space-y-1.5 text-white/70 list-disc pl-5">
+                        <li><strong className="text-blue-300">1단계 오프닝 후킹 (Scene #1 ~ #8):</strong> 0~15초 강렬한 의문 제시 (씬당 10초 고정). 이탈률 원천 차단.</li>
+                        <li><strong className="text-blue-300">2단계 본문 몰입 및 복선 (Scene #9 ~ #58):</strong> 사건 전개, 갈등 고조 및 복선 배치 (씬당 15초 고정).</li>
+                        <li><strong className="text-blue-300">3단계 반전 결말 & 역사 출처 검증 (Scene #59 ~ #60):</strong> 사료 출처 명시(실록/야사) 및 채널 구독 유도.</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🏛️ 시대별 사료 및 고증 자동 인지 기능</h4>
+                      <p className="text-white/70">
+                        입력된 대본을 분석하여 <strong className="text-cyan-300 font-mono">삼국시대(고구려/백제/신라/가야)</strong>, <strong className="text-cyan-300 font-mono">고려시대</strong>, <strong className="text-cyan-300 font-mono">조선시대</strong>를 자동 감지합니다. 삼국시대의 조우관과 금동관, 고려시대의 복두와 청자, 조선시대의 갓과 도포 등 복식과 건축 기물을 정확하게 분류해 프롬프트에 자동 반영합니다.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {manualActiveTab === "image" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-purple-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-purple-300">3~4단계: 일관성 캐릭터 DB 구축 및 Imagen 3 & LTX 비디오 프롬프트</h3>
+                      <p className="text-white/80">
+                        컷마다 캐릭터의 얼굴이나 옷차림이 바뀌는 AI 영상의 고질적 문제를 해결하는 완벽한 솔루션을 제공합니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🎭 캐릭터 비주얼 일관성 유지 (Strict Consistency Mode)</h4>
+                      <p className="text-white/70">
+                        [캐릭터 시트] 탭에서 정의된 인물의 영문 외모 키 태그(피부, 이목구비, 헤어스타일)와 의상 디테일(한복 색상, 갓/관복)이 모든 씬의 프롬프트에 자동 동기화 주입됩니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🎨 5가지 시각 아트 스타일 선택</h4>
+                      <p className="text-white/70">
+                        클레이 애니메이션(Stop-Motion Claymation), 정통 야담 웹툰(Korean Historical Manhwa), 영화 실사 극화(Joseon Historical Film Still), 3D Render, 복고풍 2D 등 원하는 비주얼 분위기를 클릭 한 번으로 통일할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🎥 카메라 앵글 다변화 & LTX 2.3 비디오 모션</h4>
+                      <p className="text-white/70">
+                        단조로운 이미지를 방지하기 위해 Extreme Close-Up, Low-Angle, Wide-Angle, Dutch Angle 등 씬별로 다양한 구도를 배정합니다. 또한 LTX Video 2.3 호환 카메라 모션(Dolly In, Pan Right, Orbit, Slow Zoom)과 대화가 필요 없는 사운드 SFX 큐를 자동 생성합니다.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {manualActiveTab === "davinci" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-amber-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-amber-300">5단계: 자막/SRT, Google Cloud TTS & 다빈치 리졸브 21 원클릭 오토배치</h3>
+                      <p className="text-white/80">
+                        외부 편집 프로그램에서 타임라인을 일일이 맞추는 수작업을 파이썬 스크립트 한 줄로 완전 자동화합니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🎙️ 오프라인 Yadam TTS & 자막 스튜디오 (`yadam_tts_studio.html`)</h4>
+                      <p className="text-white/70">
+                        [TTS/SRT 대본] 내보내기 버튼으로 추출된 원고를 오프라인 TTS 스튜디오에 넣으면 Google Cloud TTS 성우 음성(ko-KR-Neural2)과 exact SRT 타임코드 자막이 생성됩니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">⚡ 다빈치 리졸브 21 마스터 자동화 스크립트 (`.py`)</h4>
+                      <p className="text-white/70">
+                        [다빈치 스크립트 (.py)] 버튼으로 다운로드받은 파이썬 파일을 영상/이미지/음성 폴더에 넣고 다빈치 콘솔에서 실행하면, 비디오 트랙 배치, 자막 타임라인, 오디오 트랙 및 켄번즈(Ken Burns) 모션이 1초 만에 완성됩니다.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {manualActiveTab === "thumbnail" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-emerald-300">6단계: 유튜브 클릭률(CTR) 극대화 썸네일 디렉터 & 캘리그라피 타이틀 레이어</h3>
+                      <p className="text-white/80">
+                        유튜브 알고리즘 노출 시 클릭률(CTR)을 15% 이상으로 끌어올리는 AI 디렉터 및 한글 타이틀 오버레이 엔진입니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🎯 썸네일 디렉터 AI 연출 제안</h4>
+                      <p className="text-white/70">
+                        대본 전체 시나리오 중 가장 호기심을 유발하는 클라이맥스 씬을 자동 탐색하고, 구도 및 색상 분위기와 함께 초고속 클릭을 유도하는 타이틀 카피 문구를 추천합니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🖌️ 5대 캘리그라피 한글 타이틀 템플릿</h4>
+                      <ul className="space-y-1 text-white/70 list-disc pl-5">
+                        <li><strong className="text-emerald-300">👑 궁중 미스터리:</strong> 황금 붓글씨 캘리그라피 + 발광 글로우</li>
+                        <li><strong className="text-emerald-300">🩸 잔혹 서스펜스:</strong> 혈색 독도체 + 중앙 고대비 각도</li>
+                        <li><strong className="text-emerald-300">🔥 하이라이트 킹고딕:</strong> 반투명 블랙 리본 플레이트 오버레이</li>
+                        <li><strong className="text-emerald-300">📜 정통 궁중 명조:</strong> 상단 우아한 명조 고증 레이어</li>
+                        <li><strong className="text-emerald-300">⚡ Shorts 모바일 최적화:</strong> 모바일 작은 화면 전용 고시독성 고딕</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {manualActiveTab === "safety" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141822] border border-rose-500/30 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-rose-300">7단계: 2026년 최신 구글 정책 대응 — 유튜브 수익정지 자가 진단기</h3>
+                      <p className="text-white/80">
+                        유튜브 수익창출 승인 박탈(재사용된 콘텐츠 및 자극적 폭력 묘사) 위험 요소를 사전에 정밀 진단하는 자가 감사 시스템입니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
+                      <h4 className="font-bold text-white text-xs">🛡️ 4대 정밀 진단 영역</h4>
+                      <ul className="space-y-1.5 text-white/70 list-disc pl-5">
+                        <li><strong className="text-rose-300">재사용된 콘텐츠 (Reused Content Risk):</strong> 단순 자동 생성 텍스트 판정 방지 및 대본 독창성 검증.</li>
+                        <li><strong className="text-rose-300">자극적/선정적 묘사 (Sensual Risk):</strong> 유튜브 커뮤니티 가이드라인 연령 제한 조항 위반 여부 점검.</li>
+                        <li><strong className="text-rose-300">잔혹한 폭력성 (Violent Risk):</strong> 유혈/잔혹 물리적 묘사를 어두운 조명, 붉은 번개, 깨진 도자기 등 시각적 은유(메타포)로 치환했는지 정밀 검수.</li>
+                        <li><strong className="text-rose-300">메타데이터 정책 (Metadata Risk):</strong> 제목 및 태그 어뷰징 진단.</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-3 text-rose-300 font-mono text-[11px] flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                      <span>💡 <strong>안전성 보장:</strong> 종합 안전 점수가 80점 이상일 경우 유튜브 파트너 프로그램(YPP) 수익창출 심사를 안심하고 진행하실 수 있습니다.</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                <span className="text-[11px] font-mono text-cyan-400/80">
+                  yadam_storyboard_control_engine_manual_v3.5.pdf
+                </span>
+                <button
+                  onClick={() => setShowFullUserManualModal(false)}
+                  className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-950/50"
+                >
+                  매뉴얼 확인 완료 (닫기)
                 </button>
               </div>
             </motion.div>

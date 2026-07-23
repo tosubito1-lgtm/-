@@ -1,0 +1,2309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>야담 TTS & 자막(SRT/VTT) 스튜디오 PRO - Google Cloud TTS & Subtitle Engine</title>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-main: #f3f5f8;
+            --panel-bg: #ffffff;
+            --panel-border: #dbe2ea;
+            --primary: #059669;
+            --primary-hover: #047857;
+            --primary-light: #ecfdf5;
+            --primary-dark: #064e3b;
+            --accent-orange: #d97706;
+            --accent-blue: #2563eb;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --text-muted: #94a3b8;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e1;
+            --tag-bg: #f1f5f9;
+            --tag-border: #e2e8f0;
+            --code-bg: #0f172a;
+            --code-text: #38bdf8;
+            --badge-green: #dcfce7;
+            --badge-green-text: #166534;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-size: 13px;
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header Navigation */
+        header {
+            background-color: #ffffff;
+            border-bottom: 1px solid var(--panel-border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), #10b981);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);
+        }
+
+        .brand-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-version {
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 9999px;
+            border: 1px solid #a7f3d0;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background-color: #f8fafc;
+            color: var(--text-main);
+            border: 1px solid var(--input-border);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+
+        .nav-btn:hover {
+            background-color: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        .nav-btn.primary {
+            background-color: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        .nav-btn.primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Main Workspace Grid (65% Left / 35% Right) */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 16px;
+            padding: 16px 20px;
+            max-width: 1700px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+        }
+
+        @media (max-width: 1150px) {
+            .workspace-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card Section Panels */
+        .panel-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            position: relative;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title-text {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-title-badge {
+            font-size: 11px;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        /* Form Controls & Inputs */
+        label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-sub);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 7px 10px;
+            font-size: 12px;
+            color: var(--text-main);
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.6;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        /* Tag Insert Chips */
+        .tag-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+            margin-bottom: 12px;
+        }
+
+        .tag-chip {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.12s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tag-chip:hover {
+            background-color: var(--primary-light);
+            border-color: #a7f3d0;
+            color: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .tag-chip:active {
+            transform: translateY(0);
+        }
+
+        /* Button Variations */
+        .btn {
+            background-color: #ffffff;
+            color: var(--text-main);
+            border: 1px solid var(--input-border);
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .btn:hover {
+            background-color: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-lg {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            width: 100%;
+        }
+
+        .btn-subtle {
+            background-color: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+
+        .btn-subtle:hover {
+            background-color: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .btn-outline-green {
+            border-color: var(--primary);
+            color: var(--primary);
+            background-color: var(--primary-light);
+        }
+
+        .btn-outline-green:hover {
+            background-color: #d1fae5;
+        }
+
+        /* Voice Samples Grid */
+        .voice-samples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .voice-btn {
+            background-color: #f8fafc;
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .voice-btn:hover {
+            background-color: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        .voice-btn.active {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+        }
+
+        .voice-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .voice-select-badge {
+            font-size: 10px;
+            background-color: #ffffff;
+            border: 1px solid var(--input-border);
+            padding: 1px 5px;
+            border-radius: 3px;
+            color: var(--text-sub);
+        }
+
+        .voice-btn.active .voice-select-badge {
+            background-color: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        /* Preset Bar */
+        .preset-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Checkbox & Switch controls */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 8px 10px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        /* Right Panel Output Components */
+        .audio-player-box {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-timer {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 0.5px;
+            text-align: center;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        audio {
+            width: 100%;
+            height: 36px;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .output-btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .output-btn-grid .btn {
+            padding: 8px 10px;
+            font-size: 11px;
+            justify-content: flex-start;
+        }
+
+        /* Subtitle Timeline Preview List */
+        .subtitle-preview-container {
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            background-color: #f8fafc;
+        }
+
+        .subtitle-item {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 11px;
+            transition: background-color 0.12s ease;
+            cursor: pointer;
+        }
+
+        .subtitle-item:last-child {
+            border-bottom: none;
+        }
+
+        .subtitle-item:hover {
+            background-color: var(--primary-light);
+        }
+
+        .subtitle-timecode {
+            font-family: monospace;
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+
+        .subtitle-text-input {
+            width: 100%;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 2px 4px;
+            font-size: 11px;
+            color: #1e293b;
+            font-weight: 500;
+            border-radius: 3px;
+        }
+
+        .subtitle-text-input:focus {
+            background-color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        /* Realtime Log Terminal Box */
+        .terminal-box {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 10px;
+            line-height: 1.4;
+            padding: 10px;
+            border-radius: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #334155;
+        }
+
+        /* Status Toast & Alerts */
+        .toast-msg {
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .toast-info {
+            background-color: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .toast-success {
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .toast-error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            max-width: 520px;
+            width: 100%;
+            padding: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--panel-border);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .modal-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        /* Range Slider */
+        .range-slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .range-slider-group input[type="range"] {
+            flex: 1;
+            accent-color: var(--primary);
+        }
+
+        .range-val {
+            font-weight: 700;
+            font-size: 11px;
+            width: 38px;
+            text-align: right;
+            color: var(--primary-dark);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="header-brand">
+            <div class="brand-logo">야</div>
+            <div class="brand-title">
+                야담 TTS & 자막(SRT/VTT) 스튜디오 PRO
+                <span class="brand-version">v2.5 (Google Cloud TTS & Gemini)</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="nav-btn" onclick="openGuideModal()">
+                <i data-lucide="book-open" style="width:14px; height:14px; color:#2563eb;"></i> 사용 설명 가이드
+            </button>
+            <button class="nav-btn" onclick="openApiModal()">
+                <i data-lucide="key" style="width:14px; height:14px;"></i> API 키 설정
+            </button>
+            <button class="nav-btn" onclick="downloadSelfHtml()" title="이 도구를 오프라인 HTML 단독 파일로 다운로드">
+                <i data-lucide="download" style="width:14px; height:14px;"></i> 이 도구(HTML) 다운로드
+            </button>
+            <a href="/" class="nav-btn">
+                <i data-lucide="layout-dashboard" style="width:14px; height:14px;"></i> 스토리보드 엔지
+            </a>
+            <a href="/davinci_automation_pro.html" class="nav-btn">
+                <i data-lucide="film" style="width:14px; height:14px;"></i> 다빈치 연동 도구
+            </a>
+            <button class="nav-btn primary" onclick="startGeneration()">
+                <i data-lucide="sparkles" style="width:14px; height:14px;"></i> 바로 음성/자막 생성
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="workspace-grid">
+
+        <!-- LEFT PANEL: Script & Controls -->
+        <div class="left-panel">
+
+            <!-- Toast / Status Alert Message -->
+            <div id="toastMessage" class="toast-msg toast-info" style="display:none;">
+                <i data-lucide="info" style="width:16px; height:16px;"></i>
+                <span id="toastText">준비되었습니다. 원고를 입력하고 생성 버튼을 누르세요.</span>
+            </div>
+
+            <!-- 1. Script Input Panel -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="file-text" style="width:15px; height:15px; color:var(--primary);"></i>
+                        대본 원고 입력 (Script Input)
+                    </span>
+                    <span class="panel-title-badge" id="scriptCharCount">0자 / 7개 대본 세그먼트</span>
+                </div>
+
+                <!-- Script Preset Selector -->
+                <div class="form-row">
+                    <div>
+                        <label for="scriptPresetSelect">샘플 대본 불러오기</label>
+                        <select id="scriptPresetSelect" onchange="loadScriptPreset()">
+                            <option value="custom">직접 입력 (Manual text)</option>
+                            <option value="sado">사도세자의 비극 (조선 야담 표준)</option>
+                            <option value="duiju">뒤주 속의 비밀 (미스터리 야담)</option>
+                            <option value="sejong">세종대왕과 한글 창제 (역사 다큐멘터리)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="toneSelect">톤 (Tone)</label>
+                        <select id="toneSelect">
+                            <option value="calm">차분함 (Calm - 기본)</option>
+                            <option value="dramatic">긴박함/극적 (Dramatic)</option>
+                            <option value="majestic">장엄함 (Majestic)</option>
+                            <option value="sad">슬픔/애절함 (Sad)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="lengthSelect">예상 분량 (Length)</label>
+                        <select id="lengthSelect">
+                            <option value="1">1분</option>
+                            <option value="3">3분</option>
+                            <option value="5">5분</option>
+                            <option value="10">10분</option>
+                            <option value="15" selected>15분</option>
+                            <option value="20">20분</option>
+                            <option value="30">30분</option>
+                            <option value="45">45분</option>
+                            <option value="60">60분 이상 (무제한)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="audienceSelect">대상 (Audience)</label>
+                        <select id="audienceSelect">
+                            <option value="general">일반 시청자</option>
+                            <option value="history_fan">역사 마니아</option>
+                            <option value="youth">청소년/학생</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Textarea -->
+                <textarea id="scriptTextarea" placeholder="음성 및 자막으로 변환할 야담 대본 원고를 여기에 입력하세요..." oninput="updateCharCount()"></textarea>
+
+                <!-- Expression Tag Quick Chips -->
+                <div class="tag-bar">
+                    <span class="tag-chip" onclick="insertTag('<laugh>')">😊 &lt;laugh&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<breath>')">💨 &lt;breath&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<surprise>')">😮 &lt;surprise&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<sigh>')">😮‍💨 &lt;sigh&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<scream>')">😱 &lt;scream&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<throatclear>')">🗣️ &lt;throatclear&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<sad>')">😢 &lt;sad&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<angry>')">😡 &lt;angry&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<cough>')">😷 &lt;cough&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<yawn>')">🥱 &lt;yawn&gt;</span>
+                    <span class="tag-chip" onclick="insertTag('<pause time=&quot;0.5s&quot;>')">⏱️ &lt;pause 0.5s&gt;</span>
+                </div>
+
+                <!-- Refine Actions -->
+                <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                    <button class="btn btn-subtle" onclick="loadYadamStoryboardScript()" style="border-color:#10b981; color:#059669; background:#ecfdf5;">
+                        <i data-lucide="film" style="width:14px; height:14px; color:#10b981;"></i>
+                        스토리보드 / 플래너 대본 불러오기 🎬
+                    </button>
+                    <button class="btn btn-subtle" onclick="refineScriptWithGemini()">
+                        <i data-lucide="wand-2" style="width:14px; height:14px; color:var(--primary);"></i>
+                        Gemini 대본 어조 정제 & SSML 자동 태깅
+                    </button>
+                    <button class="btn btn-subtle" onclick="saveScriptToLocal()">
+                        <i data-lucide="save" style="width:14px; height:14px;"></i> 대본 임시 저장
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Filter Values & Audio Pitch Controls -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="sliders" style="width:15px; height:15px; color:var(--primary);"></i>
+                        필터 값 & 오디오 옵션 (Filter Values)
+                    </span>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label for="speedSelect">속도 선택 (Speed pick)</label>
+                        <select id="speedSelect">
+                            <option value="0.85">0.85x - 느림</option>
+                            <option value="0.95">0.95x - 약간 느림</option>
+                            <option value="1.0" selected>1.00x - 보통(normal)</option>
+                            <option value="1.10">1.10x - 약간 빠름</option>
+                            <option value="1.25">1.25x - 빠름</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="stepsSelect">단계 선택 (Steps pick)</label>
+                        <select id="stepsSelect">
+                            <option value="4">4 - 고속</option>
+                            <option value="8" selected>8 - 기본(default)</option>
+                            <option value="16">16 - 고품질</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="chunkSelect">청크 분할 (Chunk pick)</label>
+                        <select id="chunkSelect">
+                            <option value="auto" selected>자동 (auto - 문장 기준)</option>
+                            <option value="100">100자 단위</option>
+                            <option value="200">200자 단위</option>
+                            <option value="500">500자 단위</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="silenceSelect">문장 간 무음 (Silence pick)</label>
+                        <select id="silenceSelect">
+                            <option value="0.1">0.10s - 짧음</option>
+                            <option value="0.3" selected>0.30s - 기본(default)</option>
+                            <option value="0.5">0.50s - 여유</option>
+                            <option value="1.0">1.00s - 긺</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top:6px;">
+                    <div>
+                        <label>피치 (Pitch Modifier)</label>
+                        <div class="range-slider-group">
+                            <input type="range" id="pitchRange" min="-10" max="10" value="0" step="1" oninput="document.getElementById('pitchVal').innerText = this.value + 'st'">
+                            <span class="range-val" id="pitchVal">0st</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label>볼륨 게인 (Volume Gain)</label>
+                        <div class="range-slider-group">
+                            <input type="range" id="gainRange" min="-6" max="6" value="0" step="0.5" oninput="document.getElementById('gainVal').innerText = this.value + 'dB'">
+                            <span class="range-val" id="gainVal">0dB</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="sampleRateSelect">샘플링 레이트</label>
+                        <select id="sampleRateSelect">
+                            <option value="24000" selected>24,000 Hz (고품질 표준)</option>
+                            <option value="44100">44,100 Hz (스튜디오 CD급)</option>
+                            <option value="16000">16,000 Hz (경량)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top:6px;">
+                    <div>
+                        <label for="effectsProfileSelect">📻 스튜디오 마스터링 이퀄라이저 (Audio Effects Profile)</label>
+                        <select id="effectsProfileSelect">
+                            <option value="none" selected>✨ 깔끔한 원음 (깨짐/울림 없음 - 기본 권장 ★★★)</option>
+                            <option value="headphone-class-device">🎧 고음질 오디오북 (헤드폰/이어폰 선명 톤)</option>
+                            <option value="broadcasting-announcement-class-device">📺 아나운서/뉴스 해설 (명확한 전달력)</option>
+                            <option value="studio-podcasting-heavy-bass-device">📻 팟캐스트 중저음 (저음 강조 - 기기에 따라 울림/깨짐 발생 가능)</option>
+                            <option value="telephony-class-application">📞 레트로 수화기/고전 라디오 톤</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Model & Voice Selection -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="mic" style="width:15px; height:15px; color:var(--primary);"></i>
+                        모델 & 보이스 설정 (Model & Voice)
+                    </span>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label for="modelSelect">TTS 모델 엔진</label>
+                        <select id="modelSelect" onchange="updateVoiceDropdown()">
+                            <option value="google-neural2" selected>Google Cloud Neural2 (최고 음질 권장)</option>
+                            <option value="google-wavenet">Google Cloud WaveNet (자연스러운 딥러닝)</option>
+                            <option value="google-polyglot">Google Cloud Polyglot (다국어/혼용)</option>
+                            <option value="google-standard">Google Cloud Standard (기본/고속)</option>
+                            <option value="elevenlabs">ElevenLabs AI (초현실주의 인간 감정 성우 - API 키 필요)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="voiceSelect">음성 선택 (Voice)</label>
+                        <select id="voiceSelect">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:flex-end;">
+                        <button class="btn btn-outline-green" style="width:100%;" onclick="playVoiceSample()">
+                            <i data-lucide="volume-2" style="width:14px; height:14px;"></i> 샘플 미리듣기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Voice Quick Sample Grid (Male 4 / Female 6 Narrators) -->
+                <label style="margin-top:10px;">🎙️ 나레이션 전문 성우 프리셋 (Google Cloud TTS 최적화 10대 음색 - 남성 4 / 여성 6)</label>
+                <div class="voice-samples-grid">
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Neural2-C', 'M1')">
+                        <span class="voice-name">N1 차분 심야 스토리텔러</span>
+                        <span class="voice-select-badge" id="badge-M1">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Wavenet-C', 'M2')">
+                        <span class="voice-name">N2 묵직 역사 다큐 해설</span>
+                        <span class="voice-select-badge" id="badge-M2">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Standard-D', 'M3')">
+                        <span class="voice-name">N3 연륜 지혜로운 야담가</span>
+                        <span class="voice-select-badge" id="badge-M3">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Wavenet-D', 'M4')">
+                        <span class="voice-name">N4 활달 경쾌한 민담꾼</span>
+                        <span class="voice-select-badge" id="badge-M4">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Neural2-A', 'F1')">
+                        <span class="voice-name">N5 우아 궁중 역사 해설</span>
+                        <span class="voice-select-badge" id="badge-F1">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Neural2-B', 'F2')">
+                        <span class="voice-name">N6 단아 오디오북 나레이터</span>
+                        <span class="voice-select-badge" id="badge-F2">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Wavenet-A', 'F3')">
+                        <span class="voice-name">N7 감성 역사 다큐 성우</span>
+                        <span class="voice-select-badge" id="badge-F3">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Wavenet-B', 'F4')">
+                        <span class="voice-name">N8 생생 전기수 전통 소리</span>
+                        <span class="voice-select-badge" id="badge-F4">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Standard-A', 'F5')">
+                        <span class="voice-name">N9 따뜻 포근 옛날이야기</span>
+                        <span class="voice-select-badge" id="badge-F5">선택</span>
+                    </div>
+                    <div class="voice-btn" onclick="selectVoiceQuick('ko-KR-Standard-B', 'F6')">
+                        <span class="voice-name">N10 서정 잔잔 고전 낭독</span>
+                        <span class="voice-select-badge" id="badge-F6">선택</span>
+                    </div>
+                </div>
+
+                <!-- Voice Distinction Explanation Notice -->
+                <div style="margin-top:10px; padding:10px 12px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; font-size:11px; color:#0369a1; line-height:1.5;">
+                    <i data-lucide="info" style="width:13px; height:13px; vertical-align:-2px; margin-right:4px;"></i>
+                    <b>음질 마스터링 및 깨짐 방지 튜닝 안내:</b> 과도한 중저음 부스트나 과격한 피치 조절로 인한 오디오 찢어짐/깨짐 현상을 방지하도록 <b>‘깔끔한 원음’</b>을 기본값으로 수정하고, 피치 범위를 <b>자연스러운 선명 구간(-3.5~+2.0 semitone)</b>으로 재조정했습니다. 음색 깨짐 없이 맑고 명확하게 들으실 수 있습니다.
+                </div>
+            </div>
+
+            <!-- 4. Custom Preset Bar -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="bookmark" style="width:15px; height:15px; color:var(--primary);"></i>
+                        사용자 설정 (Custom Presets)
+                    </span>
+                </div>
+                <div class="preset-bar">
+                    <select id="presetSlotSelect" style="flex:1;">
+                        <option value="slot1">사용자 설정 1 (Custom 1)</option>
+                        <option value="slot2">사용자 설정 2 (Custom 2)</option>
+                        <option value="slot3">사용자 설정 3 (Custom 3)</option>
+                    </select>
+                    <button class="btn btn-subtle" onclick="loadPresetSlot()"><i data-lucide="download-cloud" style="width:13px; height:13px;"></i> 불러오기</button>
+                    <button class="btn btn-subtle" onclick="savePresetSlot()"><i data-lucide="save" style="width:13px; height:13px;"></i> 저장</button>
+                    <button class="btn btn-subtle" onclick="clearPresetSlot()"><i data-lucide="trash-2" style="width:13px; height:13px;"></i> 삭제</button>
+                </div>
+            </div>
+
+            <!-- 5. Generation Options & Action Button -->
+            <div class="panel-card">
+                <div class="toggle-group" style="margin-bottom:12px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoDownloadCheck" checked> 자동 다운로드 (Auto download)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="verboseLogCheck" checked> 자세한 로그 (Verbose log)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="srtRefineCheck" checked> 자막 시간차 보정 (SRT Refine)
+                    </label>
+                </div>
+
+                <button class="btn btn-primary btn-lg" onclick="startGeneration()" id="generateBtn">
+                    <i data-lucide="sparkles" style="width:18px; height:18px;"></i>
+                    생성하기 (Generate TTS & Subtitles)
+                </button>
+            </div>
+
+        </div>
+
+        <!-- RIGHT PANEL: Player, Outputs & Logs -->
+        <div class="right-panel">
+
+            <!-- 1. Audio Player Box -->
+            <div class="panel-card" style="padding:16px;">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="volume-2" style="width:15px; height:15px; color:var(--primary);"></i>
+                        출력 오디오 (Output Audio)
+                    </span>
+                    <span id="audioStatusBadge" class="brand-version" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd;">대기 중</span>
+                </div>
+
+                <div class="audio-player-box">
+                    <div class="player-timer" id="playerTimer">
+                        <i data-lucide="disc" style="width:20px; height:20px; animation: spin 4s linear infinite;" id="spinIcon"></i>
+                        <span id="currentTimeDisplay">0:00</span> / <span id="totalTimeDisplay">0:00</span>
+                    </div>
+                    <audio id="mainAudioPlayer" controls style="display:block; width:100%;"></audio>
+                </div>
+
+                <!-- Export Action Buttons -->
+                <div class="output-btn-grid">
+                    <button class="btn btn-subtle" onclick="downloadAudioWav()"><i data-lucide="music" style="width:13px; height:13px; color:#059669;"></i> 음성 (WAV)</button>
+                    <button class="btn btn-subtle" onclick="downloadScriptTxt()"><i data-lucide="file-text" style="width:13px; height:13px;"></i> 대본 (Script)</button>
+                    <button class="btn btn-subtle" onclick="downloadSrt()"><i data-lucide="message-square" style="width:13px; height:13px; color:#2563eb;"></i> 자막 (SRT)</button>
+                    <button class="btn btn-subtle" onclick="downloadVtt()"><i data-lucide="subtitles" style="width:13px; height:13px;"></i> 자막 (VTT)</button>
+                    <button class="btn btn-subtle" onclick="downloadDavinciSrt()" style="grid-column: span 2;"><i data-lucide="film" style="width:13px; height:13px; color:#d97706;"></i> 다빈치 리졸브 / 프리미어 전용 자막 (SRT)</button>
+                </div>
+            </div>
+
+            <!-- 2. Subtitle Timeline Live Editor -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="list" style="width:15px; height:15px; color:var(--primary);"></i>
+                        자막 타임라인 실시간 편집 (Subtitles)
+                    </span>
+                    <span class="panel-title-badge" id="subCountBadge">0개 타임코드</span>
+                </div>
+
+                <div class="subtitle-preview-container" id="subtitleListContainer">
+                    <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:12px;">
+                        생성 버튼을 누르면 실시간 타임라인 자막 목록이 여기에 표시됩니다.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Terminal Execution Logs -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span class="panel-title-text">
+                        <i data-lucide="terminal" style="width:15px; height:15px; color:var(--primary);"></i>
+                        실행 로그 (Execution Log)
+                    </span>
+                    <button class="btn btn-subtle" style="padding:2px 6px; font-size:10px;" onclick="clearLogs()">Clear</button>
+                </div>
+                <div class="terminal-box" id="terminalLog">
+[SYSTEM] Yadam TTS & SRT Studio PRO initialized.
+[STATUS] Ready to generate Google Cloud Text-to-Speech audio and exact subtitle timecodes.
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- API Key Setting Modal -->
+    <div class="modal-overlay" id="apiModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="key" style="width:18px; height:18px; color:var(--primary); vertical-align:-3px;"></i>
+                    API 키 및 기본 설정
+                </div>
+                <button class="btn btn-subtle" style="padding:4px 8px;" onclick="closeApiModal()">✕</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="googleTtsApiKeyInput">Google Cloud Text-to-Speech API Key</label>
+                <input type="password" id="googleTtsApiKeyInput" placeholder="AIzaSy... 구글 클라우드 API 키 입력">
+                <p style="font-size:10px; color:var(--text-sub); margin-top:3px; line-height:1.4;">
+                    * Google Cloud 콘솔(console.cloud.google.com)에서 발급받은 API 키를 입력하세요.<br/>
+                    * 💡 GCP 콘솔의 [API 및 서비스] &gt; [라이브러리]에서 <b>"Cloud Text-to-Speech API"</b>가 [사용 설정]되어 있어야 정상 동작합니다.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="elevenLabsApiKeyInput">ElevenLabs API Key (초현실주의 감정 AI 성우 모드 - 선택사항)</label>
+                <input type="password" id="elevenLabsApiKeyInput" placeholder="sk_... ElevenLabs API 키 입력">
+                <p style="font-size:10px; color:var(--text-sub); margin-top:3px; line-height:1.4;">
+                    * ElevenLabs(elevenlabs.io)의 Profile &gt; API Keys에서 발급받은 키를 입력하시면 감정 표현이 풍부한 초현실주의 성우 음성을 사용할 수 있습니다.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="geminiApiKeyInput">Google Gemini API Key (대본 정제 및 SSML 분석용)</label>
+                <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy... Gemini API 키 입력 (선택사항)">
+            </div>
+
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+                <button class="btn btn-subtle" onclick="testApiKeyCheck()">API 키 검증 테스트</button>
+                <button class="btn btn-primary" onclick="saveApiKeys()">저장 및 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Guide Modal -->
+    <div class="modal-overlay" id="guideModal">
+        <div class="modal-card" style="max-width: 720px; max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title" style="display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="book-open" style="width:18px; height:18px; color:var(--primary);"></i>
+                    야담 TTS 스튜디오 완벽 사용 설명 & 음질 튜닝 가이드
+                </div>
+                <button class="btn btn-subtle" style="padding:4px 8px;" onclick="closeGuideModal()">✕</button>
+            </div>
+            
+            <div style="font-size: 12px; color: var(--text-main); line-height: 1.6; display: flex; flex-direction: column; gap: 14px;">
+                
+                <!-- Section 1: AI 음성 엔진 선택 가이드 -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                    <h4 style="font-size:13px; font-weight:700; color:#1e293b; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="cpu" style="width:15px; height:15px; color:#2563eb;"></i>
+                        1. AI 음성 엔진 선택 가이드 (Google Cloud vs ElevenLabs vs VREW)
+                    </h4>
+                    <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+                        <li><b>Google Cloud TTS (기본 권장)</b>: 매월 약 100만~400만 자까지 무료 이용이 가능하며, 안정적인 속도로 대용량 야담 원고를 합성합니다.
+                            <br/>- <b>Neural2</b>: 차세대 딥러닝 고성능 음성. 깔끔하고 딕션이 명확한 표준 오디오북 나레이터입니다.
+                            <br/>- <b>WaveNet</b>: 딥마인드 파동 합성 기술. 무게감 있는 사극/역사 다큐 나레이션에 매우 적합합니다.
+                        </li>
+                        <li><b>ElevenLabs AI (초현실주의 감정 성우)</b>: 인간 성우 수준의 미세한 감정, 호흡, 억양 표현이 지원됩니다. (Profile API Key 입력 시 사용 가능)</li>
+                        <li><b>VREW 대비 차이점 및 장점</b>: VREW는 월 사용량이 금방 소진되는 구독 형태지만, 본 스튜디오의 Google Cloud API 연동 방식은 비용 효율이 월등하여 장편 오디오북과 유튜브 대형 야담 채널 운영 시 비용 부담이 거의 없습니다.</li>
+                    </ul>
+                </div>
+
+                <!-- Section 2: 음질 깨짐 방지 및 마스터링 EQ -->
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px;">
+                    <h4 style="font-size:13px; font-weight:700; color:#166534; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="sliders" style="width:15px; height:15px; color:#16a34a;"></i>
+                        2. 마스터링 이퀄라이저 & 음질 깨짐(지직거림) 방지
+                    </h4>
+                    <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+                        <li><b>✨ 깔끔한 원음 (기본값 추천 ★★★)</b>: 과도한 저음 부스트 없이 가장 맑고 깨끗한 원본 구글/ElevenLabs 오디오를 출력합니다. 음성 찢어짐이나 깨짐이 전혀 없습니다.</li>
+                        <li><b>🎧 고음질 오디오북 / 📺 뉴스 해설</b>: 이어폰 감상 및 대사 전달력을 높이기 위한 명확한 선명 톤입니다.</li>
+                        <li><b>📻 팟캐스트 중저음</b>: 묵직한 중저음 울림을 주지만, 재생 기기/이어폰에 따라 울림이 과하면 <b>'깔끔한 원음'</b>으로 변경하시면 원시 맑은 음성으로 복구됩니다.</li>
+                        <li><b>음계 피치 튜닝 (-3.5 ~ +2.0 semitone)</b>: 10대 야담 성우 프리셋의 피치 조절 범위를 음색 깨짐 없이 자연스럽고 선명한 극적 영역으로 최적 보정했습니다.</li>
+                    </ul>
+                </div>
+
+                <!-- Section 3: 미리듣기와 실제 생성 음성의 차이 -->
+                <div style="background:#fffbe0; border:1px solid #fef08a; border-radius:10px; padding:14px;">
+                    <h4 style="font-size:13px; font-weight:700; color:#854d0e; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="volume-2" style="width:15px; height:15px; color:#ca8a04;"></i>
+                        3. 미리듣기(Preview)와 실제 생성(Generate)의 차이점
+                    </h4>
+                    <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+                        <li><b>미리듣기</b>: API 키 미등록 시 브라우저 내장 보정 모드로 재생되며, 등록 시 1문장 즉시 합성으로 샘플을 테스트합니다.</li>
+                        <li><b>생성하기(Generate)</b>: 클라우드 AI 고음질 MP3 파일 생성과 동시에 센턴스 타임코드 자막(SRT/VTT)이 한 번에 자동 추출됩니다.</li>
+                    </ul>
+                </div>
+
+                <!-- Section 4: 자막 타임라인 & SSML 감정 태그 사용법 -->
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px;">
+                    <h4 style="font-size:13px; font-weight:700; color:#1e40af; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="file-text" style="width:15px; height:15px; color:#3b82f6;"></i>
+                        4. 자막 타임라인 내보내기 & SSML 태그 극적 연출
+                    </h4>
+                    <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+                        <li><b>영상 편집 프로그램 연동</b>: <b>SRT, VTT, 다빈치 리졸브/프리미어 전용 자막</b> 버튼을 통해 영상 편집 프로그램 트랙에 바로 드래그하여 배치할 수 있습니다.</li>
+                        <li><b>SSML 태그 사용</b>: 원고 내에 <code>&lt;pause time="0.8s"&gt;</code>, <code>&lt;sigh&gt;</code>, <code>&lt;laugh&gt;</code> 등의 태그를 클릭해 넣으면 극적 연출감이 한층 상승합니다.</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+                <button class="btn btn-primary" onclick="closeGuideModal()">확인 및 가이드 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lucide icons render
+        lucide.createIcons();
+
+        // Voices list for Google Cloud TTS & ElevenLabs
+        const GOOGLE_VOICES = {
+            'google-neural2': [
+                { id: 'ko-KR-Neural2-C', name: 'ko-KR-Neural2-C (남성 - 차분한 스토리텔러)', gender: 'MALE' },
+                { id: 'ko-KR-Neural2-A', name: 'ko-KR-Neural2-A (여성 - 단아한 낭독)', gender: 'FEMALE' },
+                { id: 'ko-KR-Neural2-B', name: 'ko-KR-Neural2-B (여성 - 또박또박 톤)', gender: 'FEMALE' },
+            ],
+            'google-wavenet': [
+                { id: 'ko-KR-Wavenet-C', name: 'ko-KR-Wavenet-C (남성 - 중저음 묵직한 톤)', gender: 'MALE' },
+                { id: 'ko-KR-Wavenet-D', name: 'ko-KR-Wavenet-D (남성 - 젊은 감각)', gender: 'MALE' },
+                { id: 'ko-KR-Wavenet-A', name: 'ko-KR-Wavenet-A (여성 - 감성적 다큐)', gender: 'FEMALE' },
+                { id: 'ko-KR-Wavenet-B', name: 'ko-KR-Wavenet-B (여성 - 밝은 톤)', gender: 'FEMALE' },
+            ],
+            'google-polyglot': [
+                { id: 'ko-KR-Polyglot-1', name: 'ko-KR-Polyglot-1 (남성 - 다국어 혼용)', gender: 'MALE' },
+            ],
+            'google-standard': [
+                { id: 'ko-KR-Standard-C', name: 'ko-KR-Standard-C (남성 - 경량 고속)', gender: 'MALE' },
+                { id: 'ko-KR-Standard-A', name: 'ko-KR-Standard-A (여성 - 경량 고속)', gender: 'FEMALE' },
+                { id: 'ko-KR-Standard-B', name: 'ko-KR-Standard-B (여성 - 표준)', gender: 'FEMALE' },
+            ],
+            'elevenlabs': [
+                { id: 'eleven-adam', name: 'Adam (깊고 그윽한 오디오북 남성 성우)', gender: 'MALE' },
+                { id: 'eleven-antoni', name: 'Antoni (지적이고 단정한 남성 성우)', gender: 'MALE' },
+                { id: 'eleven-arnold', name: 'Arnold (중저음 묵직한 오디오북 남성)', gender: 'MALE' },
+                { id: 'eleven-rachel', name: 'Rachel (차분한 오디오북 대표 여성 나레이터)', gender: 'FEMALE' },
+                { id: 'eleven-bella', name: 'Bella (감성적인 다큐 여성 성우)', gender: 'FEMALE' },
+                { id: 'eleven-domi', name: 'Domi (생생하고 활달한 스토리텔러 여성)', gender: 'FEMALE' },
+                { id: 'eleven-jessica', name: 'Jessica (우아하고 깊은 여성 성우)', gender: 'FEMALE' }
+            ]
+        };
+
+        const ELEVEN_VOICE_IDS = {
+            'eleven-adam': 'pNInz6obpgDQGcFmaJgB',
+            'eleven-antoni': 'ErXwobaYiN019PkySvjV',
+            'eleven-arnold': 'VR6AewLTigWG4xSOukaG',
+            'eleven-rachel': '21m00Tcm4TlvDq8ikWAM',
+            'eleven-bella': 'EXAVITQu4vr4xnSDxMaL',
+            'eleven-domi': 'AZnzlk1XvdvUeBnXmlld',
+            'eleven-jessica': 'cgS1499LH669Y4842Wq3'
+        };
+
+        // App Global State
+        let generatedAudioBlob = null;
+        let generatedAudioUrl = null;
+        let generatedSubtitles = []; // Array of { id, startTime, endTime, text }
+        let generatedScriptText = "";
+        let audioContext = null;
+
+        // Initialize App on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadApiKeys();
+            updateVoiceDropdown();
+            loadScriptPreset();
+            logTerminal("[SYSTEM] UI initialized cleanly. Check API settings or load sample script.");
+        });
+
+        // Log to terminal box
+        function logTerminal(msg) {
+            const term = document.getElementById('terminalLog');
+            const timeStr = new Date().toLocaleTimeString();
+            term.innerText += `\n[${timeStr}] ${msg}`;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('terminalLog').innerText = "[SYSTEM] Logs cleared.";
+        }
+
+        // Modal Controls
+        function openApiModal() {
+            document.getElementById('apiModal').classList.add('active');
+        }
+
+        function closeApiModal() {
+            document.getElementById('apiModal').classList.remove('active');
+        }
+
+        function openGuideModal() {
+            document.getElementById('guideModal').classList.add('active');
+        }
+
+        function closeGuideModal() {
+            document.getElementById('guideModal').classList.remove('active');
+        }
+
+        // Save & Load API Keys
+        function saveApiKeys() {
+            const googleKey = document.getElementById('googleTtsApiKeyInput').value.trim();
+            const elevenKey = document.getElementById('elevenLabsApiKeyInput')?.value.trim() || '';
+            const geminiKey = document.getElementById('geminiApiKeyInput').value.trim();
+            
+            localStorage.setItem('yadam_google_tts_api_key', googleKey);
+            localStorage.setItem('yadam_elevenlabs_api_key', elevenKey);
+            localStorage.setItem('yadam_gemini_api_key', geminiKey);
+            
+            showToast('API 키가 성공적으로 저장되었습니다.', 'success');
+            logTerminal('[SUCCESS] Saved API Keys (Google, ElevenLabs, Gemini) to browser localStorage.');
+            closeApiModal();
+        }
+
+        function loadApiKeys() {
+            const googleKey = localStorage.getItem('yadam_google_tts_api_key') || '';
+            const elevenKey = localStorage.getItem('yadam_elevenlabs_api_key') || '';
+            const geminiKey = localStorage.getItem('yadam_gemini_api_key') || '';
+            
+            document.getElementById('googleTtsApiKeyInput').value = googleKey;
+            if (document.getElementById('elevenLabsApiKeyInput')) {
+                document.getElementById('elevenLabsApiKeyInput').value = elevenKey;
+            }
+            document.getElementById('geminiApiKeyInput').value = geminiKey;
+        }
+
+        async function testApiKeyCheck() {
+            const googleKey = document.getElementById('googleTtsApiKeyInput').value.trim();
+            if (!googleKey) {
+                alert('Google Cloud TTS API 키를 입력해 주세요.');
+                return;
+            }
+
+            logTerminal('[TEST] Verifying Google Cloud TTS API Key via text:synthesize...');
+            try {
+                // v1/voices endpoint rejects API keys with 401; v1/text:synthesize supports API keys.
+                const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input: { text: "인증 테스트입니다." },
+                        voice: { languageCode: 'ko-KR', name: 'ko-KR-Standard-A' },
+                        audioConfig: { audioEncoding: 'MP3' }
+                    })
+                });
+
+                if (res.ok) {
+                    alert('✅ Google Cloud TTS API 키 인증 성공!');
+                    logTerminal('[SUCCESS] Google Cloud TTS API Key verified OK!');
+                } else {
+                    const err = await res.json();
+                    let msg = err.error?.message || '인증 실패';
+                    if (res.status === 401 || res.status === 403) {
+                        msg += '\n\n💡 안내:\n1. Google Cloud 콘솔(console.cloud.google.com)에서 [Cloud Text-to-Speech API] 라이브러리가 [사용 설정]되어 있는지 확인해 주세요.\n2. 입력하신 키가 Gemini 전용 API 키일 경우 GCP 콘솔에서 Text-to-Speech API 전용 키를 발급받아야 합니다.';
+                    }
+                    alert(`❌ API 키 오류 (${res.status}):\n${msg}`);
+                    logTerminal(`[ERROR] API Key Verification Failed: ${err.error?.message || msg}`);
+                }
+            } catch (e) {
+                alert('네트워크 오류: API 키 검증 요청에 실패했습니다.');
+                logTerminal(`[ERROR] Network error testing API key: ${e.message}`);
+            }
+        }
+
+        // Toast Messages
+        function showToast(text, type = 'info') {
+            const toast = document.getElementById('toastMessage');
+            const toastText = document.getElementById('toastText');
+            
+            toast.className = `toast-msg toast-${type}`;
+            toastText.innerText = text;
+            toast.style.display = 'flex';
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+
+        // Voice Dropdown Update
+        function updateVoiceDropdown() {
+            const model = document.getElementById('modelSelect').value;
+            const voiceSelect = document.getElementById('voiceSelect');
+            voiceSelect.innerHTML = '';
+
+            const voices = GOOGLE_VOICES[model] || GOOGLE_VOICES['google-neural2'];
+            voices.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.innerText = v.name;
+                voiceSelect.appendChild(opt);
+            });
+        }
+
+        // Voice Quick Select Profiles (10 Narration-Specialized Voice Personas: 4 Male / 6 Female)
+        const QUICK_VOICE_PROFILES = {
+            'M1': { 
+                voiceId: 'ko-KR-Neural2-C', 
+                pitch: -1.5, 
+                speed: 0.94, 
+                webPitch: 0.55, 
+                webRate: 0.88, 
+                title: 'N1 차분 심야 스토리텔러',
+                sample: '조선 인조 시절, 한양 도성 밖 삼거리 주막에서는 매년 비 오는 밤마다 기이한 소문이 돌았습니다.'
+            },
+            'M2': { 
+                voiceId: 'ko-KR-Wavenet-C', 
+                pitch: -3.0, 
+                speed: 0.88, 
+                webPitch: 0.45, 
+                webRate: 0.82, 
+                title: 'N2 묵직 역사 다큐 해설',
+                sample: '남한산성의 차가운 바람 속에서, 백성들과 도승지들은 임금의 결단을 숨죽여 기다리고 있었습니다.'
+            },
+            'M3': { 
+                voiceId: 'ko-KR-Standard-D', 
+                pitch: -3.5, 
+                speed: 0.82, 
+                webPitch: 0.48, 
+                webRate: 0.78, 
+                title: 'N3 연륜 지혜로운 야담가',
+                sample: '옛날 옛적 가야산 깊은 골짜기 산사에, 세속의 모든 욕망을 내려놓은 한 늙은 스님이 살고 있었느니라.'
+            },
+            'M4': { 
+                voiceId: 'ko-KR-Wavenet-D', 
+                pitch: 1.5, 
+                speed: 1.02, 
+                webPitch: 0.88, 
+                webRate: 1.04, 
+                title: 'N4 활달 경쾌한 민담꾼',
+                sample: '한양 한복판 젊은 선비 김학수는 밤마다 모이는 주막에서 제일 가는 입담꾼으로 통했습니다.'
+            },
+            'F1': { 
+                voiceId: 'ko-KR-Neural2-A', 
+                pitch: -1.0, 
+                speed: 0.92, 
+                webPitch: 0.95, 
+                webRate: 0.90, 
+                title: 'N5 우아 궁중 역사 해설',
+                sample: '창덕궁 깊은 내전, 달빛 아래 홀로 앉은 상궁의 손끝에서 한 장의 비밀 서찰이 펼쳐집니다.'
+            },
+            'F2': { 
+                voiceId: 'ko-KR-Neural2-B', 
+                pitch: 1.0, 
+                speed: 0.98, 
+                webPitch: 1.22, 
+                webRate: 1.00, 
+                title: 'N6 단아 오디오북 나레이터',
+                sample: '깊어가는 가을밤, 사랑방 등불 아래서 고요히 펼쳐보는 조선 역사 오디오북 이야기입니다.'
+            },
+            'F3': { 
+                voiceId: 'ko-KR-Wavenet-A', 
+                pitch: -2.5, 
+                speed: 0.86, 
+                webPitch: 0.78, 
+                webRate: 0.85, 
+                title: 'N7 감성 역사 다큐 성우',
+                sample: '세월이 흘러 석축만 남은 옛 터 위에, 이름 없이 사라져간 민초들의 슬픈 전설이 전해집니다.'
+            },
+            'F4': { 
+                voiceId: 'ko-KR-Wavenet-B', 
+                pitch: 2.0, 
+                speed: 1.05, 
+                webPitch: 1.45, 
+                webRate: 1.08, 
+                title: 'N8 생생 전기수 전통 소리',
+                sample: '얼씨구! 저잣거리 사람들이 삼삼오오 모여들어 시끌벅적하게 나누던 조선 제일의 야담을 들어보시게!'
+            },
+            'F5': { 
+                voiceId: 'ko-KR-Standard-A', 
+                pitch: -3.0, 
+                speed: 0.84, 
+                webPitch: 0.72, 
+                webRate: 0.82, 
+                title: 'N9 따뜻 포근 옛날이야기',
+                sample: '옛날 옛적 어느 바닷가 외딴 마을에, 마음씨 착한 효녀와 늙은 아버지가 살고 있었단다.'
+            },
+            'F6': { 
+                voiceId: 'ko-KR-Standard-B', 
+                pitch: -1.5, 
+                speed: 0.90, 
+                webPitch: 0.88, 
+                webRate: 0.88, 
+                title: 'N10 서정 잔잔 고전 낭독',
+                sample: '고요한 산사 산들바람 사이로 흩어지는 풍경 소리가 길손의 마음을 잔잔히 어루만집니다.'
+            }
+        };
+
+        // Voice Quick Select
+        function selectVoiceQuick(voiceId, badgeId) {
+            // Remove active class from all
+            document.querySelectorAll('.voice-btn').forEach(b => b.classList.remove('active'));
+            
+            // Set model & voice
+            if (voiceId.includes('Neural2')) {
+                document.getElementById('modelSelect').value = 'google-neural2';
+            } else if (voiceId.includes('Wavenet')) {
+                document.getElementById('modelSelect').value = 'google-wavenet';
+            } else if (voiceId.includes('Standard')) {
+                document.getElementById('modelSelect').value = 'google-standard';
+            } else if (voiceId.includes('Polyglot')) {
+                document.getElementById('modelSelect').value = 'google-polyglot';
+            }
+            updateVoiceDropdown();
+            document.getElementById('voiceSelect').value = voiceId;
+
+            // Apply preset's specific Pitch and Speed to UI controls
+            const profile = QUICK_VOICE_PROFILES[badgeId];
+            if (profile) {
+                const pitchInput = document.getElementById('pitchRange');
+                const pitchLabel = document.getElementById('pitchVal');
+                const speedInput = document.getElementById('speedSelect');
+                if (pitchInput) pitchInput.value = profile.pitch;
+                if (pitchLabel) pitchLabel.innerText = `${profile.pitch > 0 ? '+' : ''}${profile.pitch} semitones`;
+                if (speedInput) speedInput.value = profile.speed;
+            }
+
+            // Highlight clicked button
+            const clickedBtn = document.getElementById(`badge-${badgeId}`) ? document.getElementById(`badge-${badgeId}`).closest('.voice-btn') : null;
+            if (clickedBtn) clickedBtn.classList.add('active');
+
+            logTerminal(`[VOICE SELECT] Selected Quick Voice [${badgeId}]: ${voiceId} (Pitch: ${profile ? profile.pitch : 0}, Speed: ${profile ? profile.speed : 1.0}x)`);
+            playVoiceSample(badgeId);
+        }
+
+        // Insert Tag to textarea
+        function insertTag(tagText) {
+            const textarea = document.getElementById('scriptTextarea');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+
+            textarea.value = text.substring(0, start) + tagText + text.substring(end);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + tagText.length;
+            updateCharCount();
+        }
+
+        // Script Presets
+        const SCRIPT_PRESETS = {
+            sado: `<breath> 자, 이제 시나리오를 따라봅시다. 1762년, 임오년 옥사의 찬바람이 창경궁 뒤뜰을 차갑게 휘감기 시작합니다. <sigh> 왕세자의 직위는 이미 풍전등화와 같았습니다. <breath> 이대로 사도세자는 기나긴 한을 품은 채 뒤주 속에 갇히게 될 것인가.
+
+<breath> 조선의 영조는 차가운 눈빛으로 어의를 불러들였습니다. <surprise> 신하들의 반대에도 불구하고, <sad> 궁궐 어원은 기괴한 고요 속에 휩싸여만 갑니다. <sigh> 창경궁 서쪽 담장에 적막만이 감돌고 있습니다.
+
+<breath> 억울한 원혼의 울부짖음이 밤하늘을 가릅니다. <sad> 과연 그날 밤 뒤주 안에서는 어떤 진실이 숨겨져 있었을까요? <sigh> 역사는 말이 없지만, 실록의 기록은 그 비극을 선명하게 증언합니다.`,
+            duiju: `<breath> 밤이 깊어지자, 한양 도성 끝자락의 폐가에서 괴이한 소리가 흘러나왔습니다. <surprise> 마을 주민들은 감히 접근조차 하지 못했습니다.
+
+<breath> 열려진 문 틈 사이로, <sigh> 오래된 낡은 뒤주 하나가 덩그러니 놓여 있었습니다. <sad> 그 속에서 누군가의 거친 숨소리가 들려오기 시작하는데...`,
+            sejong: `조선 집현전의 밝은 등불 아래, 세종대왕은 백성을 향한 깊은 혜안으로 새 글자를 연구하고 계셨습니다. 무수한 신하들의 반대 속에서도 한글이라는 위대한 유산이 마침내 탄생하게 됩니다.`
+        };
+
+        function loadScriptPreset() {
+            const val = document.getElementById('scriptPresetSelect').value;
+            const textarea = document.getElementById('scriptTextarea');
+            if (val !== 'custom' && SCRIPT_PRESETS[val]) {
+                textarea.value = SCRIPT_PRESETS[val];
+            } else if (val === 'custom') {
+                textarea.value = '';
+            }
+            updateCharCount();
+        }
+
+        function updateCharCount() {
+            const txt = document.getElementById('scriptTextarea').value;
+            const charCount = txt.length;
+            const segments = txt.split(/\n\s*\n|\n/).filter(s => s.trim().length > 0).length;
+            document.getElementById('scriptCharCount').innerText = `${charCount}자 / ${segments}개 세그먼트`;
+        }
+
+        // Gemini Script Refine / SSML Auto-tagging
+        async function refineScriptWithGemini() {
+            const txt = document.getElementById('scriptTextarea').value.trim();
+            if (!txt) {
+                alert('정제할 대본 원고를 입력해 주세요.');
+                return;
+            }
+
+            const geminiKey = localStorage.getItem('yadam_gemini_api_key') || '';
+            logTerminal('[GEMINI] Requesting Script Refinement & SSML Tagging...');
+            showToast('Gemini AI가 야담 대본 어조 정제 및 SSML 감정 태깅을 수행 중입니다...', 'info');
+
+            try {
+                const response = await fetch('/api/translate-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: txt,
+                        type: 'script_refine'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.prompt) {
+                        document.getElementById('scriptTextarea').value = data.prompt;
+                        updateCharCount();
+                        showToast('대본이 성공적으로 정제되었습니다!', 'success');
+                        logTerminal('[SUCCESS] Gemini Script Refinement finished.');
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Gemini backend endpoint fallback...');
+            }
+
+            // Fallback local enhancer if API key isn't provided
+            let enhanced = txt
+                .replace(/\./g, '. <pause time="0.3s"/>')
+                .replace(/\?/g, '? <surprise/>')
+                .replace(/비극|슬픔|억울/g, '<sad>$&</sad>');
+            
+            document.getElementById('scriptTextarea').value = enhanced;
+            updateCharCount();
+            showToast('기본 SSML 호환 태그가 적용되었습니다.', 'success');
+            logTerminal('[INFO] Local SSML Tagging Applied.');
+        }
+
+        function saveScriptToLocal() {
+            const txt = document.getElementById('scriptTextarea').value;
+            localStorage.setItem('yadam_saved_script_draft', txt);
+            showToast('대본 초안이 브라우저에 임시 저장되었습니다.', 'success');
+        }
+
+        function loadYadamStoryboardScript() {
+            let storyboardScript = '';
+            let sceneCount = 0;
+            
+            // 1. Try reading yadam_storyboard_session from localStorage
+            try {
+                const sessionDataRaw = localStorage.getItem('yadam_storyboard_session');
+                if (sessionDataRaw) {
+                    const sessionData = JSON.parse(sessionDataRaw);
+                    if (sessionData.scenes && Array.isArray(sessionData.scenes) && sessionData.scenes.length > 0) {
+                        storyboardScript = sessionData.scenes
+                            .map(sc => (sc.narration || sc.narrative || sc.koreanPrompt || sc.description || '').trim())
+                            .filter(txt => txt.length > 0)
+                            .join('\n\n');
+                        sceneCount = sessionData.scenes.length;
+                    } else if (sessionData.scriptText) {
+                        storyboardScript = sessionData.scriptText;
+                    }
+                }
+            } catch (e) {
+                console.warn("Error parsing storyboard session:", e);
+            }
+
+            // 2. Fallbacks
+            const plannerScript = localStorage.getItem('yadam_planner_script') || '';
+            const draftScript = localStorage.getItem('yadam_saved_script_draft') || '';
+
+            const textarea = document.getElementById('scriptTextarea');
+
+            if (storyboardScript) {
+                textarea.value = storyboardScript;
+                updateCharCount();
+                if (sceneCount > 0) {
+                    showToast(`🎬 야담 스토리보드 총 ${sceneCount}개 씬의 내레이션 대본을 성공적으로 불러왔습니다!`, 'success');
+                    logTerminal(`[LOAD] Successfully imported narration script from ${sceneCount} storyboard scenes.`);
+                } else {
+                    showToast('📜 스토리보드 원본 대본을 성공적으로 불러왔습니다!', 'success');
+                    logTerminal('[LOAD] Imported scriptText from storyboard session.');
+                }
+            } else if (plannerScript) {
+                textarea.value = plannerScript;
+                updateCharCount();
+                showToast('📜 대본 플래너 원고를 성공적으로 불러왔습니다!', 'success');
+                logTerminal('[LOAD] Imported planner script from localStorage.');
+            } else if (draftScript) {
+                textarea.value = draftScript;
+                updateCharCount();
+                showToast('💾 보관된 대본 초안을 불러왔습니다.', 'info');
+                logTerminal('[LOAD] Imported draft script from localStorage.');
+            } else {
+                alert('보관된 스토리보드 씬 내레이션이나 플래너 대본이 브라우저에서 발견되지 않았습니다.\n\n대본 플래너나 스토리보드 제어 엔진에서 먼저 대본 분석 및 스토리보드 작성을 진행해 주세요.');
+            }
+        }
+
+        // Play Voice Sample Check with Male/Female Pitch Tuning & Google Cloud TTS / ElevenLabs API integration
+        async function playVoiceSample(badgeId) {
+            const modelEngine = document.getElementById('modelSelect')?.value || 'google-neural2';
+            const voiceId = document.getElementById('voiceSelect')?.value || 'ko-KR-Neural2-C';
+            const googleKey = localStorage.getItem('yadam_google_tts_api_key') || '';
+            const elevenKey = localStorage.getItem('yadam_elevenlabs_api_key') || '';
+            const profile = badgeId ? QUICK_VOICE_PROFILES[badgeId] : null;
+
+            logTerminal(`[SAMPLE] Playing sample for voice: ${voiceId} (${modelEngine}) ${badgeId ? `[${badgeId}]` : ''}`);
+
+            // Specific sample text per voice ID / badge for clear distinction
+            let sampleText = profile ? profile.sample : "반갑습니다. 야담 스튜디오 성우 음성 샘플입니다.";
+            if (!profile) {
+                if (voiceId === 'ko-KR-Neural2-C') {
+                    sampleText = "조선 인조 시절, 한양 도성 밖 삼거리 주막에서는 매년 비 오는 밤마다 기이한 소문이 돌았습니다.";
+                } else if (voiceId === 'ko-KR-Wavenet-C') {
+                    sampleText = "남한산성의 차가운 바람 속에서, 백성들과 도승지들은 임금의 결단을 숨죽여 기다리고 있었습니다.";
+                } else if (voiceId === 'ko-KR-Standard-D') {
+                    sampleText = "옛날 옛적 가야산 깊은 골짜기 산사에, 세속의 모든 욕망을 내려놓은 한 늙은 스님이 살고 있었느니라.";
+                } else if (voiceId === 'ko-KR-Wavenet-D') {
+                    sampleText = "한양 한복판 젊은 선비 김학수는 밤마다 모이는 주막에서 제일 가는 입담꾼으로 통했습니다.";
+                } else if (voiceId === 'ko-KR-Neural2-A') {
+                    sampleText = "창덕궁 깊은 내전, 달빛 아래 홀로 앉은 상궁의 손끝에서 한 장의 비밀 서찰이 펼쳐집니다.";
+                } else if (voiceId === 'ko-KR-Neural2-B') {
+                    sampleText = "깊어가는 가을밤, 사랑방 등불 아래서 고요히 펼쳐보는 조선 역사 오디오북 이야기입니다.";
+                } else if (voiceId === 'ko-KR-Wavenet-A') {
+                    sampleText = "세월이 흘러 석축만 남은 옛 터 위에, 이름 없이 사라져간 민초들의 슬픈 전설이 전해집니다.";
+                } else if (voiceId === 'ko-KR-Wavenet-B') {
+                    sampleText = "얼씨구! 저잣거리 사람들이 삼삼오오 모여들어 시끌벅적하게 나누던 조선 제일의 야담을 들어보시게!";
+                }
+            }
+
+            const isMale = voiceId.includes('-C') || voiceId.includes('-D') || voiceId.includes('Polyglot') || voiceId.includes('MALE') || voiceId.includes('adam') || voiceId.includes('antoni') || voiceId.includes('arnold');
+
+            // 1. ElevenLabs Mode
+            if (modelEngine === 'elevenlabs' && elevenKey) {
+                try {
+                    const customPitch = profile ? profile.pitch : parseInt(document.getElementById('pitchRange')?.value || '0');
+                    const customSpeed = profile ? profile.speed : parseFloat(document.getElementById('speedSelect')?.value || '1.0');
+                    const audioContent = await fetchElevenLabsAudio(sampleText, voiceId, elevenKey, customSpeed, customPitch);
+                    if (audioContent) {
+                        const sampleAudio = new Audio("data:audio/mp3;base64," + audioContent);
+                        sampleAudio.play();
+                        showToast(`ElevenLabs [${voiceId}] 감정 AI 성우 미리듣기를 재생합니다.`, 'success');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('ElevenLabs Sample error:', e);
+                    logTerminal(`[WARNING] ElevenLabs API error: ${e.message}. Falling back to Web Speech Engine.`);
+                }
+            }
+
+            // 2. Google Cloud TTS Mode
+            if (googleKey && modelEngine !== 'elevenlabs') {
+                try {
+                    const customPitch = profile ? profile.pitch : parseInt(document.getElementById('pitchRange')?.value || '0');
+                    const customSpeed = profile ? profile.speed : parseFloat(document.getElementById('speedSelect')?.value || '1.0');
+                    const audioContent = await fetchGoogleTtsAudio(sampleText, voiceId, googleKey, customSpeed, customPitch, 0);
+                    if (audioContent) {
+                        const sampleAudio = new Audio("data:audio/mp3;base64," + audioContent);
+                        sampleAudio.play();
+                        showToast(`Google Cloud TTS [${badgeId || voiceId}] (${profile ? profile.title : voiceId}) 고품질 음성을 재생합니다.`, 'success');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('TTS Sample error:', e);
+                    logTerminal(`[WARNING] Google TTS API error: ${e.message}. Falling back to Web Speech Engine.`);
+                }
+            }
+
+            // Smart Fallback to Web Speech Synthesis
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop prior speech
+
+                const utter = new SpeechSynthesisUtterance(sampleText);
+                utter.lang = 'ko-KR';
+
+                const voices = window.speechSynthesis.getVoices();
+                let chosenVoice = null;
+
+                if (isMale) {
+                    chosenVoice = voices.find(v => (v.lang.includes('ko') || v.lang.includes('KO')) && (v.name.includes('Male') || v.name.includes('남성') || v.name.includes('InJoon') || v.name.includes('MinHo')));
+                    if (!chosenVoice) {
+                        chosenVoice = voices.find(v => v.lang.includes('ko') || v.lang.includes('KO'));
+                    }
+
+                    if (profile) {
+                        utter.pitch = profile.webPitch;
+                        utter.rate = profile.webRate;
+                    } else if (voiceId === 'ko-KR-Neural2-C') {
+                        utter.pitch = 0.55; utter.rate = 0.88;
+                    } else if (voiceId === 'ko-KR-Wavenet-C') {
+                        utter.pitch = 0.35; utter.rate = 0.80;
+                    } else if (voiceId === 'ko-KR-Wavenet-D') {
+                        utter.pitch = 0.88; utter.rate = 1.04;
+                    } else if (voiceId === 'ko-KR-Standard-D') {
+                        utter.pitch = 0.48; utter.rate = 0.78;
+                    } else {
+                        utter.pitch = 0.55; utter.rate = 0.90;
+                    }
+                } else {
+                    chosenVoice = voices.find(v => (v.lang.includes('ko') || v.lang.includes('KO')) && (v.name.includes('Female') || v.name.includes('여성') || v.name.includes('Sun-Hi') || v.name.includes('Yuna')));
+                    if (!chosenVoice) {
+                        chosenVoice = voices.find(v => v.lang.includes('ko') || v.lang.includes('KO'));
+                    }
+
+                    if (profile) {
+                        utter.pitch = profile.webPitch;
+                        utter.rate = profile.webRate;
+                    } else if (voiceId === 'ko-KR-Neural2-A') {
+                        utter.pitch = 0.95; utter.rate = 0.90;
+                    } else if (voiceId === 'ko-KR-Neural2-B') {
+                        utter.pitch = 1.22; utter.rate = 1.00;
+                    } else if (voiceId === 'ko-KR-Wavenet-A') {
+                        utter.pitch = 0.78; utter.rate = 0.85;
+                    } else if (voiceId === 'ko-KR-Wavenet-B') {
+                        utter.pitch = 1.45; utter.rate = 1.08;
+                    } else {
+                        utter.pitch = 1.10; utter.rate = 0.98;
+                    }
+                }
+
+                if (chosenVoice) utter.voice = chosenVoice;
+
+                window.speechSynthesis.speak(utter);
+
+                if (!googleKey && !elevenKey) {
+                    showToast(`[${badgeId || voiceId}] 미리듣기 재생 중 (💡 브라우저 오프라인 음계보정 모드. Google / ElevenLabs API 키 설정 시 스튜디오급 AI 실제 성우 음성 적용)`, 'info');
+                    logTerminal(`[PREVIEW] Browser SpeechSynthesis mode active for [${badgeId || voiceId}]. Pitch(${utter.pitch}) & Rate(${utter.rate}) applied.`);
+                } else {
+                    showToast(`[${badgeId || voiceId}] 음성 샘플 미리듣기 재생 중...`, 'success');
+                }
+            } else {
+                alert('Google TTS 또는 ElevenLabs API 키를 등록하면 고품질 AI 성우 음성을 들으실 수 있습니다.');
+            }
+        }
+
+        // CORE TTS GENERATION PROCESS
+        async function startGeneration() {
+            const script = document.getElementById('scriptTextarea').value.trim();
+            if (!script) {
+                alert('음성으로 변환할 대본을 입력해 주세요.');
+                return;
+            }
+
+            const googleKey = localStorage.getItem('yadam_google_tts_api_key') || '';
+            const elevenKey = localStorage.getItem('yadam_elevenlabs_api_key') || '';
+            const modelEngine = document.getElementById('modelSelect').value;
+            const voiceId = document.getElementById('voiceSelect').value;
+            const speed = parseFloat(document.getElementById('speedSelect').value);
+            const pitch = parseInt(document.getElementById('pitchRange').value);
+            const gain = parseFloat(document.getElementById('gainRange').value);
+            const silenceSec = parseFloat(document.getElementById('silenceSelect').value);
+
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:18px; height:18px;"></i> 생성 중 (Synthesizing)...';
+            
+            showToast('AI TTS 음성 및 자막 타임라인 생성을 시작합니다...', 'info');
+            logTerminal(`[GENERATE START] Script length: ${script.length} chars | Engine: ${modelEngine} | Voice: ${voiceId} | Speed: ${speed}x`);
+
+            // Split script into clean sentence chunks
+            const rawChunks = script.split(/\n\s*\n|\n/).filter(s => s.trim().length > 0);
+            const chunks = [];
+
+            // Process SSML and sub-sentences
+            rawChunks.forEach(chunk => {
+                // Strip SSML tags for pure subtitle text
+                const cleanText = chunk.replace(/<[^>]*>/g, '').trim();
+                if (cleanText) {
+                    chunks.push({
+                        ssmlText: chunk,
+                        cleanText: cleanText
+                    });
+                }
+            });
+
+            if (chunks.length === 0) {
+                alert('유효한 대본 텍스트가 없습니다.');
+                btn.disabled = false;
+                btn.innerText = '생성하기 (Generate TTS & Subtitles)';
+                return;
+            }
+
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                const audioBuffers = [];
+                generatedSubtitles = [];
+                let cumulativeTime = 0;
+
+                for (let i = 0; i < chunks.length; i++) {
+                    const item = chunks[i];
+                    logTerminal(`[CHUNK ${i+1}/${chunks.length}] Synthesizing: "${item.cleanText.substring(0, 20)}..."`);
+
+                    let base64Audio = null;
+                    if (modelEngine === 'elevenlabs' && elevenKey) {
+                        base64Audio = await fetchElevenLabsAudio(item.cleanText, voiceId, elevenKey, speed, pitch);
+                    } else if (googleKey) {
+                        base64Audio = await fetchGoogleTtsAudio(item.ssmlText, voiceId, googleKey, speed, pitch, gain);
+                    }
+
+                    let duration = 0;
+                    if (base64Audio) {
+                        const arrayBuffer = base64ToArrayBuffer(base64Audio);
+                        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        audioBuffers.push(decodedBuffer);
+                        duration = decodedBuffer.duration;
+                    } else {
+                        // Fallback estimated duration if offline/no key (approx 4 chars per second)
+                        duration = Math.max(1.5, item.cleanText.length / 4 / speed);
+                        audioBuffers.push(createSilentBuffer(duration));
+                    }
+
+                    const startTime = cumulativeTime;
+                    const endTime = startTime + duration;
+                    cumulativeTime = endTime + silenceSec;
+
+                    generatedSubtitles.push({
+                        id: i + 1,
+                        startTime: startTime,
+                        endTime: endTime,
+                        text: item.cleanText
+                    });
+                }
+
+                // Concatenate all audio buffers into single master WAV
+                const masterBuffer = concatenateAudioBuffers(audioBuffers, silenceSec, audioContext);
+                generatedAudioBlob = bufferToWavBlob(masterBuffer);
+
+                if (generatedAudioUrl) URL.revokeObjectURL(generatedAudioUrl);
+                generatedAudioUrl = URL.createObjectURL(generatedAudioBlob);
+
+                // Update Audio Player
+                const player = document.getElementById('mainAudioPlayer');
+                player.src = generatedAudioUrl;
+                document.getElementById('totalTimeDisplay').innerText = formatTimecodeMinSec(masterBuffer.duration);
+                document.getElementById('audioStatusBadge').innerText = '생성 완료';
+
+                // Render Subtitle Timeline
+                renderSubtitleList();
+
+                logTerminal(`[GENERATE SUCCESS] Complete! Total Duration: ${masterBuffer.duration.toFixed(2)}s | ${generatedSubtitles.length} Subtitles Generated.`);
+                showToast('음성 및 자막 생성이 완료되었습니다!', 'success');
+
+                // Auto Download Option
+                if (document.getElementById('autoDownloadCheck').checked) {
+                    downloadAudioWav();
+                    downloadSrt();
+                }
+
+            } catch (err) {
+                console.error('Generation Error:', err);
+                logTerminal(`[ERROR] Generation failed: ${err.message}`);
+                showToast(`생성 중 오류 발생: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="sparkles" style="width:18px; height:18px;"></i> 생성하기 (Generate TTS & Subtitles)';
+                lucide.createIcons();
+            }
+        }
+
+        // Fetch Google Cloud TTS API
+        async function fetchGoogleTtsAudio(text, voiceId, apiKey, speed, pitch, gain) {
+            // Check if text already includes SSML <speak>
+            let ssmlContent = text;
+            if (!text.startsWith('<speak>')) {
+                // Convert inline tags like <pause time="0.5s"/> to SSML break
+                let processedText = text
+                    .replace(/<pause\s+time="([^"]+)"\s*\/?>/gi, '<break time="$1"/>')
+                    .replace(/<breath\s*\/?>/gi, '<break time="200ms"/>')
+                    .replace(/<sigh\s*\/?>/gi, '<break time="300ms"/>')
+                    .replace(/<surprise\s*\/?>/gi, '')
+                    .replace(/<sad\s*\/?>/gi, '')
+                    .replace(/<angry\s*\/?>/gi, '');
+                
+                ssmlContent = `<speak>${processedText}</speak>`;
+            }
+
+            const effectsProfile = document.getElementById('effectsProfileSelect')?.value || 'studio-podcasting-heavy-bass-device';
+
+            const audioConfig = {
+                audioEncoding: 'MP3',
+                speakingRate: speed,
+                pitch: pitch,
+                volumeGainDb: gain
+            };
+
+            if (effectsProfile && effectsProfile !== 'none') {
+                audioConfig.effectsProfileId = [effectsProfile];
+            }
+
+            const bodyPayload = {
+                input: { ssml: ssmlContent },
+                voice: {
+                    languageCode: 'ko-KR',
+                    name: voiceId
+                },
+                audioConfig: audioConfig
+            };
+
+            const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyPayload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error?.message || 'Google TTS Synthesize failed');
+            }
+
+            const data = await res.json();
+            return data.audioContent; // Base64 string
+        }
+
+        // Fetch ElevenLabs TTS API
+        async function fetchElevenLabsAudio(text, voiceId, apiKey, speed, pitch) {
+            const realVoiceId = ELEVEN_VOICE_IDS[voiceId] || '21m00Tcm4TlvDq8ikWAM';
+            const url = `https://api.elevenlabs.io/v1/text-to-speech/${realVoiceId}`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({
+                    text: text,
+                    model_id: 'eleven_multilingual_v2',
+                    voice_settings: {
+                        stability: 0.50,
+                        similarity_boost: 0.75,
+                        style: 0.20,
+                        use_speaker_boost: true
+                    }
+                })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail?.message || `ElevenLabs TTS 실패 (${res.status})`);
+            }
+
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64data = reader.result.split(',')[1];
+                    resolve(base64data);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Web Audio Utilities
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function createSilentBuffer(duration) {
+            const sampleRate = 24000;
+            return audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        }
+
+        function concatenateAudioBuffers(buffers, silenceSec, ctx) {
+            const silenceSamples = Math.floor(ctx.sampleRate * silenceSec);
+            let totalLength = 0;
+
+            buffers.forEach((b, idx) => {
+                totalLength += b.length;
+                if (idx < buffers.length - 1) {
+                    totalLength += silenceSamples;
+                }
+            });
+
+            const resultBuffer = ctx.createBuffer(1, totalLength, ctx.sampleRate);
+            const channelData = resultBuffer.getChannelData(0);
+
+            let offset = 0;
+            buffers.forEach((b, idx) => {
+                channelData.set(b.getChannelData(0), offset);
+                offset += b.length;
+                if (idx < buffers.length - 1) {
+                    offset += silenceSamples;
+                }
+            });
+
+            return resultBuffer;
+        }
+
+        function bufferToWavBlob(buffer) {
+            const numChannels = 1;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            const samples = buffer.getChannelData(0);
+            const bufferLength = samples.length * 2;
+            const wavBuffer = new ArrayBuffer(44 + bufferLength);
+            const view = new DataView(wavBuffer);
+
+            /* RIFF identifier */
+            writeString(view, 0, 'RIFF');
+            /* RIFF chunk length */
+            view.setUint32(4, 36 + bufferLength, true);
+            /* RIFF type */
+            writeString(view, 8, 'WAVE');
+            /* format chunk identifier */
+            writeString(view, 12, 'fmt ');
+            /* format chunk length */
+            view.setUint32(16, 16, true);
+            /* sample format (raw) */
+            view.setUint16(20, format, true);
+            /* channel count */
+            view.setUint16(22, numChannels, true);
+            /* sample rate */
+            view.setUint32(24, sampleRate, true);
+            /* byte rate (sample rate * block align) */
+            view.setUint32(28, sampleRate * 2, true);
+            /* block align (channel count * bytes per sample) */
+            view.setUint16(32, 2, true);
+            /* bits per sample */
+            view.setUint16(34, bitDepth, true);
+            /* data chunk identifier */
+            writeString(view, 36, 'data');
+            /* data chunk length */
+            view.setUint32(40, bufferLength, true);
+
+            // Write PCM audio samples
+            let lng = samples.length;
+            let index = 44;
+            for (let i = 0; i < lng; i++) {
+                let s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                index += 2;
+            }
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // Subtitle Render & Timecode Formatters
+        function renderSubtitleList() {
+            const container = document.getElementById('subtitleListContainer');
+            document.getElementById('subCountBadge').innerText = `${generatedSubtitles.length}개 자막`;
+
+            if (generatedSubtitles.length === 0) {
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">자막 데이터가 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            generatedSubtitles.forEach((sub, idx) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'subtitle-item';
+                itemDiv.onclick = () => jumpToAudioTime(sub.startTime);
+
+                const timeStr = `${formatSRTTimecode(sub.startTime)} ➔ ${formatSRTTimecode(sub.endTime)}`;
+                
+                itemDiv.innerHTML = `
+                    <div class="subtitle-timecode">
+                        <span>#${sub.id} [${timeStr}]</span>
+                        <span>${(sub.endTime - sub.startTime).toFixed(1)}s</span>
+                    </div>
+                    <input type="text" class="subtitle-text-input" value="${escapeHtml(sub.text)}" onchange="updateSubText(${idx}, this.value)">
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function updateSubText(idx, newText) {
+            if (generatedSubtitles[idx]) {
+                generatedSubtitles[idx].text = newText;
+                logTerminal(`[SUB EDIT] Updated subtitle #${idx + 1}: "${newText}"`);
+            }
+        }
+
+        function jumpToAudioTime(sec) {
+            const player = document.getElementById('mainAudioPlayer');
+            player.currentTime = sec;
+            player.play();
+        }
+
+        function formatSRTTimecode(totalSec) {
+            const pad = (n, z = 2) => String(n).padStart(z, '0');
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = Math.floor(totalSec % 60);
+            const ms = Math.floor((totalSec % 1) * 1000);
+            return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+        }
+
+        function formatVTTTimecode(totalSec) {
+            const pad = (n, z = 2) => String(n).padStart(z, '0');
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = Math.floor(totalSec % 60);
+            const ms = Math.floor((totalSec % 1) * 1000);
+            return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
+        }
+
+        function formatTimecodeMinSec(totalSec) {
+            const m = Math.floor(totalSec / 60);
+            const s = Math.floor(totalSec % 60);
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        // DOWNLOAD HANDLERS
+        function downloadAudioWav() {
+            if (!generatedAudioBlob) {
+                alert('다운로드할 생성 오디오가 없습니다. 먼저 생성하기 버튼을 누르세요.');
+                return;
+            }
+            saveBlobAsFile(generatedAudioBlob, 'yadam_tts_audio.wav');
+            logTerminal('[DOWNLOAD] Audio WAV file saved.');
+        }
+
+        function downloadScriptTxt() {
+            const txt = document.getElementById('scriptTextarea').value;
+            if (!txt) {
+                alert('대본 원고가 없습니다.');
+                return;
+            }
+            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+            saveBlobAsFile(blob, 'yadam_script.txt');
+            logTerminal('[DOWNLOAD] Script TXT file saved.');
+        }
+
+        function downloadSrt() {
+            if (generatedSubtitles.length === 0) {
+                alert('생성된 자막 데이터가 없습니다.');
+                return;
+            }
+
+            let srtContent = '';
+            generatedSubtitles.forEach((sub, idx) => {
+                srtContent += `${idx + 1}\n`;
+                srtContent += `${formatSRTTimecode(sub.startTime)} --> ${formatSRTTimecode(sub.endTime)}\n`;
+                srtContent += `${sub.text}\n\n`;
+            });
+
+            const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
+            saveBlobAsFile(blob, 'yadam_subtitles.srt');
+            logTerminal('[DOWNLOAD] SRT Subtitle file saved.');
+        }
+
+        function downloadVtt() {
+            if (generatedSubtitles.length === 0) {
+                alert('생성된 자막 데이터가 없습니다.');
+                return;
+            }
+
+            let vttContent = 'WEBVTT\n\n';
+            generatedSubtitles.forEach((sub, idx) => {
+                vttContent += `${idx + 1}\n`;
+                vttContent += `${formatVTTTimecode(sub.startTime)} --> ${formatVTTTimecode(sub.endTime)}\n`;
+                vttContent += `${sub.text}\n\n`;
+            });
+
+            const blob = new Blob([vttContent], { type: 'text/vtt;charset=utf-8' });
+            saveBlobAsFile(blob, 'yadam_subtitles.vtt');
+            logTerminal('[DOWNLOAD] VTT Subtitle file saved.');
+        }
+
+        function downloadDavinciSrt() {
+            // DaVinci Resolve requires strict 2-line maximum per subtitle block
+            if (generatedSubtitles.length === 0) {
+                alert('생성된 자막 데이터가 없습니다.');
+                return;
+            }
+
+            let srtContent = '';
+            generatedSubtitles.forEach((sub, idx) => {
+                // Split long subtitle lines into 2 clean lines for DaVinci Resolve Studio
+                let formattedText = sub.text;
+                if (formattedText.length > 22) {
+                    const mid = Math.floor(formattedText.length / 2);
+                    const spaceIdx = formattedText.indexOf(' ', mid);
+                    if (spaceIdx !== -1) {
+                        formattedText = formattedText.substring(0, spaceIdx) + '\n' + formattedText.substring(spaceIdx + 1);
+                    }
+                }
+
+                srtContent += `${idx + 1}\n`;
+                srtContent += `${formatSRTTimecode(sub.startTime)} --> ${formatSRTTimecode(sub.endTime)}\n`;
+                srtContent += `${formattedText}\n\n`;
+            });
+
+            const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
+            saveBlobAsFile(blob, 'yadam_davinci_resolve.srt');
+            logTerminal('[DOWNLOAD] DaVinci Resolve Optimized SRT file saved.');
+        }
+
+        function saveBlobAsFile(blob, filename) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        }
+
+        // PRESET STORAGE
+        function savePresetSlot() {
+            const slot = document.getElementById('presetSlotSelect').value;
+            const data = {
+                voiceId: document.getElementById('voiceSelect').value,
+                speed: document.getElementById('speedSelect').value,
+                pitch: document.getElementById('pitchRange').value,
+                gain: document.getElementById('gainRange').value,
+                silence: document.getElementById('silenceSelect').value
+            };
+            localStorage.setItem(`yadam_preset_${slot}`, JSON.stringify(data));
+            showToast(`${slot} 설정이 저장되었습니다.`, 'success');
+            logTerminal(`[PRESET] Saved configuration to ${slot}`);
+        }
+
+        function loadPresetSlot() {
+            const slot = document.getElementById('presetSlotSelect').value;
+            const raw = localStorage.getItem(`yadam_preset_${slot}`);
+            if (!raw) {
+                alert('저장된 설정이 없습니다.');
+                return;
+            }
+            const data = JSON.parse(raw);
+            if (data.voiceId) document.getElementById('voiceSelect').value = data.voiceId;
+            if (data.speed) document.getElementById('speedSelect').value = data.speed;
+            if (data.pitch) {
+                document.getElementById('pitchRange').value = data.pitch;
+                document.getElementById('pitchVal').innerText = data.pitch + 'st';
+            }
+            if (data.gain) {
+                document.getElementById('gainRange').value = data.gain;
+                document.getElementById('gainVal').innerText = data.gain + 'dB';
+            }
+            if (data.silence) document.getElementById('silenceSelect').value = data.silence;
+
+            showToast(`${slot} 설정을 불러왔습니다.`, 'info');
+            logTerminal(`[PRESET] Loaded configuration from ${slot}`);
+        }
+
+        function clearPresetSlot() {
+            const slot = document.getElementById('presetSlotSelect').value;
+            localStorage.removeItem(`yadam_preset_${slot}`);
+            showToast(`${slot} 설정이 삭제되었습니다.`, 'info');
+            logTerminal(`[PRESET] Deleted ${slot}`);
+        }
+
+        function downloadSelfHtml() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html;charset=utf-8;' });
+            saveBlobAsFile(blob, 'yadam_tts_studio.html');
+            showToast('야담 TTS & 자막 스튜디오 HTML 파일이 다운로드되었습니다.', 'success');
+            logTerminal('[DOWNLOAD] Self HTML file saved for offline standalone usage.');
+        }
+    </script>
+</body>
+</html>
