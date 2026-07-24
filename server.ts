@@ -60,7 +60,7 @@ function getGenAI(req: express.Request): GoogleGenAI {
  */
 app.post("/api/analyze-script", async (req, res): Promise<void> => {
   try {
-    const { script, quantityOverride, quantityValue } = req.body;
+    const { script, quantityOverride, quantityValue, storyFormat = "classic", lengthPreset = "standard" } = req.body;
     if (!script || typeof script !== "string" || script.trim().length === 0) {
       res.status(400).json({ error: "Script text is required and cannot be empty." });
       return;
@@ -84,113 +84,49 @@ You are a highly professional historical storyteller storyboard engine specializ
 Your goals are:
 1. Extract and standardize 1 to 4 main characters (Character DB).
 2. Extract recurring settings/locations (Location DB).
-3. Generate a modular sequence of storyboard scene blocks matching the timeline.
+3. Generate a modular sequence of storyboard scene blocks matching the timeline with dynamic scene pacing and LTX Video recommendations.
+
+=== STORY FORMAT TEMPLATE MODE (${storyFormat.toUpperCase()}) ===
+- Adapt the narrative progression according to the selected format mode:
+  1. 'in_media_res' (충격 장면 선공개 / 반전 추리형):
+     - Scenes 1~2: Show the shocking climax/result first ("도대체 조선 최고의 비극은 왜 일어났을까?").
+     - Middle Scenes: Rewind to the past to trace hidden conspiracies step-by-step.
+  2. 'multi_perspective' (사건 비교 / 평행 시점형):
+     - Alternate between two perspectives (e.g. King's vision vs Court record, Official History vs Unofficial Folk Legend).
+  3. 'omnibus_3part' (3단계 옴니버스 미스터리형):
+     - Divide the timeline into 3 interconnected mini-episodes with high retention bridges.
+  4. 'investigation' (질문 - 검증 - 결론 다큐형):
+     - Start with a massive historical enigma -> Hypothesis 1, 2 verification -> Final historical truth.
+  5. 'classic' (기본 기승전결형):
+     - Traditional chronological flow.
+
+=== DYNAMIC SCENE PACING & DURATION RULES ===
+- Do NOT use rigid fixed 15-second durations for all scenes.
+- Assign dynamic pacing & duration to each scene based on narrative tension:
+  * Fast Pacing ('fast', 3~6 seconds): Crisis, sudden shock, action beat, quick clue drop, dramatic cut. Narration: 20~40 Korean characters.
+  * Normal Pacing ('normal', 8~12 seconds): Standard dialogue, character psychology, story progression (AVERAGE 9~14s cadence). Narration: 50~75 Korean characters.
+  * Slow Pacing ('slow', 15~18 seconds): Majestic landscape establishing, deep emotional linger, ancient document/proof presentation. Narration: 80~110 Korean characters.
+
+=== LTX VIDEO RECOMMENDATION ENGINE (CRITICAL 10~15% RATIO RULE) ===
+- Recommend video animation (LTX Video / I2V) for EXACTLY 10% to 15% of the total scene count (e.g., 5 to 8 scenes in a 50-scene storyboard).
+- STRICT CONDITION: Recommend LTX Video ONLY for scenes with duration <= 12 SECONDS ('fast' or 'normal' pacing). Never recommend LTX for scenes longer than 12 seconds because video generation latency is too long.
+- Select scenes where motion creates maximum impact: dramatic face reactions (eyes widening, tears, shock), candle flicker in dark room, drawing a sword, wind blowing robes, falling rain, door opening.
+- For recommended scenes, set 'ltxRecommended': true, provide a concise Korean reason in 'ltxReason', and an English motion prompt in 'ltxPrompt'.
 
 === ARCHITECTURAL GUIDELINES ===
 - Character Sheets: Create clean portrait prompts for characters.
-- Multi-Era Historical Adaptability, Prop Representation & Organic Reconstruction of Unrecorded Blanks:
-  - You MUST first analyze the script text and identify the historical era being depicted. If it belongs to Silla (신라), Goguryeo (고구려), Baekje (백제), Gaya (가야), or is referred to as the Three Kingdoms period (삼국시대), adjust all descriptions to that period. If it belongs to Goryeo (고려시대), adjust to Goryeo. Otherwise, default to Joseon (조선시대).
-  - Dynamically adapt the architectural styles, clothing, headwear, hair, interior furniture, and historical source citations to perfectly match that detected era:
-    1. If Three Kingdoms Period (삼국시대: 고구려, 백제, 신라, 가야) is detected:
-       - Historical Citations: Ground story elements in Samguk Sagi (삼국사기), Samguk Yusa (삼국유사), or ancient legends.
-       - Clothing/Headwear: Noble long belted robes (포 - Po) with contrasting color collar and sleeve hems, simple silk trousers/skirts with waistbands. Elegant metal crowns or decorative silk bird-feather hats (조우관 - Jougwan), leather boots. No Chosun durumagi or black lacquer gat hats.
-       - Hair: Noble topknots bound with ornate bronze/gold pins or diadem ornaments.
-       - Architecture/Interior: Palace rooms with heavy red-lacquered pillars, golden-bronze ceiling/wall ornaments, ancient tomb murals (고분벽화), stone fortresses, bronze incense burners, or celadon jars (like the Baekje Gilt-bronze Incense Burner).
-    2. If Goryeo Period (고려시대) is detected:
-       - Historical Citations: Ground in Goryeosa (고려사), Goryeosa Jeolyo (고려사절요), or unofficial tales.
-       - Clothing/Headwear: Elegant Goryeo-era Hanbok, high-collared pleated robes, celadon-blue silk dresses, decorative round collar robes, Goryeo caps (복두 - Bokdu, 사모 - Samo).
-       - Architecture/Interior: Goryeo wooden temples and palaces, green-glazed tile roofs, celadon incense burners (고려청자), low wooden tables, or ornate Buddhist paintings.
-    3. If Joseon Period (조선시대) or Default is detected:
-       - Historical Citations: Ground in Annals of the Joseon Dynasty (조선왕조실록), Seungjeongwon Ilgi (승정원일기), or unofficial tales (야사).
-       - Clothing: Durumagi, dopo (scholar's robe), black lacquer translucent gat hat, red/blue dragon embroidered royal robes (곤룡포 - Gonryongpo) for kings, and ceremonial 당의 (Dangui) or 상궁당의 for women.
-       - Architecture/Interior: Low writing desks (서안), wooden storage chests (반닫이), tall brass or iron candleholders (촛대), and hand-painted silk/paper folding screens (병풍).
-  - For historical mysteries or missing elements not recorded in official records, do NOT utilize modern fantasy or sci-fi logic. Instead, fill the narrative blanks organically with highly plausible events that perfectly align with that specific era's geopolitical atmosphere (e.g., factional/clan politics, court conspiracies), legal/investigative frameworks, and societal norms/customs.
-  - You MUST translate any modern tools/structures/props into their authentic traditional counterparts of that era. Absolutely NO modern plastic, modern glass, steel tubular legs, or modern metal wire holders.
-  - If a "지구의" (terrestrial globe) or "지구본" is mentioned, describe it as: "an antique traditional hand-painted paper terrestrial globe (지구의) cradled on an ornate hand-carved dark wooden floor stand, decorated with elegant black ink calligraphic names and traditional water-color map routes."
-  - If astronomical instruments or clocks are mentioned, describe them as: "a traditional bronze Honcheonui (혼천의) armillary sphere or elegant water clock with intricate rustic brass rings and heavy dark wooden frames."
-  - Zero Anachronism: Ensure complete historical consistency in titles, clothes, and vocabulary. Use dignified, classic Korean-style narrative tone and dialogue styling of that specific era without modern terms.
-- Scene Timeline & Duration Workflow Rules:
-  - Longform Mode (Default / 60 scenes):
-    - Intro Section (Scenes 1 ~ 8): Exactly 10 seconds per scene (8 scenes = 80s). Focus on fast LTX video motion & opening hooks.
-    - Main Story Section (Scenes 9 ~ 58): Exactly 15 seconds per scene (50 scenes = 750s). Focus on rich narration and dynamic slide zoom/pan camera movements.
-    - Outro Section (Scenes 59 ~ 60): Exactly 10 seconds per scene (2 scenes = 20s). Focus on historical source proof & channel subscribe calls. Total = 850 seconds (14 minutes 10 seconds).
-  - Shorts Mode (Shorts / 10 scenes):
-    - Scenes 1 ~ 10: Exactly 10 seconds per scene (10 scenes = 100s / 1 minute 40s). All vertical video optimized with 10s fixed cadence.
-  - If quantityOverride is active, divide the narrative beats of the script into exactly \${quantityValue} scenes.
-  - If quantityOverride is inactive, divide the storyboard naturally into chronological story beats (typically 5 to 12 scenes).
-- Consistent Character Description: To ensure characters look visually uniform across various scenes, describe their clothing (e.g. durumagi, gat hat), physical attributes clearly in the refined prompt.
-- English Compatibility: You MUST extract 'appearanceEnglish' and 'clothingEnglish' for characters as precise English visual key tags or phrases (e.g. 'young Joseon man with a neat topknot and a thin mustache'), and 'descriptionEnglish' for locations as evocative English setting depictions. This ensures maximum consistency when styling characters dynamically across settings.
-- Style-Agnostic Prompting Rule (CRITICAL for Dual 2D/Clay Compatibility):
-  - You MUST write all 'refinedImagePrompt' and 'characterSheetPrompt' as style-neutral/style-agnostic visual descriptions.
-  - Do NOT include medium terms such as "folklore illustration style", "illustration", "painting", "drawing", "webtoon", "anime", "photorealistic", "3D render", "claymation", or "plasticine".
-  - Instead, focus entirely on concrete subjects, physical actions, traditional clothing, Joseon architectural objects, specific camera framing, and dramatic cinematic lighting (e.g., chiaroscuro, candlelight, rim light). This ensures that any selected art style (such as claymation or 2D illustration) can be applied dynamically by the image rendering engine without visual conflict.
-  - Apply the following Stop-Motion Claymation and 2D Compatibility Constraints:
-    1. Facial Expressions: Avoid microscopic facial details (e.g., "fine wrinkles on temple", "twitching cheek muscle"). Use bold, hand-molded expressive facial cues (e.g., "wide eyes of terror", "deep downward-curved mouth of intense grief", "raised surprised eyebrow", "beads of sweat on forehead").
-    2. Attire: Avoid hyper-intricate embroidery or ultra-detailed continuous floral silk weaves on hanbok garments, as these distort in clay Stop-Motion. Instead, specify solid-colored fabrics, bold solid silk borders, and clean layered folds with distinct silhouettes (e.g., "solid royal crimson robe with simple bold gold borders").
-    3. Text: Never describe tiny readable characters or small written letters on scrolls/screens. Use clean, bold symbolic items (e.g., "an open scroll with bold dark calligraphic brushstrokes", "a simple wooden tablet with a carved seal").
-    4. Motion & Physics: Avoid hyper-fluid complex multi-body physics interactions (e.g., "dozens of small arrows flying in all directions simultaneously through a dense forest"). Claymation stop-motion requires distinct, deliberate poses. Simplify action beats to a single focused, dramatic, frozen posture or concrete outcome (e.g., "a single arrow stuck on a thick wooden tree trunk", "a character in an active low sword-stance frozen in motion").
-    5. Violence / Distress: Never use gory open wounds. Represent distress or danger through symbolic metaphors (e.g., "dark crimson atmospheric lighting casting long shadows", "broken porcelain jar on a dark floor").
-- YouTube safety compliance: For any scene involving blood, physical violence, torture, or gruesome Joseon executions, do NOT depict actual blood, gory open wounds, or gory physical trauma. Instead, translate it into abstract, high-contrast, atmospheric visual metaphors. For instance, use: 'heavy dark rain over a fractured Joseon steel sword', 'intense red atmospheric backlighting casting long shadows of a locked cell', 'glowing red mystical fire consuming paper archives', or 'dramatic black silhouette on a paper wall'.
-  - Note: Non-gory physical changes or medical symptoms (such as pale face, fever, sweat beads, or subtle red spots/rashes on skin) MUST be described accurately and literally (e.g., "fine red spots and rashes on the skin of his face and arms") rather than using gory metaphors like blood pools.
+- Multi-Era Historical Adaptability (Joseon, Goryeo, or Three Kingdoms - Silla/Goguryeo/Baekje).
+- English Compatibility: Extract 'appearanceEnglish', 'clothingEnglish', 'descriptionEnglish'.
+- Style-Agnostic Prompting: Write refinedImagePrompt safely for 2D illustration or Stop-Motion Claymation.
+- YouTube safety compliance: No explicit gory blood or gruesome violence. Translate into atmospheric visual metaphors.
 
-=== CAMERA ANGLE & COMPOSITION DIVERSIFICATION RULES (ANTI-REPETITION MANDATE) ===
-- To prevent repetitive, monotonous video streams (which are heavily filtered by YouTube's automation algorithms), you MUST dynamically diversify camera angles, framing, and visual composition styles across consecutive scenes.
-- For each scene, dynamically select and apply a distinct framing style:
-  - "Extreme Close-Up": Focus intensely on a hand gesture, a small medical bottle, an open scroll, a single candle flame, or a clue.
-  - "Close-Up Shot": Clear focus on a character's facial expression (e.g., fear, plotting, sweat beads, malicious grin).
-  - "Medium Shot": Show 1 or 2 characters interacting from the waist up.
-  - "Low-Angle Shot": Look up at a powerful King, a grand Joseon palace gate, or a dramatic mountain peak.
-  - "Wide-Angle Establishing Shot": Show small character figures in a vast landscape, windy courtyard, misty forest, or historical city.
-  - "Extreme Dutch Angle": Tilted, dramatic camera perspective suitable for secrets, shock, or chaotic moments.
-  - "Over-The-Shoulder Shot": Focus on a character looking over the shoulder of an adversary.
-- Ensure the selected camera framing is clearly written into both 'visualDescription' and 'refinedImagePrompt'.
-- You MUST also assign a matching dynamic camera motion in 'cameraMotion' property (e.g., 'dolly_in', 'dolly_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'orbit', 'slow_zoom') to guarantee cinematic motion. Choose a motion that matches the scene's emotional tone:
-  - Suspense / Clues / Fear -> 'dolly_in' or 'slow_zoom' or 'tilt_down'
-  - Revealing vast scenery / Royalty / Outer environment -> 'dolly_out' or 'pan_right' or 'pan_left' or 'tilt_up'
-  - Mystical reveal / Majestic action -> 'orbit'
-  - Do NOT set all scenes to 'none' or 'dolly_in'. Create a beautiful, diverse flow of motions across consecutive scenes.
-
-=== YOUTUBE RETENTION (시청 지속률) OPTIMIZATION 3-STAGE STRUCTURE ===
-You MUST structure the narration and scene sequence of the script into a proven high-retention 3-stage narrative arc:
-1. Stage 1: Extreme Opening Hook (Scenes 1 ~ 2) - "0-15s Hook & Curiosity Trigger":
-   - Immediately project a shocking revelation, dramatic moment preview, or unexpected mystery in the first 1-2 scenes to prevent viewer drop-off.
-   - Make the opening narration punchy and provocative, instantly planting a core curiosity question (e.g. "한밤중 조선 왕실을 흔든 시신... 백성들이 기겁한 이유는 단 하나였습니다").
-2. Stage 2: Tension Build-up & Multi-Clue Conflict (Middle Scenes) - "Incremental Suspense & Conflict Escalation":
-   - Maintain crisp, rhythmic narration pacing (maximum 1-2 concise sentences per scene, smooth natural speech flow for TTS).
-   - Escalates conflict step-by-step between characters, revealing clues incrementally so viewers remain hooked for the answer.
-3. Stage 3: Payoff Peak, Dramatic Twist & Outro (Final Scenes) - "Climax Resolution & Proof Bridge":
-   - Unveil the satisfying climax or shocking twist seamlessly without lingering fluff.
-   - Connect directly into the Enforced 2-Scene Outro (Penultimate: Historical Source Verification / Ultimate: Lingering Closure & Subscribe Call).
+=== CAMERA ANGLE & COMPOSITION DIVERSIFICATION ===
+- Diversify framing: Extreme Close-Up, Close-Up, Medium, Low-Angle, Wide-Angle, Dutch Angle, Over-the-shoulder.
+- Assign matching 'cameraMotion': 'dolly_in', 'dolly_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'orbit', 'slow_zoom'.
 
 === ENFORCED 2-SCENE OUTRO STRUCTURE ===
-You MUST enforce a strict 2-scene Outro structure for the final two scenes of the generated timeline (Scenes N-1 and N, where N is the total scene count):
-1. Penultimate Scene (Scene N-1): 'Historical Evidence Verification'
-   - Theme: Historical source verification or historical context matching the identified historical era.
-   - Narration: Present the historical proof (e.g., referencing Samguk Sagi/Samguk Yusa for Silla/Goguryeo/Baekje, Goryeosa for Goryeo, or the Annals of the Joseon Dynasty for Joseon) clearly in Korean narration, tailored to the actual historical facts in the script. The text must be direct, clean, and conversational, so it can be pasted directly into a TTS program (e.g., "오늘의 기이한 이야기는 놀랍게도 상상력이 아닌, 실제 역사에 고스란히 기록된 사초를 바탕으로 재구성되었습니다. 과연 그 속의 감춰진 진실은 무엇이었을까요?").
-   - Setting: An ancient study (서고), open scroll (족자), historical record book (실록 서책), or royal map, matching the visual elements of the identified era.
-   - Refined Image Prompt: Evocative depiction of an ancient open paper scroll or a thick traditional book with calligraphy resting on an ornate low writing desk under soft, dim candlelight in a quiet traditional library room of that specific era, beautiful composition, detailed texture. No text or modern clutter.
-2. Ultimate Scene (Scene N): 'Cinematic Closing & Outro'
-   - Theme: Lingering closure, channel subscription and like call.
-   - Narration: A seamless bridge summarizing the philosophical lesson or lingering mystery of the tale, followed by a warm closing, subscription, and comment invitation (e.g., "역사 속 진실은 어둠 속에 묻혔지만, 여운은 깊게 남습니다. 재미있으셨다면 구독과 좋아요를 눌러 더 미스터리한 우리의 역사 속으로 함께 떠나보세요. 감사합니다.").
-   - Setting: A peaceful and atmospheric landscape or quiet interior matching the era and the tale's emotional peak, lingering mystery, cozy candlelight or cold moonlight, beautiful composition, fade-out mood. No text or modern clutter.
-   - Refined Image Prompt: A highly cinematic, peaceful, and atmospheric traditional Korean landscape or interior of that specific era matching the tale's emotional peak, lingering mystery, cozy candlelight or cold moonlight, beautiful composition, fade-out mood. No text or modern clutter.
-
-Ensure these two scenes are ALWAYS generated as the final two scenes. This keeps the historical details clean, preventing them from cluttering the main storyline beats, and guarantees a professional, high-retention video ending.
-
-=== ACCURACY & FAITHFULNESS TO STAGE DIRECTIONS ===
-- The 'refinedImagePrompt' MUST serve as a highly faithful visual representation of the 'visualDescription' (Stage Direction/Depiction) and the scene's emotional context.
-- You MUST capture the precise actions, gestures, poses, and objects specified in the stage directions.
-  - If a character lies dead/sick on a bed with their limp hand hanging down to the floor, do not have them sitting in a chair. Explicitly specify: "a character lying dead on a bed, one of their pale limp hands hanging down off the side of the bed toward the floor".
-  - If specific physical focal points or scene directions are mentioned, make sure they are the primary subject of the prompt.
-- NEVER omit active characters or the main subject of action from the 'refinedImagePrompt'.
-
-=== NARRATION CHARACTER LENGTH RULES (N6 VOICE TTS OPTIMIZED) ===
-- You MUST calibrate the length of 'narrationText' for each scene according to its duration, tailored for N6 voice at 1.00x speed + 0.3s pause:
-  * For 10-Second Scenes (Intro Scenes 1~8, Outro Scenes 59~60, or Shorts Scenes 1~10): 'narrationText' MUST be strictly between 35 and 45 Korean characters (including spaces).
-  * For 15-Second Scenes (Main Story Body Scenes 9~58): 'narrationText' MUST be strictly between 55 and 65 Korean characters (including spaces).
-- Keep 'narrationText' and 'visualDescription' crisp, natural, and concise (under 2 sentences per field).
-- Keep 'refinedImagePrompt' and 'characterSheetPrompt' highly descriptive but compact (under 55 words). Focus strictly on key items: subject with precise pose/gesture/action/expression, setting, weather/lighting, and style.
-- This is a critical latency optimization. Fields under 55 words guarantee the analysis completes rapidly in 15-20 seconds without timing out.
+- Penultimate Scene (Scene N-1): Historical Evidence Verification (Samguk Sagi, Goryeosa, or Joseon Annals).
+- Ultimate Scene (Scene N): Cinematic Lingering Closure & Channel Subscribe Call.
 `;
 
     const responseSchema = {
@@ -199,79 +135,57 @@ Ensure these two scenes are ALWAYS generated as the final two scenes. This keeps
       properties: {
         characters: {
           type: Type.ARRAY,
-          description: "List of extracted core characters (maximum 4 characters).",
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING, description: "Historical or rustic Korean name (e.g., 홍길동, 돌쇠)." },
-              gender: { type: Type.STRING, description: "Gender of the character (e.g., '남성', '여성')." },
-              age: { type: Type.STRING, description: "Age tier (e.g., '20대 청년', '70대 노인', '10대 소녀')." },
-              appearance: { type: Type.STRING, description: "Concrete facial and physical traits (facial hair, look, beard) in Korean." },
-              clothing: { type: Type.STRING, description: "Type of Joseon traditional garments wore (e.g., 도포와 갓, 허름한 한복)." },
-              traits: { type: Type.STRING, description: "Core traits or role (e.g., '가람 서당의 영리한 제자', '탐욕스러운 양반')." },
-              characterSheetPrompt: {
-                type: Type.STRING,
-                description: "English descriptive visual prompt for character portrait design. Focuses purely on one centered person, white or flat background, highly detailed character concept. Avoid secondary objects or people."
-              },
-              appearanceEnglish: {
-                type: Type.STRING,
-                description: "Highly precise English visual key phrase of character's facial and physical traits (e.g. 'handsome 20-year old Joseon man, clean-shaven face, neat classic topknot hair, expressive intense eyes, sharp jawline'). No meta descriptions."
-              },
-              clothingEnglish: {
-                type: Type.STRING,
-                description: "Precise English description of character's garments (e.g. 'wearing a navy blue silk scholar durumagi robe and a traditional black translucent gat hat')."
-              }
+              name: { type: Type.STRING },
+              gender: { type: Type.STRING },
+              age: { type: Type.STRING },
+              appearance: { type: Type.STRING },
+              clothing: { type: Type.STRING },
+              traits: { type: Type.STRING },
+              characterSheetPrompt: { type: Type.STRING },
+              appearanceEnglish: { type: Type.STRING },
+              clothingEnglish: { type: Type.STRING }
             },
             required: ["name", "gender", "age", "appearance", "clothing", "traits", "characterSheetPrompt", "appearanceEnglish", "clothingEnglish"]
           }
         },
         locations: {
           type: Type.ARRAY,
-          description: "Crucial locations relevant to the narrative.",
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING, description: "Setting label in Korean (e.g., 숲속 초막, 대감댁 기와방)." },
-              description: { type: Type.STRING, description: "Joseon period architectural details, mood, lighting settings (in Korean)." },
-              descriptionEnglish: {
-                type: Type.STRING,
-                description: "Concise yet evocative English atmosphere setting description (e.g., 'inside a dimly lit old Joseon wooden room, a traditional candle casting long shadows on paper screen doors, historical nostalgic atmosphere')."
-              }
+              name: { type: Type.STRING },
+              description: { type: Type.STRING },
+              descriptionEnglish: { type: Type.STRING }
             },
             required: ["name", "description", "descriptionEnglish"]
           }
         },
         scenes: {
           type: Type.ARRAY,
-          description: "The chronologically ordered scene slots for drawing the storyboards.",
           items: {
             type: Type.OBJECT,
             properties: {
-              id: { type: Type.INTEGER, description: "Sequential scene ID starting from 1." },
-              stage: {
-                type: Type.STRING,
-                description: "Story development stage for styling variations (early, middle, late, final).",
-                enum: ["early", "middle", "late", "final"]
-              },
-              locationName: { type: Type.STRING, description: "The corresponding location name from locations list." },
-              characterNames: {
-                type: Type.ARRAY,
-                description: "Names of characters who are present in this specific scene.",
-                items: { type: Type.STRING }
-              },
-              narrationText: { type: Type.STRING, description: "Narrative subtitle or script fragment in Korean." },
-              visualDescription: { type: Type.STRING, description: "Detailed stage scene direction (in Korean)." },
-              refinedImagePrompt: {
-                type: Type.STRING,
-                description: "English image generation prompt including characters present, background lighting, angle, Joseon period detail, and mood. Ensure physical acts are described safely and metaphorically."
-              },
+              id: { type: Type.INTEGER },
+              stage: { type: Type.STRING, enum: ["early", "middle", "late", "final"] },
+              locationName: { type: Type.STRING },
+              characterNames: { type: Type.ARRAY, items: { type: Type.STRING } },
+              narrationText: { type: Type.STRING },
+              visualDescription: { type: Type.STRING },
+              refinedImagePrompt: { type: Type.STRING },
               cameraMotion: {
                 type: Type.STRING,
-                description: "The recommended cinematic camera motion effect. Choose from: 'none', 'dolly_in', 'dolly_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'orbit', 'slow_zoom'.",
                 enum: ["none", "dolly_in", "dolly_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit", "slow_zoom"]
-              }
+              },
+              durationSeconds: { type: Type.INTEGER, description: "Dynamic duration in seconds (3 to 18)." },
+              pacingType: { type: Type.STRING, enum: ["fast", "normal", "slow"] },
+              ltxRecommended: { type: Type.BOOLEAN, description: "True if recommended for LTX video transformation (must be <=12s duration, total 10-15%)." },
+              ltxReason: { type: Type.STRING, description: "Reason for recommending LTX video (in Korean)." },
+              ltxPrompt: { type: Type.STRING, description: "English prompt for image-to-video motion generation." }
             },
-            required: ["id", "stage", "locationName", "characterNames", "narrationText", "visualDescription", "refinedImagePrompt", "cameraMotion"]
+            required: ["id", "stage", "locationName", "characterNames", "narrationText", "visualDescription", "refinedImagePrompt", "cameraMotion", "durationSeconds", "pacingType"]
           }
         }
       },
@@ -279,14 +193,16 @@ Ensure these two scenes are ALWAYS generated as the final two scenes. This keeps
     };
 
     const userPrompt = `
-Analyze the following script text and output the results as JSON matching the schema.
+Analyze the script text and output structured storyboard JSON.
 
 --- SCRIPT TEXT ---
 ${script}
 
---- QUANTITY MODE ---
+--- PARAMETERS ---
+Story Format: ${storyFormat}
+Length Preset: ${lengthPreset}
 Quantity Override: ${quantityOverride ? "ACTIVE" : "INACTIVE"}
-Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually 5 to 12)"}
+Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats according to length preset"}
 `;
 
     const response = await callGoogleGenWithRetry(
@@ -297,7 +213,7 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema,
-          temperature: 0.2, // slightly lower for more reliable structured compliance
+          temperature: 0.25,
         },
       }),
       3,
@@ -306,35 +222,73 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
 
     const parsedJson = JSON.parse(response.text?.trim() || "{}");
 
-    // Post-process durationSeconds and SRT timecodes based on workflow rules
+    // Post-process durationSeconds, LTX ratios (enforce <=12s & 10-15% ratio), and SRT timecodes
     if (parsedJson.scenes && Array.isArray(parsedJson.scenes)) {
       const totalScenes = parsedJson.scenes.length;
-      const isShorts = quantityOverride && quantityValue <= 15;
       let cumulativeSec = 0;
 
+      // Target LTX recommendations count: 10% ~ 15% of totalScenes (at least 1 if scenes >= 5)
+      const targetLtxCount = Math.max(1, Math.round(totalScenes * 0.12));
+      let currentLtxCount = 0;
+
+      // First pass: sanitize duration and LTX flags
       parsedJson.scenes = parsedJson.scenes.map((sc: any, idx: number) => {
         const sceneNum = sc.id || (idx + 1);
-        let duration = 15;
+        let duration = sc.durationSeconds || 11;
 
-        if (isShorts || totalScenes <= 15) {
-          // Shorts mode: 10 seconds per scene (10 scenes = 100 seconds total)
-          duration = 10;
+        // Ensure duration bounds
+        if (sc.pacingType === "fast") {
+          duration = Math.min(6, Math.max(3, duration));
+        } else if (sc.pacingType === "slow") {
+          duration = Math.min(18, Math.max(14, duration));
         } else {
-          // Longform mode (60 scenes = approx 14m 10s = 850s)
-          // Intro (Scenes 1 ~ 8): 10 seconds per scene
-          // Main Body (Scenes 9 ~ totalScenes - 2): 15 seconds per scene
-          // Outro (Scenes totalScenes - 1 ~ totalScenes): 10 seconds per scene
-          if (sceneNum <= 8) {
-            duration = 10;
-          } else if (sceneNum > totalScenes - 2) {
-            duration = 10;
-          } else {
-            duration = 15;
-          }
+          duration = Math.min(13, Math.max(8, duration));
         }
 
+        // LTX Video strictly requires duration <= 12s
+        let ltxRec = !!sc.ltxRecommended;
+        if (duration > 12) {
+          ltxRec = false;
+        }
+
+        if (ltxRec) {
+          currentLtxCount++;
+        }
+
+        return {
+          ...sc,
+          id: sceneNum,
+          durationSeconds: duration,
+          ltxRecommended: ltxRec,
+        };
+      });
+
+      // Second pass: Adjust LTX count to strictly meet 10% ~ 15% if AI recommended too few or too many
+      if (currentLtxCount < targetLtxCount) {
+        for (let i = 0; i < parsedJson.scenes.length && currentLtxCount < targetLtxCount; i++) {
+          const sc = parsedJson.scenes[i];
+          if (!sc.ltxRecommended && sc.durationSeconds <= 12) {
+            sc.ltxRecommended = true;
+            sc.ltxReason = "12초 이하 짧은 호흡의 주요 인물 반응 및 움직임 강조 장면";
+            sc.ltxPrompt = `cinematic image-to-video motion, subtle dynamic camera movement, ${sc.visualDescription || "character reacting with intense emotion"}`;
+            currentLtxCount++;
+          }
+        }
+      } else if (currentLtxCount > Math.ceil(totalScenes * 0.15)) {
+        const maxAllowed = Math.ceil(totalScenes * 0.15);
+        let excess = currentLtxCount - maxAllowed;
+        for (let i = parsedJson.scenes.length - 1; i >= 0 && excess > 0; i--) {
+          if (parsedJson.scenes[i].ltxRecommended) {
+            parsedJson.scenes[i].ltxRecommended = false;
+            excess--;
+          }
+        }
+      }
+
+      // Calculate timecodes
+      parsedJson.scenes = parsedJson.scenes.map((sc: any) => {
         const startSec = cumulativeSec;
-        const endSec = startSec + duration;
+        const endSec = startSec + sc.durationSeconds;
         cumulativeSec = endSec;
 
         const pad = (n: number, z = 2) => String(n).padStart(z, '0');
@@ -348,12 +302,14 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
 
         return {
           ...sc,
-          id: sceneNum,
-          durationSeconds: duration,
           startTimecode: formatSRT(startSec),
           endTimecode: formatSRT(endSec),
         };
       });
+
+      parsedJson.estimatedTotalDurationMinutes = Math.round((cumulativeSec / 60) * 10) / 10;
+      parsedJson.storyFormat = storyFormat;
+      parsedJson.lengthPreset = lengthPreset;
     }
 
     res.json(parsedJson);
@@ -361,6 +317,139 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats (usually
   } catch (error: any) {
     console.error("Error during script analysis:", error);
     res.status(500).json({ error: error.message || "An unexpected error occurred during analysis." });
+  }
+});
+
+/**
+ * Endpoint for AI Script Generation based on Topic, Story Format & Length Preset
+ */
+app.post("/api/generate-script", async (req, res): Promise<void> => {
+  try {
+    const { topic, storyFormat = "classic", lengthPreset = "standard", targetSceneCount } = req.body;
+    if (!topic || typeof topic !== "string" || topic.trim().length === 0) {
+      res.status(400).json({ error: "Topic / Keyword is required for script generation." });
+      return;
+    }
+
+    const ai = getGenAI(req);
+
+    let targetDurationText = "9분 ~ 13분 (약 40~50 장면)";
+    if (lengthPreset === "shorts") targetDurationText = "쇼츠 (최대 2분, 약 10 장면)";
+    else if (lengthPreset === "deep_dive") targetDurationText = "14분 ~ 18분 대작 (약 60~75 장면)";
+    else if (lengthPreset === "auto_flow") targetDurationText = "9분 ~ 18분 AI 자율 가변 (40~75 장면)";
+    else if (lengthPreset === "custom" && targetSceneCount) targetDurationText = `사용자 지정 ${targetSceneCount}장면`;
+
+    const formatInstructions: Record<string, string> = {
+      in_media_res: "영상의 맨 처음(1~2장면)에 가장 충격적인 결말이나 반전 사건 현장을 먼저 보여준 후, '도대체 조선 왕실에 무슨 일이 벌어진 것일까?'라며 과거로 돌아가 숨겨진 음모를 역추적하는 [충격 장면 선공개/반전 추리형] 서사 구조로 작성하세요.",
+      multi_perspective: "한 사건을 두 인물(예: 왕의 시선 vs 사관/피해자의 시선, 또는 실록의 공식 기록 vs 야사의 감춰진 기록)의 시점으로 교차 전환하며 긴장감을 유도하는 [사건 비교/평행 시점형] 서사 구조로 작성하세요.",
+      omnibus_3part: "주제와 연관된 3가지 연쇄 에피소드(예: '조선 왕실 미제 사건 TOP 3')를 연속 배치하여 한 에피소드가 끝날 때마다 새로운 기이한 사건으로 시청 지속 시간을 극대화하는 [3단계 옴니버스 미스터리형] 서사 구조로 작성하세요.",
+      investigation: "'왜 역사가는 이 기록을 지웠을까?'라는 하나의 거대한 의문으로 시작하여 가설 1, 2를 검증하고 최종 역사적 진실에 도달하는 [질문-검증-결론 다큐 추리형] 서사 구조로 작성하세요.",
+      classic: "도입부 사건 발생 -> 본론 갈등 증폭 -> 기이한 진실 규명 -> 역사적 여운의 [전통적 기승전결형] 서사 구조로 작성하세요."
+    };
+
+    const systemInstruction = `
+You are a master Korean historical storyteller (야담/사극 전문 대본 작가) for high-retention YouTube channels.
+Write a rich, dramatic, highly engaging historical script in Korean based on the provided topic.
+
+=== SCRIPT FORMAT REQUIREMENTS ===
+1. Structure the script using standardized scene blocks:
+   [S1.] [장소이름 / 캐릭터ID] "나래이션 텍스트" (연출 지시어)
+   [IMAGE GENERATION PROMPT]: English descriptive visual prompt
+2. Apply the requested Story Format:
+   ${formatInstructions[storyFormat] || formatInstructions.classic}
+3. Target Duration: ${targetDurationText}.
+4. Tone: Dignified, immersive Korean historical storytelling tone (품격 있는 조선/고려/삼국시대 야담체).
+5. Ensure zero anachronism and high YouTube policy compliance (no gore, safe metaphors for tragedy).
+6. End with historical evidence verification (실록/야사 기록 언급) and a channel subscribe call.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `주제/키워드: "${topic}"\n서사 포맷: ${storyFormat}\n목표 길이: ${lengthPreset}\n위 조건에 맞는 최고 품질의 야담 유튜브 대본 원고를 완성해서 작성해 주세요.`,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+    });
+
+    const generatedScript = response.text || "";
+    res.json({ script: generatedScript });
+
+  } catch (error: any) {
+    console.error("Error generating script:", error);
+    res.status(500).json({ error: error.message || "Failed to generate script." });
+  }
+});
+
+/**
+ * Endpoint for AI Recommendation of Story Format and Length Preset based on Topic
+ */
+app.post("/api/recommend-story-preset", async (req, res): Promise<void> => {
+  try {
+    const { topic } = req.body;
+    if (!topic || typeof topic !== "string" || topic.trim().length === 0) {
+      res.status(400).json({ error: "Topic is required for recommendation." });
+      return;
+    }
+
+    const ai = getGenAI(req);
+
+    const systemInstruction = `
+You are an expert YouTube Historical Content Strategy Director specializing in Korean historical mysteries, royal court conspiracies, and folklore.
+Analyze the user's provided topic/keyword and recommend the optimal Story Format (recommendedFormat) and Video Length Preset (recommendedLength).
+
+AVAILABLE STORY FORMATS (recommendedFormat):
+1. 'in_media_res': [충격 장면 선공개 / 반전 추리형] - Recommended for shocking historical deaths, sudden treason, tragic betrayals, or mysterious sudden accidents where showing the climax first creates extreme curiosity.
+2. 'multi_perspective': [사건 비교 / 평행 시점형] - Recommended for controversial historical events with conflicting records (e.g. King vs Subject, Joseon Annals vs Unofficial Folk Legend, Official vs Secret Diary).
+3. 'omnibus_3part': [3단계 옴니버스 미스터리형] - Recommended for listicles or multi-case topics (e.g. 'Top 3 weirdest court cases', '3 strange hauntings').
+4. 'investigation': [질문 - 검증 - 결론 다큐형] - Recommended for deep historical enigmas, lost treasures, missing records, medical mystery autopsies, or historical hypothesis testing.
+5. 'classic': [기본 기승전결형] - Recommended for standard chronological narrative or life biographies.
+
+AVAILABLE LENGTH PRESETS (recommendedLength):
+1. 'shorts': [쇼츠 모드 (~2분)] - Recommended for simple quick impact stories or single brief anecdote.
+2. 'standard': [표준 롱폼 (9~13분)] - Recommended for general single historical case or standard story.
+3. 'deep_dive': [대작/심층 탐구 (14~18분)] - Recommended for complex political conspiracies, multi-generational royal court struggles, or massive historical events.
+4. 'auto_flow': [AI 자율 가변 모드 (9~18분)] - Recommended when narrative depth varies dynamically.
+
+Output strictly in JSON matching the schema with concise Korean reasoning.
+`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        recommendedFormat: {
+          type: Type.STRING,
+          enum: ["classic", "in_media_res", "multi_perspective", "omnibus_3part", "investigation"]
+        },
+        recommendedLength: {
+          type: Type.STRING,
+          enum: ["shorts", "standard", "deep_dive", "auto_flow"]
+        },
+        recommendationReason: {
+          type: Type.STRING,
+          description: "Clear, professional, concise Korean explanation of why this format and length fits the topic best."
+        }
+      },
+      required: ["recommendedFormat", "recommendedLength", "recommendationReason"]
+    };
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `주제/키워드: "${topic}"\n이 주제에 가장 적합한 서사 포맷과 목표 영상 길이를 분석하여 추천해 주세요.`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.2,
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+
+  } catch (error: any) {
+    console.error("Error recommending preset:", error);
+    res.status(500).json({ error: error.message || "Failed to recommend preset." });
   }
 });
 
@@ -622,18 +711,14 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     
     // Stitch modifiers together
     const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "claymation");
-    const activeModel = modelName || "gemini-2.5-flash-image";
+    const activeModel = modelName || "gemini-3.1-flash-image";
 
     console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
 
     const targetRatio = aspectRatio || "1:1";
     let resolvedImageSize: string | undefined = undefined;
     if (activeModel === "gemini-3.1-flash-image") {
-      if (targetRatio === "16:9" || targetRatio === "9:16") {
-        resolvedImageSize = "2K";
-      } else {
-        resolvedImageSize = "1K";
-      }
+      resolvedImageSize = "1K";
     }
 
     const imageResponse = await callGoogleGenWithRetry(
@@ -704,18 +789,14 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
     }
     
     const finalPrompt = injectArtStyle(basePrompt, artStyle || "claymation");
-    const activeModel = modelName || "gemini-2.5-flash-image";
+    const activeModel = modelName || "gemini-3.1-flash-image";
 
     console.log(`Generating scene image. Model: ${activeModel}, WAN-Intro: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
 
     const targetRatio = aspectRatio || "16:9";
     let resolvedImageSize: string | undefined = undefined;
     if (activeModel === "gemini-3.1-flash-image") {
-      if (targetRatio === "16:9" || targetRatio === "9:16") {
-        resolvedImageSize = "2K";
-      } else {
-        resolvedImageSize = "1K";
-      }
+      resolvedImageSize = "1K";
     }
 
     const imageResponse = await callGoogleGenWithRetry(
@@ -991,7 +1072,7 @@ Avoid any explanatory markdown outside the JSON.
 
     const responseSchema = {
       type: Type.OBJECT,
-      description: "Detailed YouTube monetization policy risk analysis report.",
+      description: "Detailed YouTube monetization policy risk analysis report with Anti-AI Repetitive Content Detection.",
       properties: {
         overallScore: { type: Type.INTEGER },
         overallRisk: { type: Type.STRING, enum: ["SAFE", "ATTENTION", "CRITICAL"] },
@@ -1007,12 +1088,26 @@ Avoid any explanatory markdown outside the JSON.
         metadataRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
         metadataScore: { type: Type.INTEGER },
         metadataFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
-        recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+        recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
+        antiPatternAnalysis: {
+          type: Type.OBJECT,
+          description: "Analysis on anti-repetitive AI pattern, pacing dynamics and monetization safety.",
+          properties: {
+            patternScore: { type: Type.INTEGER, description: "Anti-repetition originality score (0-100)." },
+            formatVarietyGrade: { type: Type.STRING, description: "Narrative structure variety grade (e.g. 'A+', 'A', 'B', 'C')." },
+            pacingVariationGrade: { type: Type.STRING, description: "Scene cadence pacing variation grade (e.g. 'A+', 'A', 'B', 'C')." },
+            ltxUtilizationRatio: { type: Type.INTEGER, description: "Estimated percentage of LTX video dynamics (target 10-15%)." },
+            riskFactors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific repetitive or AI-like pattern flags." },
+            actionableAdvice: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Actionable editing/writing advice to completely pass monetization review." }
+          },
+          required: ["patternScore", "formatVarietyGrade", "pacingVariationGrade", "ltxUtilizationRatio", "riskFactors", "actionableAdvice"]
+        }
       },
       required: [
         "overallScore", "overallRisk", "reusedRisk", "reusedScore", "reusedFlags",
         "sensualRisk", "sensualScore", "sensualFlags", "violentRisk", "violentScore",
-        "violentFlags", "metadataRisk", "metadataScore", "metadataFlags", "recommendations"
+        "violentFlags", "metadataRisk", "metadataScore", "metadataFlags", "recommendations",
+        "antiPatternAnalysis"
       ]
     };
 

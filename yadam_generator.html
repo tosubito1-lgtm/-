@@ -436,7 +436,7 @@
                         <option value="대본">통합 대본 전체 (S1-62)</option>
                         <option value="TTS">TTS 전용 극본 전체 (S1-62)</option>
                         <option value="LTX추출">LTX 2.3 영어 프롬프트</option>
-                        <option value="쇼츠">유튜브 쇼츠 (60초)</option>
+                        <option value="쇼츠">유튜브 쇼츠 독립스토리 (8씬/80초)</option>
                         <option value="커뮤니티">커뮤니티 홍보 게시글</option>
                     </select>
                     <span id="step-indicator" style="font-size:0.8rem; color:#94a3b8;">대기 중</span>
@@ -499,49 +499,100 @@
                 </div>
             </div>
 
+            <!-- 서사 구조 템플릿 & 목표 분량 설정 카드 -->
+            <div class="section-card" style="border-color: rgba(59, 130, 246, 0.4); background-color: #0d1117;">
+                <div class="section-title" style="color: #60a5fa; display: flex; justify-content: space-between; align-items: center;">
+                    <span>3. 서사 구조 템플릿 & 목표 분량 기획</span>
+                    <button id="btn-ai-recommend" class="btn" style="background:#d97706; color:#fff; border:none; padding:3px 8px; font-size:0.72rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" onclick="recommendPresetAi()">
+                        💡 AI 맞춤 추천
+                    </button>
+                </div>
+
+                <!-- AI 추천 사유 배너 (숨김/표시) -->
+                <div id="ai-recommend-reason-box" style="display:none; background-color: #1e1b4b; border: 1px solid #6366f1; padding: 8px 10px; font-size: 0.78rem; color: #c7d2fe; border-radius: 4px; margin-bottom: 10px; line-height: 1.4;">
+                    <strong style="color: #fbbf24;">💡 AI 맞춤 추천 분석:</strong>
+                    <span id="ai-recommend-reason-text">...</span>
+                </div>
+
+                <!-- 1) 서사 구조 템플릿 선택 -->
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; display: block; margin-bottom: 4px;">
+                        🎭 서사 구조 템플릿 (2026 알고리즘 회피):
+                    </label>
+                    <select id="story-format-select" class="text-input" style="background-color: #161b22; color: #e6edf3;" onchange="setStoryFormat(this.value)">
+                        <option value="classic" selected>기본 기승전결 (classic) - 정통 연년체</option>
+                        <option value="in_media_res">충격 사건 선공개 (in_media_res) - 클라이맥스 오프닝 & 역추적</option>
+                        <option value="multi_perspective">사건 비교 / 평행 시점 (multi_perspective) - 실록 vs 야사 / 왕 vs 신하</option>
+                        <option value="omnibus_3part">3단계 옴니버스 (omnibus_3part) - 3가지 괴이 사건 연쇄</option>
+                        <option value="investigation">질문-검증-결론 다큐 (investigation) - 의혹 검수 & 실사 추적</option>
+                    </select>
+                </div>
+
+                <!-- 2) 목표 영상 길이 및 프리셋 선택 -->
+                <div>
+                    <label style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; display: block; margin-bottom: 4px;">
+                        ⏱️ 목표 영상 길이 & 씬 수 프리셋:
+                    </label>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-bottom: 6px;">
+                        <button id="btn-len-standard" class="btn btn-secondary" style="font-size: 0.75rem; padding: 5px; border-color: #3b82f6; background-color: #1e3a8a; color: #fff;" onclick="setLengthPreset('standard')">표준 롱폼 (9~13분)</button>
+                        <button id="btn-len-deep_dive" class="btn btn-secondary" style="font-size: 0.75rem; padding: 5px;" onclick="setLengthPreset('deep_dive')">대작/심층 (14~18분)</button>
+                        <button id="btn-len-auto_flow" class="btn btn-secondary" style="font-size: 0.75rem; padding: 5px;" onclick="setLengthPreset('auto_flow')">AI 가변 모드 (9~18분)</button>
+                        <button id="btn-len-shorts" class="btn btn-secondary" style="font-size: 0.75rem; padding: 5px;" onclick="setLengthPreset('shorts')">쇼츠 모드 (8씬/80초)</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button id="btn-len-custom" class="btn btn-secondary" style="font-size: 0.75rem; padding: 5px; flex: 1;" onclick="setLengthPreset('custom')">장면 수 직접 지정</button>
+                        <div id="custom-scene-slider-box" style="display: none; flex: 2; align-items: center; gap: 6px; background: #161b22; padding: 4px 8px; border-radius: 4px; border: 1px solid #334155;">
+                            <input type="range" id="custom-scene-slider" min="5" max="90" value="60" style="flex:1; accent-color:#3b82f6;" oninput="updateCustomSceneValue(this.value)">
+                            <span id="custom-scene-val-label" style="font-size:0.75rem; font-weight:bold; color:#60a5fa; min-width:35px; text-align:right;">60씬</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 단계 자동 인식 퀵 버튼 -->
             <div class="section-card">
                 <div class="section-title">
-                    <span>3. 60씬 구조화 전개 명령 (LTX 2.3 대응)</span>
-                    <span style="font-size:0.7rem; color:#f43f5e; font-weight:normal;">60 SCENE SYSTEM</span>
+                    <span>4. 서사 단계별 대본 전개 명령 (LTX 2.3 대응)</span>
+                    <span style="font-size:0.7rem; color:#f43f5e; font-weight:normal;">STORYBOARD SEQUENCE SYSTEM</span>
                 </div>
                 <!-- 안전 우회 배너 추가 -->
                 <div class="guide-alert">
                     <span>⚠️</span>
-                    <span><strong>반복콘텐츠 우회 공식 연동:</strong> 인트로 8씬(씬당 10초 이내, 일관규격, 속도변화) 및 사건/의혹/추적/반전/결말(10초 슬로우 연출) 60씬을 순차 기획하며, LTX 2.3 맞춤 영문 프롬프트(인물+동작+카메라 무빙)를 즉각 도출합니다.</span>
+                    <span><strong>반복콘텐츠 우회 공식 연동:</strong> 설정된 서사 구조 템플릿 및 목표 영상 길이에 맞춰 인트로 및 사건/의혹/추적/반전/결말 각 단계를 순차 기획하며, LTX 2.3 맞춤 영문 프롬프트(인물+동작+카메라 무빙)를 즉각 도출합니다.</span>
                 </div>
                 <div class="stage-btn-grid">
                     <button id="btn-stage-0단계" class="btn btn-secondary" onclick="triggerStage('0단계')">0단계:주제생성</button>
                     <button id="btn-stage-1단계" class="btn btn-secondary" onclick="triggerStage('1단계')">1단계:목차기획</button>
-                    <button id="btn-stage-인트로" class="btn btn-secondary" onclick="triggerStage('인트로')">인트로(S1-8)</button>
-                    <button id="btn-stage-사건발생" class="btn btn-secondary" onclick="triggerStage('사건발생')">사건(S9-18)</button>
-                    <button id="btn-stage-의혹" class="btn btn-secondary" onclick="triggerStage('의혹')">의혹(S19-28)</button>
-                    <button id="btn-stage-추적" class="btn btn-secondary" onclick="triggerStage('추적')">추적(S29-38)</button>
-                    <button id="btn-stage-반전" class="btn btn-secondary" onclick="triggerStage('반전')">반전(S39-48)</button>
-                    <button id="btn-stage-결말" class="btn btn-secondary" onclick="triggerStage('결말')">결말(S49-60)</button>
+                    <button id="btn-stage-인트로" class="btn btn-secondary" onclick="triggerStage('인트로')">인트로(오프닝)</button>
+                    <button id="btn-stage-사건발생" class="btn btn-secondary" onclick="triggerStage('사건발생')">사건(발단)</button>
+                    <button id="btn-stage-의혹" class="btn btn-secondary" onclick="triggerStage('의혹')">의혹(갈등)</button>
+                    <button id="btn-stage-추적" class="btn btn-secondary" onclick="triggerStage('추적')">추적(심화)</button>
+                    <button id="btn-stage-반전" class="btn btn-secondary" onclick="triggerStage('반전')">반전(클라이맥스)</button>
+                    <button id="btn-stage-결말" class="btn btn-secondary" onclick="triggerStage('결말')">결말(피날레)</button>
                     <button id="btn-stage-썸네일" class="btn btn-secondary" onclick="triggerStage('썸네일')">유튜브최적화</button>
                 </div>
             </div>
 
             <!-- 추출 및 구조 분석 통계 -->
             <div class="section-card">
-                <div class="section-title">4. 데이터 추출 및 전용 복제 도구</div>
+                <div class="section-title">5. 데이터 추출 및 전용 복제 도구</div>
                 <div class="extract-btn-grid">
                     <!-- 신규: LTX 2.3 영문 프롬프트 추출 -->
                     <button class="btn" style="background-color: #020617; color:#38bdf8; border-color:#0284c7; grid-column: span 2;" onclick="extractLtxPromptsOnly()">LTX 2.3 영문 프롬프트 일괄 추출 (복붙전용)</button>
                     
-                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart1()">통합대본 1부 (S1-30)</button>
-                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart2()">통합대본 2부 (S31-60)</button>
-                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart1()">TTS 원고 1부 (S1-30)</button>
-                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart2()">TTS 원고 2부 (S31-60)</button>
-                    <button class="btn" style="background-color: #1e1b4b; color:#818cf8; border-color:#4f46e5;" onclick="generateShorts()">유튜브쇼츠(60초)</button>
+                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart1()">통합대본 1부 (전반부)</button>
+                    <button class="btn" style="background-color: #14532d; color:#4ade80; border-color:#22c55e;" onclick="extractScriptPart2()">통합대본 2부 (후반부)</button>
+                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart1()">TTS 원고 1부 (전반부)</button>
+                    <button class="btn" style="background-color: #3b0764; color:#c084fc; border-color:#a855f7;" onclick="extractTTSOutputPart2()">TTS 원고 2부 (후반부)</button>
+                    <button class="btn" style="background-color: #1e1b4b; color:#818cf8; border-color:#4f46e5;" onclick="generateShorts()">유튜브쇼츠 (8씬/80초)</button>
                     <button class="btn" style="background-color: #451a03; color:#fb923c; border-color:#f97316;" onclick="generateCommunityPost()">커뮤니티 홍보</button>
                 </div>
             </div>
 
             <!-- 메인 대화 제어창 -->
             <div style="display: flex; flex-direction: column; flex: 1;">
-                <div class="pane-sub-title" style="font-size:0.8rem; font-weight:700; color:#94a3b8; margin-bottom: 5px;">5. 제미나이 명령어 피드백</div>
+                <div class="pane-sub-title" style="font-size:0.8rem; font-weight:700; color:#94a3b8; margin-bottom: 5px;">6. 제미나이 명령어 피드백</div>
                 <textarea id="prompt-input" class="prompt-textarea" placeholder="선택하신 기획 단계에 대한 세부 조정을 위한 명령 피드백을 적어주세요."></textarea>
                 
                 <div style="display: flex; gap:8px; margin-bottom: 15px;">
@@ -640,26 +691,26 @@
 2. **시각적 움직임 다변화 (Motion Vector) 지시**: 씬마다 이미지-비디오 툴(LTX Video 2.3)에서 역동적인 카메라 모션(Ken Burns 줌인, 줌아웃, 3D 트랜지션, 횡축 패닝)을 생성할 수 있도록, 씬 상세 기획에 반드시 구체적인 카메라 모션 지시어를 포함시켜라.
 3. **주관적 교훈/비평 추가**: 프롤로그나 에필로그 단락에 단순히 설화의 나열이 아닌 '제작자의 현대적 가치 비평 및 주관적 해설'을 주입하여 가공 생산성을 증명한다.
 
-★ [60씬 구성 규칙 & 시간 배정 및 글자수 분배 전략] ★
-총 20분 가량 of 장편 야담 영상을 완성하기 위해 60개의 씬(Scene 1 ~ 60)으로 견고하게 쪼갠다.
+★ [스토리보드 씬 구성 규칙 & 시간 배정 및 글자수 분배 전략] ★
+선택한 목표 영상 분량 및 서사 구조 템플릿(기승전결, 충격 결말 선공개, 옴니버스 등)에 맞추어 전체 씬을 균등하게 구조화한다.
 각 씬의 한국어 나레이션은 음독 낭독 시 자연스럽고 품격 있는 우리말 숨쉬기 및 끊어읽기 호흡(구두점, 띄어쓰기 100% 한글 맞춤법)을 빈틈없이 준수해야 한다. 띄어쓰기가 누락되면 TTS 낭독의 억양과 발음이 급격히 망가지므로 정교하게 띄어쓰기를 적용하여 작성한다. 띄어쓰기를 절대 생략하지 마라.
 
 각 파트와 씬별 재생 시간 및 한글 글자수 가이드라인 (N6 오디오북 성우 1.00x 속도 + 0.3s 무음 기준):
-- **인트로 파트: Scene 1-8 (8개 씬) [재생시간: 10초 기준]**
+- **인트로 파트 (오프닝 씬들) [재생시간: 10초 기준]**
   - 초반 이탈방지 및 오프닝 몰입 극대화를 위해 각 씬당 **10초 전체 씬 재생 시간**을 설계한다.
   - 가이드라인 글자수: N6 성우 낭독 호흡과 0.3초 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 35자 ~ 45자 범위**로 정확하게 글자수를 채워준다.
   - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트('[IMAGE GENERATION PROMPT]')는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유의 몰입감을 극대화한다.
-  - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 60개 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 Scene 8에서 자아내며 마무리하도록 설계한다.
-- **서사 본론 파트: Scene 9-59 (51개 씬) [재생시간: 15초 기준]**
+  - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 전체 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 오프닝 인트로 마지막 씬에서 자아내며 마무리하도록 설계한다.
+- **서사 본론 파트 (사건발생/의혹/추적/반전/결말) [재생시간: 15초 기준]**
   - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **15초의 충분한 씬 재생 시간**을 일괄 부여한다.
   - 가이드라인 글자수: N6 성우 낭독 호흡과 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 55자 ~ 65자 범위**로 촘촘하고 호소력 짙게 작성하며, 미장센 공간 여운을 더해 15초를 채운다.
-  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에 속하는 Scene 58, 59 등에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(55자~65자 범위)를 끝까지 듬직하게 유지해야 한다.
+  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(55자~65자 범위)를 끝까지 듬직하게 유지해야 한다.
 - 모든 씬의 구조적 포맷을 완벽하게 통일해야 한다.
-- 최후의 씬(Scene 60)은 시스템 고정 규칙을 필히 따른다.
+- 최후의 씬(마지막 피날레 씬)은 시스템 고정 규칙을 필히 따른다.
 
-★ [최후의 씬(Scene 60) 특별 클로징 규칙 - 시네마틱 브릿지(Cinematic Bridge) 구성] ★
-Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 물 흐르듯 유기적으로 이어지도록 아래의 세 가지 규칙을 무조건 100% 준수하여 고정 설계하라:
-1. **[시네마틱 브릿지 도입부]**: 본편 결말(Scene 59)이 끝난 뒤 갑자기 "오늘 영상 잘 보셨나요?"와 같이 기계적이고 뜬금없는 클로징으로 흐름이 단절되는 것을 엄격히 금지한다. 나레이션의 첫 문장은 본편의 깊은 여운이나 철학적 미스터리를 담은 읊조림(예: "진실은 깊은 어둠 속에 묻혔지만, 그날의 흔적은 여전히 전해지고 있습니다.")으로 열어, 본편과 아웃트로를 잇는 튼튼한 교량(Bridge) 역할을 해야 한다.
+★ [최후의 씬(마지막 피날레 씬) 특별 클로징 규칙 - 시네마틱 브릿지(Cinematic Bridge) 구성] ★
+마지막 피날레 씬은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 물 흐르듯 유기적으로 이어지도록 아래의 세 가지 규칙을 무조건 100% 준수하여 고정 설계하라:
+1. **[시네마틱 브릿지 도입부]**: 본편 결말 직전 씬이 끝난 뒤 갑자기 "오늘 영상 잘 보셨나요?"와 같이 기계적이고 뜬금없는 클로징으로 흐름이 단절되는 것을 엄격히 금지한다. 나레이션의 첫 문장은 본편의 깊은 여운이나 철학적 미스터리를 담은 읊조림(예: "진실은 깊은 어둠 속에 묻혔지만, 그날의 흔적은 여전히 전해지고 있습니다.")으로 열어, 본편과 아웃트로를 잇는 튼튼한 교량(Bridge) 역할을 해야 한다.
 2. **[자연스러운 소통 빌드업]**: 교량 멘트가 끝난 뒤 "오늘 기이한 이야기는 어떠셨나요? 여러분의 소중한 의견을 아래 댓글로 남겨주시면..." 하는 온화하고 차분한 소통 촉구 멘트와 다음 편 예고, 감사 인사를 정중히 연결한다. 길이는 약 9.5초 낭독 시간에 맞춰 한글 공백 포함 약 80자 ~ 95자 내외로 매우 우아하고 콤팩트하게 마친다.
 3. **[비주얼 스타일 / LTX 프롬프트]**: 갑작스러운 화자/장소 전환으로 시청 집중도가 하락하지 않도록, 본편 결말의 정서가 가득 남아있는 상징적 배경(예: 깊은 밤 조용히 소용돌이치는 짙은 안개와 눈발 속의 기와집 처마, 혹은 가만히 등잔불 연기가 흘러가는 서재 방 안 등)을 그대로 유지한다. 여기에 시네마틱한 극적 무브먼트(Slow cinematic tracking zoom-out, realistic drifting of smoke, embers floating in the cold wind)를 함께 지시하여, 마지막 순간까지 한 편의 완성도 높은 장편 영화를 감상한 듯한 여운 있는 페이드아웃(Fade-out)을 연출한다.
 
@@ -694,6 +745,146 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
         let lastTriggeredStage = null;
         let isContentSaved = true;
         let currentActiveStage = '기획';
+
+        // 🎭 서사 구조 & 목표 분량 설정 상태
+        let selectedStoryFormat = localStorage.getItem('yadam_story_format') || 'classic';
+        let selectedLengthPreset = localStorage.getItem('yadam_length_preset') || 'standard';
+        let customSceneCount = parseInt(localStorage.getItem('yadam_custom_scene_count') || '60', 10);
+
+        function setStoryFormat(fmt) {
+            selectedStoryFormat = fmt;
+            const el = document.getElementById('story-format-select');
+            if (el) el.value = fmt;
+            localStorage.setItem('yadam_story_format', fmt);
+        }
+
+        function setLengthPreset(preset) {
+            selectedLengthPreset = preset;
+            localStorage.setItem('yadam_length_preset', preset);
+            
+            ['standard', 'deep_dive', 'auto_flow', 'shorts', 'custom'].forEach(p => {
+                const btn = document.getElementById('btn-len-' + p);
+                if (btn) {
+                    if (p === preset) {
+                        btn.style.backgroundColor = '#1e3a8a';
+                        btn.style.borderColor = '#3b82f6';
+                        btn.style.color = '#ffffff';
+                    } else {
+                        btn.style.backgroundColor = '#1e293b';
+                        btn.style.borderColor = '#334155';
+                        btn.style.color = '#ffffff';
+                    }
+                }
+            });
+
+            const sliderBox = document.getElementById('custom-scene-slider-box');
+            if (sliderBox) {
+                sliderBox.style.display = (preset === 'custom') ? 'flex' : 'none';
+            }
+        }
+
+        function updateCustomSceneValue(val) {
+            customSceneCount = parseInt(val, 10);
+            const label = document.getElementById('custom-scene-val-label');
+            if (label) label.innerText = customSceneCount + '씬';
+            localStorage.setItem('yadam_custom_scene_count', customSceneCount);
+        }
+
+        function getFormatInstructionText() {
+            switch (selectedStoryFormat) {
+                case 'in_media_res':
+                    return "\n\n★ [서사 구조 지침: 충격 사건 선공개 (in_media_res)] ★\n오프닝 인트로에서 사건의 충격적인 결말/클라이맥스 장면을 먼저 극적으로 제시하여 압도적 궁금증을 유도한 뒤, 과거 사건의 시발점으로 역추적 전환하는 구성으로 작성하라.";
+                case 'multi_perspective':
+                    return "\n\n★ [서사 구조 지침: 사건 비교 / 평행 시점 (multi_perspective)] ★\n공식 실록의 기록과 야사/비기의 기록, 혹은 왕의 시선과 신하/피해자의 시선을 교차 대조하며 진실을 추적하는 입체적 교차 구성으로 작성하라.";
+                case 'omnibus_3part':
+                    return "\n\n★ [서사 구조 지침: 3단계 옴니버스 (omnibus_3part)] ★\n연관된 3가지 기이한 야담 사건을 1부, 2부, 3부 옴니버스 형식으로 구성하여 각 에피소드마다 확실한 몰입과 반전을 선사하라.";
+                case 'investigation':
+                    return "\n\n★ [서사 구조 지침: 질문-검증-결론 다큐 (investigation)] ★\n역사적 의혹 제시 -> 수사관의 시선으로 사료 검증 -> 충격적 진실 규명의 고품격 수사 다큐멘터리 구도로 작성하라.";
+                default:
+                    return "\n\n★ [서사 구조 지침: 정통 기승전결 (classic)] ★\n사건의 발단부터 전개, 고조, 대반전, 여운 깊은 결말까지 연년체 순서로 기승전결을 전개하라.";
+            }
+        }
+
+        function getLengthInstructionText() {
+            if (selectedLengthPreset === 'shorts') {
+                return "\n\n★ [분량 지침: 80초 쇼츠 모드 (총 8개 씬 / 씬당 10초)] ★\n8개 씬으로 80초 안에 완결되는 독립 쇼츠 대본으로 기획하라.";
+            } else if (selectedLengthPreset === 'custom') {
+                return `\n\n★ [분량 지침: 사용자 지정 ${customSceneCount}씬 모드] ★\n전체 분량을 총 ${customSceneCount}개의 씬으로 균등 배분하여 기획하라.`;
+            } else if (selectedLengthPreset === 'deep_dive') {
+                return "\n\n★ [분량 지침: 대작/심층 탐구 모드 (14~18분 롱폼 / 60씬)] ★\n각 씬의 묘사와 배경, 인물 내면 심리를 매우 밀도 높게 깊이 작성하라.";
+            } else if (selectedLengthPreset === 'auto_flow') {
+                return "\n\n★ [분량 지침: AI 가변 분량 모드] ★\n서사 호흡에 맞춰 씬의 길이와 인텐시티를 유연하게 가변 조정하라.";
+            } else {
+                return "\n\n★ [분량 지침: 표준 롱폼 모드 (9~13분 / 60씬)] ★\n총 60개 씬의 롱폼 대본 가이드라인에 맞춰 기획하라.";
+            }
+        }
+
+        async function recommendPresetAi() {
+            const topicText = document.getElementById('prompt-input').value.trim() || document.getElementById('project-title').value.trim();
+            if (!topicText || topicText === fallbackDefaultTitle) {
+                alert('추천을 받으려면 주제/키워드를 먼저 [6. 제미나이 명령어 피드백] 입력창이나 [2. 프로젝트 정보] 제목란에 적어주세요.');
+                return;
+            }
+
+            const activeKey = getActiveApiKey();
+            if (!activeKey) {
+                alert('우측 API 키를 먼저 입력해 주세요.');
+                return;
+            }
+
+            const modelName = document.getElementById('model-name').value.trim() || 'gemini-2.5-flash';
+            const btn = document.getElementById('btn-ai-recommend');
+            btn.innerText = '⏳ 분석 중...';
+            btn.disabled = true;
+
+            const systemPrompt = `You are a YouTube Historical Content Strategist. Analyze the topic and recommend story format and video length preset.
+Return JSON strictly with this schema:
+{
+  "recommendedFormat": "classic" | "in_media_res" | "multi_perspective" | "omnibus_3part" | "investigation",
+  "recommendedLength": "shorts" | "standard" | "deep_dive" | "auto_flow",
+  "recommendationReason": "Detailed Korean explanation of why this format and length fit the topic best"
+}`;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `주제: "${topicText}"\n이 주제에 가장 적합한 서사 포맷과 목표 영상 길이를 분석해서 JSON 형식으로 추천해줘.` }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            temperature: 0.2
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API HTTP ${response.status}`);
+                const data = await response.json();
+                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                const parsed = JSON.parse(jsonText);
+
+                if (parsed.recommendedFormat && parsed.recommendedLength) {
+                    setStoryFormat(parsed.recommendedFormat);
+                    setLengthPreset(parsed.recommendedLength);
+                    
+                    const reasonBox = document.getElementById('ai-recommend-reason-box');
+                    const reasonText = document.getElementById('ai-recommend-reason-text');
+                    if (reasonBox && reasonText) {
+                        reasonText.innerText = parsed.recommendationReason || "이 주제에 가장 효과적인 시청 지속률 서사 포맷으로 자동 설정되었습니다.";
+                        reasonBox.style.display = 'block';
+                    }
+                    alert(`💡 AI 맞춤 추천 완료!\n\n• 서사 구조: ${parsed.recommendedFormat}\n• 영상 길이: ${parsed.recommendedLength}\n\n사유: ${parsed.recommendationReason}`);
+                }
+            } catch (err) {
+                alert(`AI 추천 분석 오류: ${err.message}`);
+            } finally {
+                btn.innerText = '💡 AI 맞춤 추천';
+                btn.disabled = false;
+            }
+        }
 
         // ⚠️ 뒤로가기 실수로 인한 유튜브 대본 기획 전체 유실 방지 장치
         window.addEventListener('beforeunload', function (e) {
@@ -838,6 +1029,14 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
 
             updateSaveButtonState();
             renderStageTabs();
+
+            // Restore story format and length preset UI
+            setStoryFormat(selectedStoryFormat);
+            setLengthPreset(selectedLengthPreset);
+            const customSlider = document.getElementById('custom-scene-slider');
+            if (customSlider) customSlider.value = customSceneCount;
+            updateCustomSceneValue(customSceneCount);
+
             if (getActiveApiKey()) verifyKeyDirectly(getActiveApiKey());
         };
 
@@ -1060,57 +1259,58 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
         function triggerStage(stage) {
             let cmd = "";
             lastTriggeredStage = stage;
+            const extraRules = getFormatInstructionText() + getLengthInstructionText();
             switch (stage) {
                 case '0단계': 
-                    cmd = "0단계: 조회수와 몰입도가 극대화된 역사 미스터리/야담 전용 신선한 주제 5개를 추천해줘. 각 주제는 역사적 실마리와 숨겨진 미스터리 음모 요소를 결합해 설명해줘."; 
+                    cmd = "0단계: 조회수와 몰입도가 극대화된 역사 미스터리/야담 전용 신선한 주제 5개를 추천해줘. 각 주제는 역사적 실마리와 숨겨진 미스터리 음모 요소를 결합해 설명해줘." + extraRules; 
                     break;
                 case '1단계': 
-                    cmd = "1단계: 추천된 주제 중 하나를 선택하거나, 사용자가 원하는 핵심 설정에 따라 조선 정통 야담풍의 어울리는 강렬한 영상 대본 제목 5종을 제안하고, 전체 20분 분량에 걸맞는 총 60개 씬(60-scene sequence) 목차 기획 개요를 작성해줘. 또한, 이 역사극의 주요 핵심 인물들을 '야담 표준 캐릭터 식별자 코드(Ch_A: 주역, Ch_B: 상대왕/임금, Ch_D: 조력녀, Ch_F: 악역/대감 등)'에 100% 매칭하여 등장인물 스펙글을 적어주고, 반드시 'Ch_A(특징)', 'Ch_B(특징)' 포맷으로 등장인물을 선언해줘. 이것은 스토리보드 엔진의 로컬 파서가 정확히 인식하기 위한 필수 요구사항이야."; 
+                    cmd = "1단계: 추천된 주제 중 하나를 선택하거나, 사용자가 원하는 핵심 설정에 따라 조선 정통 야담풍의 어울리는 강렬한 영상 대본 제목 5종을 제안하고, 선택한 서사 구조 템플릿과 목표 영상 길이에 맞춘 목차 기획 개요를 작성해줘. 또한, 이 역사극의 주요 핵심 인물들을 '야담 표준 캐릭터 식별자 코드(Ch_A: 주역, Ch_B: 상대왕/임금, Ch_D: 조력녀, Ch_F: 악역/대감 등)'에 100% 매칭하여 등장인물 스펙글을 적어주고, 반드시 'Ch_A(특징)', 'Ch_B(특징)' 포맷으로 등장인물을 선언해줘. 이것은 스토리보드 엔진의 로컬 파서가 정확히 인식하기 위한 필수 요구사항이야." + extraRules; 
                     break;
                 case '인트로': 
-                    cmd = "2단계 [인트로 파트 상세기획]: Scene 1부터 Scene 8까지 (8개 씬) 상세 구성해줘. 각 씬은 '9.5초의 실 낭독'에 최적화되게 글자수 약 75자~90자 내외로 씬당 나레이션을 구성해줘.\n\n" +
+                    cmd = "2단계 [인트로 파트 상세기획]: 오프닝 인트로 씬들을 상세 구성해줘. 각 씬은 '9.5초의 실 낭독'에 최적화되게 글자수 약 75자~90자 내외로 씬당 나레이션을 구성해줘.\n\n" +
                           "★ [인트로 기획 핵심 규칙: LTX 모션 최적화 & CTR 극대화] ★\n" +
                           "1. **시네마틱 LTX 비디오 무브먼트 생성**: 인트로의 영문 이미지 프롬프트는 비디오 변환(LTX) 시 밋밋한 정적 슬라이드가 아닌, **역동적이고 차별화된 시네마틱 모션(Cinematic Motion)**이 자연스럽게 일어나도록 기획해줘. 비디오 생성에 생명력을 주는 연출 요소들(예: 바람에 격렬히 날리는 도포 자락과 머리칼, 어둠 속에서 타오르며 흩어지는 횃불 불꽃과 붉은 불씨들, 흩날리는 강한 눈발, 은은하게 피어오르는 방 안의 등잔불 연기, 조용히 흘러가는 짙은 안개 등)을 구체적인 영문 묘사로 가미한다. 앵글은 주역(Ch_A) 중심의 클로즈업/바스트 샷 구도로 인물의 세밀한 표정 변화를 담고, 카메라 무브먼트(Slow tracking zoom-in, dynamic camera sliding, camera panning 등)를 함께 지시하여 영화의 오프닝과 같은 시각적 입체감을 높인다.\n" +
-                          "2. **CTR 보존 및 호기심 유지**: 인트로 나레이션은 본편의 강력한 서사 도입부를 상징적으로 요약하되, 결코 결말이나 핵심 반전을 미리 스포일러하지 마라. 가장 치명적인 미스터리의 서두와 위험천만한 딜레마만을 압축 제기하며 시청자가 무조건 끝까지 시청하게 만드는 파괴적인 궁금증(Hook)을 Scene 8에 던져서 끝마쳐줘.\n\n" +
+                          "2. **CTR 보존 및 호기심 유지**: 인트로 나레이션은 본편의 강력한 서사 도입부를 상징적으로 요약하되, 결코 결말이나 핵심 반전을 미리 스포일러하지 마라. 가장 치명적인 미스터리의 서두와 위험천만한 딜레마만을 압축 제기하며 시청자가 무조건 끝까지 시청하게 만드는 파괴적인 궁금증(Hook)을 인트로 마지막 씬에 던져서 끝마쳐줘.\n\n" +
                           "모든 씬은 반드시 스토리보드 제어 엔진의 정밀 파서 및 캐릭터 DB와 완벽히 호환되도록 다음과 같은 포맷으로 정확히 출력해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 1단계에서 선언한 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해.";
+                          "Ch_ID는 반드시 1단계에서 선언한 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해." + extraRules;
                     break;
                 case '사건발생': 
-                    cmd = "[사건 발생 파트 상세기획]: Scene 9부터 Scene 18까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                    cmd = "[사건 발생 파트 상세기획]: 사건 발생 파트 씬들의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘." + extraRules; 
                     break;
                 case '의혹': 
-                    cmd = "[의혹과 갈등 파트 상세기획]: Scene 19부터 Scene 28까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                    cmd = "[의혹과 갈등 파트 상세기획]: 의혹과 갈등 파트 씬들의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘." + extraRules; 
                     break;
                 case '추적': 
-                    cmd = "[진실 추적 파트 상세기획]: Scene 29부터 Scene 38까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                    cmd = "[진실 추적 파트 상세기획]: 진실 추적 파트 씬들의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘." + extraRules; 
                     break;
                 case '반전': 
-                    cmd = "[반전 파트 상세기획]: Scene 39부터 Scene 48까지 (10개 씬)의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
+                    cmd = "[반전 파트 상세기획]: 클라이맥스 반전 파트 씬들의 상세 대본과 연출을 짜줘. 각 씬은 '15초의 실 낭독'에 부합하도록 글자수 약 110자~130자 내외로 구성해줘. 모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘."; 
+                          "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘." + extraRules; 
                     break;
                 case '결말': 
-                    cmd = "[결말 파트 상세기획]: Scene 49부터 Scene 60까지 (12개 씬)의 피날레 상세 대본과 연출을 짜줘.\n\n" +
-                          "★ [결말 기획 핵심 규칙: 2안 시네마틱 브릿지 아웃트로 적용] ★\n" +
-                          "1. **Scene 59에서 서사 완결**: 기승전결의 본편 스토리는 반드시 Scene 59에서 웅장하고 깊은 여운이 가득하게 완전히 매듭(완결)지어줘.\n" +
-                          "2. **Scene 60 시네마틱 브릿지**: 마지막 Scene 60은 기계적인 '오늘 영상 잘 보셨나요?' 대신 본편 결말의 마지막 정서를 차분하고 감동적으로 이어받는 문장으로 전반부를 열고(예: 그 깊은 어둠 속에 묻힌 진실은 오늘 우리에게 무엇을 말해주고 있을까요?), 이어서 자연스럽게 시청자 반응 댓글 유도 및 감사 인사로 물 흐르듯 빌드업해줘. (낭독 시간 9.5초용 글자수 약 80자~95자 내외)\n" +
-                          "3. **Scene 60 비주얼 여운**: 비주얼(LTX 프롬프트) 역시 갑자기 다른 엉뚱한 인물이나 장소로 전환되는 것을 금지하고, 본편의 마지막 무드를 상징하는 여운 깊은 풍경(예: 흩날리는 강한 눈발 속 은은하게 피어오르는 처마 끝 등대 풍경 등)에 느린 줌아웃과 미세한 시네마틱 움직임을 지시하여 완벽한 페이드아웃을 만들어줘.\n\n" +
+                    cmd = "[결말 파트 상세기획]: 피날레 결말 파트 씬들의 상세 대본과 연출을 짜줘.\n\n" +
+                          "★ [결말 기획 핵심 규칙: 시네마틱 브릿지 아웃트로 적용] ★\n" +
+                          "1. **결말 직전 씬에서 서사 완결**: 기승전결의 본편 스토리는 반드시 결말 직전 씬에서 웅장하고 깊은 여운이 가득하게 완전히 매듭(완결)지어줘.\n" +
+                          "2. **최후의 씬 시네마틱 브릿지**: 마지막 피날레 씬은 기계적인 '오늘 영상 잘 보셨나요?' 대신 본편 결말의 마지막 정서를 차분하고 감동적으로 이어받는 문장으로 전반부를 열고(예: 그 깊은 어둠 속에 묻힌 진실은 오늘 우리에게 무엇을 말해주고 있을까요?), 이어서 자연스럽게 시청자 반응 댓글 유도 및 감사 인사로 물 흐르듯 빌드업해줘. (낭독 시간 9.5초용 글자수 약 80자~95자 내외)\n" +
+                          "3. **최후의 씬 비주얼 여운**: 비주얼(LTX 프롬프트) 역시 갑자기 다른 엉뚱한 인물이나 장소로 전환되는 것을 금지하고, 본편의 마지막 무드를 상징하는 여운 깊은 풍경(예: 흩날리는 강한 눈발 속 은은하게 피어오르는 처마 끝 등대 풍경 등)에 느린 줌아웃과 미세한 시네마틱 움직임을 지시하여 완벽한 페이드아웃을 만들어줘.\n\n" +
                           "모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
-                          "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해."; 
+                          "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해." + extraRules; 
                     break;
                 case '썸네일': 
                     cmd = "4단계: 유튜브 썸네일 및 매체 최적화 기획을 수행해줘. 가장 충격적이고 호기심을 폭발시키는 클라이맥스 씬 기반의 디렉션 프롬프트와 썸네일 텍스트 문구 5선 후보, 설명란(타임라인 포함), 해시태그, Pinned Comment(고정 댓글 제안)까지 완결성 있게 뽑아줘."; 
@@ -1156,7 +1356,7 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
             
             if (prompts.length === 0) {
                 if (confirm('대본 기획안에서 정형화된 [IMAGE GENERATION PROMPT] 패턴을 찾을 수 없습니다. 대본 작성이 완료되지 않았거나 기본 형식이 다를 수 있습니다. 제미나이 AI 서버를 가동해 대본을 분석하고 프롬프트들을 일괄 추출하시겠습니까?')) {
-                    sendPrompt("대본 기획안 전체에서 Scene 1부터 Scene 60까지 '영어 LTX 2.3 영문 프롬프트(English dynamic prompt)'만 한 줄도 빼놓지 말고 일괄적으로 모아서 깔끔하게 출력해줘. 사용자가 LTX 비디오 렌더러에 번거로움 없이 편하게 순서대로 즉각 복사해서 붙여넣을 수 있게 다음과 같이 번호를 딱 매겨서 영문 프롬프트 본문만 한눈에 보이게 묶어줘.\n\n예시 포맷:\n[Scene 1] 영문 프롬프트 내용..\n[Scene 2] 영문 프롬프트 내용..\n... 형식으로 다른 잡설 없이 깔끔하게 추출해줘.");
+                    sendPrompt("대본 기획안 전체에서 첫 번째 씬부터 마지막 씬까지 '영어 LTX 2.3 영문 프롬프트(English dynamic prompt)'만 한 줄도 빼놓지 말고 일괄적으로 모아서 깔끔하게 출력해줘. 사용자가 LTX 비디오 렌더러에 번거로움 없이 편하게 순서대로 즉각 복사해서 붙여넣을 수 있게 다음과 같이 번호를 딱 매겨서 영문 프롬프트 본문만 한눈에 보이게 묶어줘.\n\n예시 포맷:\n[Scene 1] 영문 프롬프트 내용..\n[Scene 2] 영문 프롬프트 내용..\n... 형식으로 다른 잡설 없이 깔끔하게 추출해줘.");
                 }
                 return;
             }
@@ -1206,7 +1406,15 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
 
         function generateShorts() {
             currentActiveStage = "쇼츠";
-            sendPrompt("이 대본의 기획 내용 중 시청자들이 가장 깜짝 놀랄 만한 부분 또는 1분 하이라이트 요소를 활용하여 마케팅 집중도가 높은 60초 유튜브 쇼츠(Shorts) 오프닝 대본을 작성해줘. 시각 연출 타이밍과 화려한 자막 연출선도 함께 반영해줘.");
+            sendPrompt("■ [80초 독립 완결형 유튜브 쇼츠(Shorts) 전용 대본 기획 (총 8씬 / 씬당 10초)]:\n" +
+                       "본편의 예고편이나 단순 요약이 아닌, 80초 만에 시청자를 매료시키는 '독립된 완결 구조의 흥미진진한 숏폼 역사 스토리' 대본을 작성해줘.\n\n" +
+                       "★ [쇼츠 8씬 구조화 필수 규칙] ★\n" +
+                       "1. 총 8개 씬(Scene 1 ~ Scene 8)으로 구성하며, 각 씬은 10초 영상(실 낭독 9초, 한글 공백 포함 70자~85자 내외)에 정확히 맞춰 작성해줘.\n" +
+                       "2. 기승전결(강렬한 오프닝 몰입 -> 충격적 사건 발생 -> 극적 반전 -> 여운 깊은 완결)이 8씬 안에 완전히 완결되는 독립 스토리이어야 해.\n" +
+                       "3. 모든 씬은 스토리보드 제어 엔진 로컬 파서와 100% 호환되도록 아래 표준 포맷을 철저히 준수해줘:\n\n" +
+                       "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
+                       "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera movement.\n\n" +
+                       "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D 등)를 사용하고, 80초 완결형 8씬으로 깔끔하고 흥미롭게 작성해줘.");
         }
 
         function generateCommunityPost() {
@@ -1216,8 +1424,8 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
 
         function extractScript() {
             currentActiveStage = "대본";
-            sendPrompt("■ 5단계 [전체 60개 씬 장편 대본 통합 일괄 출력]:\n" +
-                       "Scene 1부터 Scene 60까지의 모든 씬에 대하여, 기획된 전체 표준 대본 양식 세부 기획 내용을 단 하나도 누락하거나 축소하지 말고 완벽히 순서대로 한 번에 모아서 출력해줘.\n" +
+            sendPrompt("■ 5단계 [전체 대본 통합 일괄 출력]:\n" +
+                       "첫 번째 씬부터 마지막 씬까지의 모든 씬에 대하여, 기획된 전체 표준 대본 양식 세부 기획 내용을 단 하나도 누락하거나 축소하지 말고 완벽히 순서대로 한 번에 모아서 출력해줘.\n" +
                        "반드시 다음의 표준 스토리보드 전체 포맷 규격을 칼같이 준수하여 깔끔하게 모아줘:\n\n" +
                        "포맷 규격:\n" +
                        "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
@@ -1225,13 +1433,13 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
                        "예시:\n" +
                        "[S1.] [산속 깊은 숲, 밤 / Ch_A] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[IMAGE GENERATION PROMPT]: A direct dramatic scene, a Joseon period scholar holding a paper lantern walking through a dark spooky forest, dense low fog, night atmosphere, highly detailed, realistic, LTX style.\n\n" +
-                       "이 규격에 맞춰 한 씬도 빠짐없이 Scene 1부터 Scene 60까지 정교하게 출력해 줘.");
+                       "이 규격에 맞춰 한 씬도 빠짐없이 첫 번째 씬부터 마지막 씬까지 정교하게 출력해 줘.");
         }
 
         function extractScriptPart1() {
             currentActiveStage = "대본1";
-            sendPrompt("■ 5단계 [통합 대본 1부 (장소 정보 및 이미지 프롬프트 포함 - Scene 1 ~ Scene 30)]:\n" +
-                       "전체 60개 씬 중 전반부인 Scene 1부터 Scene 30까지의 30개 씬에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+            sendPrompt("■ 5단계 [통합 대본 1부 (장소 정보 및 이미지 프롬프트 포함 - 전반부)]:\n" +
+                       "전체 씬 중 전반부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
                        "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
                        "포맷 규격:\n" +
                        "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
@@ -1239,13 +1447,13 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
                        "예시:\n" +
                        "[S1.] [산속 깊은 숲, 밤 / Ch_A] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[IMAGE GENERATION PROMPT]: A direct dramatic scene, a Joseon period scholar holding a paper lantern walking through a dark spooky forest, dense low fog, night atmosphere, highly detailed, realistic, LTX style.\n\n" +
-                       "인트로(S1-8)는 10.5초(실 낭독 9.5초 전후, 글자수 약 75자~90자 내외), 서사(S9-30)는 16초(실 낭독 15초 전후, 글자수 약 110자~130자 내외) 분량에 완전히 최적화되게 글자수를 기획된 그대로 가이드라인 맞춰 Scene 1부터 Scene 30까지 한 씬도 빠뜨리지 말고 출력해줘.");
+                       "오프닝 인트로는 10.5초(실 낭독 9.5초 전후, 글자수 약 75자~90자 내외), 일반 서사는 16초(실 낭독 15초 전후, 글자수 약 110자~130자 내외) 분량에 완전히 최적화되게 글자수를 기획된 그대로 가이드라인 맞춰 전반부 첫 씬부터 순서대로 한 씬도 빠뜨리지 말고 출력해줘.");
         }
 
         function extractScriptPart2() {
             currentActiveStage = "대본2";
-            sendPrompt("■ 5단계 [통합 대본 2부 (장소 정보 및 이미지 프롬프트 포함 - Scene 31 ~ Scene 60)]:\n" +
-                       "전체 60개 씬 중 후반부 및 결말부인 Scene 31부터 Scene 60까지의 30개 씬에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+            sendPrompt("■ 5단계 [통합 대본 2부 (장소 정보 및 이미지 프롬프트 포함 - 후반부 ~ 결말)]:\n" +
+                       "전체 씬 중 후반부 및 결말부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
                        "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
                        "포맷 규격:\n" +
                        "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
@@ -1253,44 +1461,44 @@ Scene 60은 본편의 결말 서사와 소통 마무리 멘트가 끊김 없이 
                        "예시:\n" +
                        "[S31.] [조정 대전, 낮 / Ch_B_Yeongjo] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
                        "[IMAGE GENERATION PROMPT]: Joseon Dynasty king speaking in deep distress in the royal throne hall, serious, highly detailed, realistic, LTX style.\n\n" +
-                       "서사 및 결말(S31-59)은 씬당 16초(실 낭독 15초 전후, 한글 공백 포함 110자 ~ 130자 내외) 분량, 마지막 Scene 60는 10.5초(실 낭독 9.5초 전후, 마무리 멘트 위주 글자수 약 75자~90자 내외) 분량에 완전히 최적화되게 글자수를 기획된 가이드라인 맞춰, Scene 31부터 최후의 Scene 60까지 한 씬도 빠뜨리지 말고 출력해줘.");
+                       "후반부 서사는 씬당 16초(실 낭독 15초 전후, 한글 공백 포함 110자 ~ 130자 내외) 분량, 마지막 피날레 씬은 10.5초(실 낭독 9.5초 전후, 마무리 멘트 위주 글자수 약 75자~90자 내외) 분량에 완전히 최적화되게 글자수를 기획된 가이드라인 맞춰, 후반부 첫 씬부터 최후의 피날레 씬까지 한 씬도 빠뜨리지 말고 출력해줘.");
         }
 
         function extractTTSOutput() {
             currentActiveStage = "TTS";
             sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 (1회 완결 일괄출력 모드)]:\n" +
-                       "Scene 1부터 Scene 60까지의 모든 씬에 대하여, 별도의 분산 추출 없이 전체 씬의 한국어 대사본을 순차적으로 끝까지 이어서 단 한 씬도 누락하지 말고 한 번에 다 뽑아줘.\n" +
+                       "첫 번째 씬부터 마지막 씬까지의 모든 씬에 대하여, 별도의 분산 추출 없이 전체 씬의 한국어 대사본을 순차적으로 끝까지 이어서 단 한 씬도 누락하지 말고 한 번에 다 뽑아줘.\n" +
                        "불필요한 영어 프롬프트나 대괄호 장소 정보는 다 버리고 오직 성우 TTS 및 스토리보드 컨트롤러 파싱에 꼭 필요한 아래의 간결 미니멀 규격으로만 포맷팅해 줘.\n\n" +
                        "포맷 규칙:\n" +
                        "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
                        "예시:\n" +
                        "[S1.] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[S2.] \"마침내 저 멀리 희미한 등불이 켜진 오막살이가 보였다.\" (오막살이 앞에 서서 굳어버린 이현, Med shot)\n\n" +
-                       "이 포맷을 철저히 유지하며 전체 60개 씬에 대해 25,000 토큰 이하의 정교하고 완벽한 단일 텍스트 구조로 일제히 출력해 주십시오. 씬 번호를 건너뛰거나 중간에 생략(예: 등등..)하지 말고 끝까지 다 적어줘.");
+                       "이 포맷을 철저히 유지하며 전체 씬에 대해 정교하고 완벽한 단일 텍스트 구조로 일제히 출력해 주십시오. 씬 번호를 건너뛰거나 중간에 생략(예: 등등..)하지 말고 끝까지 다 적어줘.");
         }
 
         function extractTTSOutputPart1() {
             currentActiveStage = "TTS1";
-            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 1부 (Scene 1 ~ Scene 30)]:\n" +
-                       "전체 60개 씬 중 전반부인 Scene 1부터 Scene 30까지의 30개 씬에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 1부 (전반부)]:\n" +
+                       "전체 씬 중 전반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
                        "엄격한 미니멀 포맷 규격:\n" +
                        "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
                        "예시:\n" +
                        "[S1.] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[S2.] \"마침내 저 멀리 희미한 등불이 켜진 오막살이가 보였다.\" (오막살이 앞에 서서 굳어버린 이현, Med shot)\n\n" +
-                       "중간 생략 없이 기획된 나레이션 글자수 분량 그대로, Scene 1부터 Scene 30까지 가득 채워 포맷에 맞춰 빈틈없이 출력해줘.");
+                       "중간 생략 없이 기획된 나레이션 글자수 분량 그대로, 전반부 첫 씬부터 순서대로 가득 채워 포맷에 맞춰 빈틈없이 출력해줘.");
         }
 
         function extractTTSOutputPart2() {
             currentActiveStage = "TTS2";
-            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 2부 (Scene 31 ~ Scene 60)]:\n" +
-                       "전체 60개 씬 중 후반부인 Scene 31부터 Scene 60까지의 30개 씬에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 2부 (후반부 ~ 결말)]:\n" +
+                       "전체 씬 중 후반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
                        "엄격한 미니멀 포맷 규격:\n" +
                        "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
                        "예시:\n" +
                        "[S31.] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
                        "[S32.] \"백성들과 신하들은 모두 긴장감 서린 눈으로 처분을 기다리고 있었다.\" (잔뜩 굳어 경직된 신하들의 모습, Wide shot)\n\n" +
-                       "중간 생략이나 끝부분 요약 축소 없이 기획된 후반부 나레이션 분량(S31-59는 씬당 공백포함 110자 ~ 130자 내외, S60은 공백포함 75자 ~ 90자 내외)을 가이드라인에 맞게 기획된 그대로 Scene 31부터 최후의 Scene 60까지 완벽하게 출력해줘.");
+                       "중간 생략이나 끝부분 요약 축소 없이 기획된 후반부 나레이션 분량(후반부 일반 씬은 공백포함 110자 ~ 130자 내외, 마지막 피날레 씬은 공백포함 75자 ~ 90자 내외)을 가이드라인에 맞게 기획된 그대로 후반부 첫 씬부터 최후의 피날레 씬까지 완벽하게 출력해줘.");
         }
 
         function getVersionMap() { 

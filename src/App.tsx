@@ -39,6 +39,7 @@ import {
   HelpCircle,
   Layers,
   Zap,
+  Lightbulb,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -49,6 +50,8 @@ import {
   StoryboardAnalysisResponse,
   ThumbnailDirectorData,
   YadamSafetyReport,
+  StoryFormat,
+  LengthPreset,
 } from "./types";
 
 // Simple, high-reliability IndexedDB wrapper to bypass 5MB LocalStorage limit
@@ -179,11 +182,18 @@ const YADAM_STORY_PRESET = `어느 깊은 밤, 조선 시대 최고의 젊은 �
 하지만 그 문을 부수고 돌입한 푸른 기운을 감싼 성스러운 백호(하늘의 무장)는 이현을 해치지 않고 울부짖었다. 도리어 백호는 푸른 도깨비불을 토해내며 이현의 배후에 웅크려 있던 설화를 향해 날카로운 앞발을 들이밀었다. 그 가래 끓는 소용돌이 속에서 설화의 그림자는 아홉 개의 사나운 꼬리를 치켜든 요괴 가마솥 구미호로 변해 백호를 뒤덮었다. 선비 이현은 방 모퉁이에 주저앉아, 차갑고 신비로운 도깨비 숲의 이 신령스러운 전쟁을 혼을 빼앗긴 채 지켜보았다.`;
 
 export default function App() {
-  // Config parameters
+  // Config parameters & New Workflow States
   const [scriptText, setScriptText] = useState(YADAM_STORY_PRESET);
+  const [storyFormat, setStoryFormat] = useState<StoryFormat>("classic");
+  const [lengthPreset, setLengthPreset] = useState<LengthPreset>("standard");
+  const [scriptTopic, setScriptTopic] = useState("");
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [isRecommendingPreset, setIsRecommendingPreset] = useState(false);
+  const [recommendationReason, setRecommendationReason] = useState("");
+
   const [modelName, setModelName] = useState<
     "gemini-2.5-flash-image" | "gemini-3.1-flash-image"
-  >("gemini-2.5-flash-image");
+  >("gemini-3.1-flash-image");
   const [aspectRatio, setAspectRatio] = useState<
     "1:1" | "9:16" | "16:9" | "3:4" | "4:3"
   >("16:9");
@@ -892,6 +902,79 @@ export default function App() {
     }
   };
 
+  // AI Recommendation of Story Format & Length Preset based on Topic
+  const handleRecommendPreset = async () => {
+    if (!scriptTopic.trim()) {
+      showFeedback("추천을 받으려면 주제/키워드를 먼저 입력해 주세요 (예: 영조와 사도세자 임오화변, 선조와 허준의 의서 비밀 등).", "error");
+      return;
+    }
+
+    setIsRecommendingPreset(true);
+    setRecommendationReason("");
+    showFeedback("AI 전략 디렉터가 주제에 맞는 최적의 서사 포맷과 영상 길이를 분석 중입니다...", "info");
+
+    try {
+      const response = await fetch("/api/recommend-story-preset", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ topic: scriptTopic }),
+      });
+
+      const data = await safeParseJSON(response, "추천 분석 실패");
+      if (data.recommendedFormat && data.recommendedLength) {
+        setStoryFormat(data.recommendedFormat as StoryFormat);
+        setLengthPreset(data.recommendedLength as LengthPreset);
+        if (data.recommendedLength === "custom") {
+          setQuantityOverride(true);
+        } else {
+          setQuantityOverride(false);
+        }
+        setRecommendationReason(data.recommendationReason || "이 주제에 가장 효과적인 시청 지속률(Retention) 서사 포맷과 분량으로 추천되었습니다.");
+        showFeedback("💡 AI 맞춤 서사 템플릿과 영상 길이가 자동으로 적용되었습니다!", "success");
+      }
+    } catch (err: any) {
+      console.error("Recommend preset error:", err);
+      showFeedback(`추천 분석 오류: ${err.message}`, "error");
+    } finally {
+      setIsRecommendingPreset(false);
+    }
+  };
+
+  // AI Script Generation Handler
+  const handleGenerateScript = async () => {
+    if (!scriptTopic.trim()) {
+      showFeedback("대본을 생성할 주제/키워드를 입력해 주세요 (예: 영조와 사도세자의 임오화변, 선조의 왜란 도망 사건 등).", "error");
+      return;
+    }
+
+    setIsGeneratingScript(true);
+    showFeedback("AI 스토리텔링 전문 작가가 고품질 야담 대본 원고를 집필 중입니다...", "info");
+
+    try {
+      const response = await fetch("/api/generate-script", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          topic: scriptTopic,
+          storyFormat,
+          lengthPreset,
+          targetSceneCount: quantityValue,
+        }),
+      });
+
+      const data = await safeParseJSON(response, "대본 작성 실패");
+      if (data.script) {
+        setScriptText(data.script);
+        showFeedback("✨ AI 대본 작성이 완료되었습니다! 아래 원고를 확인하신 후 [스토리보드 분석 시작] 단추를 누르세요.", "success");
+      }
+    } catch (err: any) {
+      console.error("Script generation error:", err);
+      showFeedback(`대본 생성 오류: ${err.message}`, "error");
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  };
+
   // Step 1: Script Analysis with Gemini 3.5 Flash
   const handleAnalyzeScript = async () => {
     if (!scriptText.trim()) {
@@ -922,12 +1005,12 @@ export default function App() {
           return prev + 0.8;
         } else if (prev < 38) {
           setAnalysisPhase(
-            "2단계: 조선 역사 배경 및 전통 야담 시간대 분산 배정 중...",
+            "2단계: 서사 포맷 템플릿 및 씬별 가변 호흡 배정 중...",
           );
           return prev + 1.1;
         } else if (prev < 65) {
           setAnalysisPhase(
-            "3단계: 핵심 주연/조연 성격 분석 및 단독 샷 연출 미장센 추출 중...",
+            "3단계: 핵심 주연/조연 성격 분석 및 LTX 비디오 추천 씬(10~15%) 엄선 중...",
           );
           return prev + 0.7;
         } else if (prev < 86) {
@@ -959,6 +1042,8 @@ export default function App() {
           quantityOverride,
           quantityValue,
           artStyle,
+          storyFormat,
+          lengthPreset,
         }),
       });
 
@@ -3024,6 +3109,32 @@ export default function App() {
                 </div>
               ) : (
                 <>
+                  {/* 스토리보드 원고 입력 헤더 */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 bg-[#121216] border border-white/5 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />
+                      <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          📜 스토리보드 대본 원고 입력
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">
+                            Storyboard Engine
+                          </span>
+                        </h3>
+                        <p className="text-xs text-white/50 mt-0.5">
+                          우측 상단 <span className="text-amber-300 font-semibold">[대본 플래너]</span>에서 집필된 대본이나 준비된 원고를 아래에 입력하고 타임라인을 구축하세요.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuideModal(true)}
+                      className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      워크플로우 & 수익화 가이드
+                    </button>
+                  </div>
+
                   {/* [지속 누적 추가 모드] (Append Mode) 스위치 상단 극대화 기획 제공 */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/20 to-blue-950/20 border border-emerald-500/20 rounded-lg px-4 py-3 mb-4 shadow-md">
                     <div className="flex items-start gap-2.5">
@@ -4012,6 +4123,31 @@ export default function App() {
                         <span className="bg-blue-600 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded shadow shrink-0">
                           SCENE #{scene.id}
                         </span>
+
+                        {/* Pacing Speed Badge */}
+                        {scene.pacingType === "fast" && (
+                          <span className="bg-amber-950/90 text-amber-300 border border-amber-500/40 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0" title="빠른 호흡 (3~6초 간결 씬)">
+                            ⚡ Fast (3~6s)
+                          </span>
+                        )}
+                        {scene.pacingType === "slow" && (
+                          <span className="bg-indigo-950/90 text-indigo-300 border border-indigo-500/40 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0" title="느린 호흡 (15~18초 몰입 씬)">
+                            🌅 Slow (15~18s)
+                          </span>
+                        )}
+                        {(scene.pacingType === "normal" || !scene.pacingType) && (
+                          <span className="bg-slate-900/90 text-slate-300 border border-slate-700 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
+                            💬 Normal (8~12s)
+                          </span>
+                        )}
+
+                        {/* LTX 2.3 Video Recommendation Badge */}
+                        {scene.ltxRecommended && (
+                          <span className="bg-emerald-600 text-white border border-emerald-400 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0 flex items-center gap-1 animate-pulse" title={scene.ltxReason || "LTX 2.3 비디오화 추천 씬 (12초 이하)"}>
+                            🎬 LTX 추천 (≤12s)
+                          </span>
+                        )}
+
                         {scenes.length <= 15 ? (
                           <span className="bg-amber-950/90 text-amber-300 border border-amber-500/30 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow shrink-0">
                             📱 쇼츠 (10s 영상)
@@ -4041,14 +4177,6 @@ export default function App() {
                         <span className="bg-[#0a0a0c]/85 text-white/80 border border-white/5 text-[9px] font-mono px-1.5 py-0.5 rounded shadow truncate max-w-24 shrink-0">
                           {scene.locationName}
                         </span>
-                        {scene.id <= 8 && wanIntroOptimized && (
-                          <span
-                            className="bg-emerald-650/90 text-white font-bold text-[8px] px-1.5 py-0.5 rounded shadow border border-emerald-500/25 flex items-center gap-0.5 animate-pulse shrink-0 font-mono"
-                            title="WAN image-to-video optimization template applied"
-                          >
-                            🎬 WAN 모션
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -5550,6 +5678,93 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* Anti-Pattern & Repetitive AI Content Diagnostic Board */}
+                {safetyReport.antiPatternAnalysis && (
+                  <div className="bg-[#121216] border border-blue-500/30 rounded-xl p-6 space-y-5 shadow-lg relative overflow-hidden">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                      <div>
+                        <span className="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                          AI Repetitive Content Defense Engine
+                        </span>
+                        <h3 className="text-base font-bold text-white mt-1 flex items-center gap-2">
+                          ⚡ 양산형 컨텐츠/알고리즘 정지 회피 정밀 진단
+                        </h3>
+                        <p className="text-xs text-white/50">고정 템플릿 탈피도, 씬 호흡 가변율, LTX 비디오 적용율을 정밀 진단하여 알고리즘 제재를 원천 방지합니다.</p>
+                      </div>
+                      <div className="flex items-center gap-3 bg-[#1a1a24] p-3 rounded-xl border border-white/5">
+                        <div className="text-right">
+                          <div className="text-[10px] text-white/40 font-mono">독창성 점수</div>
+                          <div className="text-2xl font-extrabold text-amber-400 font-mono">
+                            {safetyReport.antiPatternAnalysis.patternScore} / 100
+                          </div>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-bold font-mono text-amber-300 text-sm">
+                          {safetyReport.antiPatternAnalysis.formatVarietyGrade}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <div className="text-[10px] text-white/40 font-mono uppercase">서사 구조 다양성</div>
+                        <div className="text-base font-bold text-white flex items-center justify-between">
+                          <span>템플릿 가변성</span>
+                          <span className="text-blue-400 font-mono font-bold">{safetyReport.antiPatternAnalysis.formatVarietyGrade}</span>
+                        </div>
+                        <p className="text-[11px] text-white/50">고정 기승전결 탈피 및 4가지 서사 모드 적용도</p>
+                      </div>
+
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <div className="text-[10px] text-white/40 font-mono uppercase">씬 호흡 가변율</div>
+                        <div className="text-base font-bold text-white flex items-center justify-between">
+                          <span>대본 Cadence</span>
+                          <span className="text-emerald-400 font-mono font-bold">{safetyReport.antiPatternAnalysis.pacingVariationGrade}</span>
+                        </div>
+                        <p className="text-[11px] text-white/50">3~6초 / 8~12초 / 15~18초 호흡 믹싱 비율</p>
+                      </div>
+
+                      <div className="p-4 bg-[#1a1a22] border border-white/5 rounded-lg space-y-1">
+                        <div className="text-[10px] text-white/40 font-mono uppercase">LTX 비디오화 비율</div>
+                        <div className="text-base font-bold text-white flex items-center justify-between">
+                          <span>Dynamic Motion</span>
+                          <span className="text-amber-400 font-mono font-bold">{safetyReport.antiPatternAnalysis.ltxUtilizationRatio}% (목표 10~15%)</span>
+                        </div>
+                        <p className="text-[11px] text-white/50">12초 이하 핵심 극적 씬 LTX 비디오화 비중</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div className="p-4 bg-rose-950/20 border border-rose-500/20 rounded-lg space-y-2">
+                        <h4 className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                          ⚠️ 알고리즘 감지 위험 요인 (Risk Factors)
+                        </h4>
+                        <ul className="space-y-1.5 text-xs text-rose-200/80">
+                          {safetyReport.antiPatternAnalysis.riskFactors.map((rf, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-rose-400 font-bold">•</span>
+                              <span>{rf}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-lg space-y-2">
+                        <h4 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                          💡 수익화 통과 조치 가이드 (Actionable Advice)
+                        </h4>
+                        <ul className="space-y-1.5 text-xs text-emerald-200/80">
+                          {safetyReport.antiPatternAnalysis.actionableAdvice.map((adv, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-emerald-400 font-bold">✓</span>
+                              <span>{adv}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -5816,13 +6031,13 @@ export default function App() {
                   id="select-api-model"
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value as any)}
-                  className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50"
+                  className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50 cursor-pointer font-sans"
                 >
-                  <option value="gemini-2.5-flash-image">
-                    Gemini 2.5 Flash Image Model
-                  </option>
                   <option value="gemini-3.1-flash-image">
-                    Gemini 3.1 Flash Image (2K Resolution for 16:9 / 9:16)
+                    Gemini 3.1 Flash Image (추천 기본값 / FHD 고화질)
+                  </option>
+                  <option value="gemini-2.5-flash-image">
+                    Gemini 2.5 Flash Image Model (이전 버전)
                   </option>
                 </select>
               </div>
@@ -6349,6 +6564,65 @@ export default function App() {
                   </ul>
                 </div>
 
+                {/* Step 4: New 2026 Anti-Pattern & Variable Pipeline Master Guide */}
+                <div className="bg-[#181820] border border-rose-500/30 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xs">4</span>
+                    주제선정부터 수익정지 진단기까지: 양산형 제재 회피 4대 전략
+                  </div>
+                  <div className="pl-8 space-y-2 text-white/80">
+                    <p>
+                      유튜브 2026 알고리즘은 <strong>"동일한 템플릿의 무한 반복"</strong> 및 <strong>"정적인 고정 자막 레이아웃"</strong>을 양산형 AI 컨텐츠로 감지하여 수익화를 정지시킵니다.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+                      <div className="p-2.5 bg-black/40 border border-rose-500/20 rounded">
+                        <strong className="text-rose-300 block mb-1">🎭 4가지 서사 템플릿 전환</strong>
+                        기승전결(classic), 결말 선공개(in_media_res), 다중 시점(multi_perspective), 질문-검증 다큐(docu_investigation)를 번갈아 채택하여 오프닝 서사를 다변화하세요.
+                      </div>
+                      <div className="p-2.5 bg-black/40 border border-amber-500/20 rounded">
+                        <strong className="text-amber-300 block mb-1">⏱️ 가변 씬 호흡 (Cadence)</strong>
+                        긴장 구간은 Fast(3~6초), 표준 구간은 Normal(8~12초), 감정 몰입은 Slow(15~18초)로 씬 호흡을 무작위 믹스하여 오디오/영상 박자 변화율을 확보합니다.
+                      </div>
+                      <div className="p-2.5 bg-black/40 border border-emerald-500/20 rounded">
+                        <strong className="text-emerald-300 block mb-1">🎬 LTX 비디오 10~15% 적용</strong>
+                        12초 이하의 극적 절정 씬에 LTX 2.3 모션을 10~15% 비중으로 적용하여 정적 일러스트 연속 구도를 탈피합니다.
+                      </div>
+                      <div className="p-2.5 bg-black/40 border border-blue-500/20 rounded">
+                        <strong className="text-blue-300 block mb-1">🛡️ 수익정지 진단기 정밀 검수</strong>
+                        대본 생성 직후 4번째 탭 [수익정지 진단기]에서 독창성 점수 및 잔혹/선정/재사용 위험 키워드를 즉시 대조해 최종 인코딩 전 100% 안전을 확인하세요.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subtitle Style Track Preset Tip */}
+                <div className="bg-[#181820] border border-purple-500/30 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xs">🎨</span>
+                    다빈치 리졸브 자막 스타일(Track Style) 10초 적용법
+                  </div>
+                  <ol className="space-y-1.5 text-white/80 pl-5 list-decimal text-[11px] leading-relaxed">
+                    <li>
+                      파이썬 스크립트가 타임라인에 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">Subtitle 1</code> 자막 트랙을 자동 생성하면, 아무 자막 클립이나 1개 클릭합니다.
+                    </li>
+                    <li>
+                      우측 상단 <strong className="text-amber-300">Inspector ➔ Caption</strong> 패널에서 <strong className="text-purple-200">Track</strong> 탭 선택
+                    </li>
+                    <li>
+                      <strong className="text-white">폰트:</strong> <code className="text-amber-200">KoPubWorld바탕체 Bold</code> / <strong className="text-white">크기:</strong> <code className="text-amber-200">62~68 pt</code>
+                    </li>
+                    <li>
+                      <strong className="text-white">Stroke(테두리):</strong> Color <code className="text-amber-200">#000000</code> / Size <code className="text-amber-200">3.0 pt</code>
+                    </li>
+                    <li>
+                      <strong className="text-white">정렬:</strong> 하단 중앙 (Bottom Center)
+                    </li>
+                  </ol>
+                  <p className="text-[10.5px] text-purple-300/80 pt-1 border-t border-purple-500/20 font-sans">
+                    ✨ <strong>핵심:</strong> <code className="text-white">Track</code> 탭에서 스타일을 바꾸면 타임라인 상의 <strong>모든 씬 자막 전체에 100% 일괄 자동 반영</strong>되어 손으로 일일이 수정할 필요가 없습니다!
+                  </p>
+                </div>
+
                 <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 text-emerald-300 font-mono text-[11px] flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                   <span>💡 <strong>Tip:</strong> 동일한 씬 번호에 <code className="text-emerald-200 bg-black/40 px-1 rounded">.mp4</code> 동영상과 <code className="text-emerald-200 bg-black/40 px-1 rounded">.png</code> 이미지가 같이 있으면, 다빈치 파이썬 배치 스크립트가 <strong>.mp4 동영상을 최우선 선택</strong>하여 정밀 트랙에 올려놓습니다.</span>
@@ -6603,7 +6877,7 @@ export default function App() {
                       </div>
                       <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
                         <span className="text-blue-400 font-bold font-mono">STEP 2. AI 대본 정밀 스캔</span>
-                        <p className="text-white/70 text-[11px]">Gemini 3.5 Flash 엔진이 캐릭터 DB, 장소 DB, 60씬 스토리보드 블루프린트 파싱.</p>
+                        <p className="text-white/70 text-[11px]">Gemini Flash 엔진이 캐릭터 DB, 장소 DB, 스토리보드 타임라인 블루프린트 파싱.</p>
                       </div>
                       <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
                         <span className="text-purple-400 font-bold font-mono">STEP 3. 비주얼 일관성 유지</span>
@@ -6637,9 +6911,9 @@ export default function App() {
                     <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
                       <h4 className="font-bold text-white text-xs">📌 retention 3-Stage 스토리보드 규격</h4>
                       <ul className="space-y-1.5 text-white/70 list-disc pl-5">
-                        <li><strong className="text-blue-300">1단계 오프닝 후킹 (Scene #1 ~ #8):</strong> 0~15초 강렬한 의문 제시 (씬당 10초 고정). 이탈률 원천 차단.</li>
-                        <li><strong className="text-blue-300">2단계 본문 몰입 및 복선 (Scene #9 ~ #58):</strong> 사건 전개, 갈등 고조 및 복선 배치 (씬당 15초 고정).</li>
-                        <li><strong className="text-blue-300">3단계 반전 결말 & 역사 출처 검증 (Scene #59 ~ #60):</strong> 사료 출처 명시(실록/야사) 및 채널 구독 유도.</li>
+                        <li><strong className="text-blue-300">1단계 오프닝 후킹 (인트로 파트):</strong> 0~15초 강렬한 의문 제시 (씬당 10초 내외). 이탈률 원천 차단.</li>
+                        <li><strong className="text-blue-300">2단계 본문 몰입 및 복선 (서사 본론):</strong> 사건 전개, 갈등 고조 및 복선 배치 (씬당 15초 내외).</li>
+                        <li><strong className="text-blue-300">3단계 반전 결말 & 역사 출처 검증 (피날레 결말 파트):</strong> 사료 출처 명시(실록/야사) 및 채널 구독 유도.</li>
                       </ul>
                     </div>
 
