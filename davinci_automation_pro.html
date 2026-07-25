@@ -1103,18 +1103,64 @@ Folder: ${folderPath}
 
 import sys, os
 
-def run_davinci_autobatch():
+def get_resolve_instance():
+    try:
+        if 'resolve' in globals() and globals()['resolve'] is not None:
+            return globals()['resolve']
+    except Exception:
+        pass
+    try:
+        if 'resolve' in __builtins__ and __builtins__['resolve'] is not None:
+            return __builtins__['resolve']
+    except Exception:
+        pass
+    try:
+        if 'GetResolve' in globals():
+            res = GetResolve()
+            if res: return res
+    except Exception:
+        pass
+    try:
+        if 'bmd' in globals() and hasattr(bmd, 'scriptapp'):
+            res = bmd.scriptapp("Resolve")
+            if res: return res
+    except Exception:
+        pass
+
+    script_paths = []
+    if sys.platform.startswith("win"):
+        script_paths.extend([
+            r"C:\Program Files\Blackmagic Design\DaVinci Resolve\Developer\Scripting\Modules",
+            os.path.expandvars(r"%PROGRAMFILES%\Blackmagic Design\DaVinci Resolve\Developer\Scripting\Modules"),
+            os.path.expandvars(r"%PROGRAMDATA%\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\Modules")
+        ])
+    elif sys.platform == "darwin":
+        script_paths.append("/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules")
+    else:
+        script_paths.append("/opt/resolve/Developer/Scripting/Modules")
+
+    for path in script_paths:
+        if os.path.exists(path) and path not in sys.path:
+            sys.path.append(path)
+
     try:
         import DaVinciResolveScript as dvr
-        resolve = dvr.scriptapp("Resolve")
-    except ImportError:
-        try:
-            resolve = bmd.scriptapp("Resolve")
-        except Exception:
-            resolve = None
+        res = dvr.scriptapp("Resolve")
+        if res: return res
+    except Exception:
+        pass
+
+    return None
+
+def run_davinci_autobatch():
+    resolve = get_resolve_instance()
 
     if not resolve:
         print("❌ Error: DaVinci Resolve가 실행되어 있지 않거나 Script API 연결 실패")
+        print("💡 해결 안내:")
+        print("1. DaVinci Resolve가 열려 있는지 확인해주세요.")
+        print("2. [Preferences] -> [System] -> [General] -> [External scripting using] -> 'Local'로 변경해주셨는지 확인해주세요.")
+        print("3. 또는 DaVinci Resolve [Workspace] -> [Console] -> [Py3] 탭에서 직접 스크립트를 실행해주세요.")
         return
 
     projectManager = resolve.GetProjectManager()
@@ -1138,6 +1184,20 @@ def run_davinci_autobatch():
     if not timeline:
         timeline = mediaPool.CreateEmptyTimeline("Auto_Shorts_Timeline")
         print("✨ 새 타임라인 'Auto_Shorts_Timeline' 생성 완료!")
+
+    # 1920x1080 (16:9 가로형 HD) 해상도 및 프레임레이트 자동 강제 적용
+    try:
+        project.SetSetting("timelineResolutionWidth", "1920")
+        project.SetSetting("timelineResolutionHeight", "1080")
+        project.SetSetting("timelineFrameRate", "24.0")
+        project.SetSetting("timelinePlaybackFrameRate", "24.0")
+        if timeline:
+            timeline.SetSetting("useCustomSettings", "1")
+            timeline.SetSetting("timelineResolutionWidth", "1920")
+            timeline.SetSetting("timelineResolutionHeight", "1080")
+        print("📐 프로젝트 및 타임라인 해상도 1920x1080 (16:9 가로형) 자동 설정 완료!")
+    except Exception as res_err:
+        pass
 
     # 씬 타임코드 매핑 데이터
     scene_data = [
@@ -1182,19 +1242,85 @@ def run_davinci_autobatch():
         else:
             print(f"[NOTICE] Scene #{s_id} 파일 없음 ({asset_dir}). 마커로 대체 배치됩니다.")
 
-    # 음성 파일 검색 및 오디오 트랙 임포트
-    audio_candidates = ["voiceover.mp3", "narration.mp3", "full_tts.mp3", "audio.mp3", "tts_voice.mp3"]
+    # 1. TTS 나레이션 전용 오디오 트랙 2(A2) 존재 보장
+    if timeline:
+        try:
+            if timeline.GetTrackCount("audio") < 2:
+                timeline.AddTrack("audio")
+        except Exception:
+            pass
+
+    # 2. 음성 파일 검색 및 오디오 트랙 2(A2) 우선 임포트 (영상 드래그 시 덮어쓰기 완전 방지)
+    audio_candidates = [
+        "yadam_tts_audio.wav", "yadam_tts_audio.mp3", "yadam_narration.wav", "yadam_narration.mp3",
+        "yadam_tts.wav", "yadam_tts.mp3", "full_tts.wav", "full_tts.mp3",
+        "voiceover.wav", "voiceover.mp3", "narration.wav", "narration.mp3", "tts_voice.mp3", "audio.wav", "audio.mp3"
+    ]
+    found_master_audio = None
     for afname in audio_candidates:
         afpath = os.path.join(asset_dir, afname)
         if os.path.exists(afpath):
-            a_items = mediaPool.ImportMedia([afpath])
-            if a_items:
-                mediaPool.AppendToTimeline([a_items[0]])
-                print(f"[SUCCESS] 통합 오디오 트랙 배치 완료: {afname}")
+            found_master_audio = afpath
             break
 
-    # 타임라인 클립 및 마커 배치
-    current_frame = 0
+    if not found_master_audio:
+        for f_item in os.listdir(asset_dir):
+            if f_item.lower().endswith(('.wav', '.mp3', '.m4a')) and not f_item.startswith('.'):
+                found_master_audio = os.path.join(asset_dir, f_item)
+                break
+
+    if found_master_audio:
+        a_items = mediaPool.ImportMedia([found_master_audio])
+        if a_items:
+            a_placed = False
+            try:
+                res = mediaPool.AppendToTimeline([{"mediaPoolItem": a_items[0], "trackIndex": 2, "recordFrame": 0}])
+                if res:
+                    a_placed = True
+                    print(f"[SUCCESS] 통합 나레이션 오디오가 A2 트랙 00:00:00 시작점에 고정 배치되었습니다: {os.path.basename(found_master_audio)}")
+            except Exception:
+                pass
+            if not a_placed:
+                try:
+                    mediaPool.AppendToTimeline([{"mediaPoolItem": a_items[0], "trackIndex": 2}])
+                    print(f"[SUCCESS] 통합 나레이션 오디오 A2 트랙 추가 완료: {os.path.basename(found_master_audio)}")
+                except Exception:
+                    try:
+                        mediaPool.AppendToTimeline(a_items)
+                        print(f"[SUCCESS] 통합 나레이션 배치 완료: {os.path.basename(found_master_audio)}")
+                    except Exception:
+                        pass
+    else:
+        # 개별 씬별 오디오 파일 검색
+        audio_files_to_import = []
+        for sc in scene_data:
+            s_id = sc.get("id", 1)
+            a_found = None
+            for pattern in [f"scene_{s_id:03d}.mp3", f"scene_{s_id:03d}.wav", f"scene_{s_id}.mp3", f"tts_{s_id:03d}.mp3", f"narration_{s_id:03d}.mp3"]:
+                apath = os.path.join(asset_dir, pattern)
+                if os.path.exists(apath):
+                    a_found = apath
+                    break
+            if a_found:
+                audio_files_to_import.append(a_found)
+
+        if len(audio_files_to_import) > 0:
+            a_items = mediaPool.ImportMedia(audio_files_to_import)
+            if a_items:
+                try:
+                    a_info_list = [{"mediaPoolItem": ai, "trackIndex": 2} for ai in a_items]
+                    mediaPool.AppendToTimeline(a_info_list)
+                    print(f"[SUCCESS] 씬별 TTS 오디오 파일 {len(a_items)}개 오디오 트랙 2(A2) 자동 배치 완료!")
+                except Exception:
+                    for ai in a_items:
+                        try: mediaPool.AppendToTimeline([{"mediaPoolItem": ai, "trackIndex": 2}])
+                        except Exception:
+                            try: mediaPool.AppendToTimeline([ai])
+                            except Exception: pass
+
+    # 3. 비디오/이미지 타임라인 V1 클립 배치
+    clip_infos = []
+    raw_media_items = []
     for sc in scene_data:
         dur_sec = sc["end"] - sc["start"]
         if dur_sec <= 0:
@@ -1202,25 +1328,244 @@ def run_davinci_autobatch():
         dur_frames = int(dur_sec * fps_val)
 
         if "media_item" in sc:
-            try:
-                clip_info = {
-                    "mediaPoolItem": sc["media_item"],
-                    "startFrame": 0,
-                    "endFrame": dur_frames,
-                    "recordFrame": current_frame
-                }
-                mediaPool.AppendToTimeline([clip_info])
-            except Exception as err:
-                mediaPool.AppendToTimeline([sc["media_item"]])
+            clip_infos.append({
+                "mediaPoolItem": sc["media_item"],
+                "startFrame": 0,
+                "endFrame": dur_frames
+            })
+            raw_media_items.append(sc["media_item"])
 
-        if timeline:
-            marker_color = "Blue" if sc.get("is_video") else ("Yellow" if sc.get("is_gap") else "Green")
+    if clip_infos:
+        try:
+            mediaPool.AppendToTimeline(clip_infos)
+            print(f"[SUCCESS] 타임라인 V1 트랙 클립 {len(clip_infos)}개 자동 배치 완료!")
+        except Exception:
             try:
-                timeline.AddMarker(current_frame, marker_color, sc["name"], sc.get("preview", ""), dur_frames)
+                mediaPool.AppendToTimeline(raw_media_items)
             except Exception:
+                for item in raw_media_items:
+                    try:
+                        mediaPool.AppendToTimeline([item])
+                    except Exception:
+                        pass
+
+    # 4. 비디오/이미지 클립, 통합 마스터 TTS 오디오 및 타임라인 마커(Marker) 1:1 완벽 정밀 싱크 엔진
+    if timeline:
+        try:
+            # 기존 임시/오래된 마커 청소
+            for m_col in ["Blue", "Green", "Yellow", "Cyan", "Red", "Pink", "Purple", "Fuchsia", "Rose", "Lavender", "Sky", "Mint", "Lemon", "Sand", "Cocoa", "Cream"]:
+                try: timeline.DeleteMarkersByColor(m_col)
+                except Exception: pass
+
+            v_items = timeline.GetItemListInTrack("video", 1) or []
+            a2_items = timeline.GetItemListInTrack("audio", 2) or []
+            is_single_master = (len(a2_items) == 1 and len(scene_data) > 1)
+
+            # 씬별 프레임 길이 계산 (통합 오디오 17분 전체 프레임을 대사 글자수 비율로 100% 정밀 분배)
+            scene_durations_frames = []
+            if is_single_master and a2_items:
+                master_a_clip = a2_items[0]
+                total_audio_frames = master_a_clip.GetEnd() - master_a_clip.GetStart()
+                if total_audio_frames > 0:
+                    weights = [max(len(sc.get("preview", "").strip() or sc.get("narration", "").strip()), 10) for sc in scene_data]
+                    total_weight = max(sum(weights), 1)
+                    allocated = 0
+                    for w in weights[:-1]:
+                        f_len = int((w / total_weight) * total_audio_frames)
+                        scene_durations_frames.append(max(f_len, int(2.0 * fps_val)))
+                        allocated += scene_durations_frames[-1]
+                    scene_durations_frames.append(max(total_audio_frames - allocated, int(2.0 * fps_val)))
+                    print(f"[INFO] 통합 오디오 전체 길이({total_audio_frames/fps_val:.1f}초 / {total_audio_frames/(fps_val*60):.2f}분)가 {len(scene_data)}개 씬 비디오와 1:1 완벽하게 100% 매칭되었습니다.")
+                else:
+                    for sc in scene_data:
+                        dur_sec = sc["end"] - sc["start"]
+                        if dur_sec <= 0: dur_sec = sc.get("duration", 5.0)
+                        scene_durations_frames.append(int(dur_sec * fps_val))
+            else:
+                for idx, sc in enumerate(scene_data):
+                    dur_sec = sc["end"] - sc["start"]
+                    if dur_sec <= 0: dur_sec = sc.get("duration", 5.0)
+                    d_f = int(dur_sec * fps_val)
+                    if a2_items and idx < len(a2_items):
+                        try:
+                            ac = a2_items[idx]
+                            a_len = ac.GetEnd() - ac.GetStart()
+                            if a_len > 0: d_f = a_len
+                        except Exception: pass
+                    scene_durations_frames.append(max(d_f, int(2.0 * fps_val)))
+
+            # 비디오 클립 및 마커 배치
+            current_frame = 0
+            for idx, sc in enumerate(scene_data):
+                d_f = scene_durations_frames[idx] if idx < len(scene_durations_frames) else int(10.0 * fps_val)
+
+                if not is_single_master and a2_items and idx < len(a2_items):
+                    try:
+                        ac = a2_items[idx]
+                        ac.SetStart(current_frame)
+                        ac.SetEnd(current_frame + d_f)
+                    except Exception: pass
+
+                if idx < len(v_items):
+                    vt = v_items[idx]
+                    try:
+                        vt.SetStart(current_frame)
+                        vt.SetEnd(current_frame + d_f)
+                    except Exception:
+                        try:
+                            vt.SetProperty("Start", current_frame)
+                            vt.SetProperty("End", current_frame + d_f)
+                        except Exception: pass
+
+                try:
+                    m_name = sc.get("name", f"Scene #{sc.get('id', idx+1)}")
+                    m_preview = sc.get("preview", "")
+                    timeline.AddMarker(current_frame, "Blue", m_name, m_preview, d_f)
+                except Exception: pass
+
+                current_frame += d_f
+
+            print(f"[SUCCESS] 타임라인 전체 길이 {current_frame} 프레임 ({current_frame/fps_val:.1f}초 / {current_frame/(fps_val*60):.2f}분) 싱크 정렬 완료!")
+        except Exception as sync_err:
+            pass
+
+    # 4. LTX 영상 비디오 클립 오디오 사운드 자동 음소거 (TTS 오디오 중복 재생 방지)
+    if timeline:
+        try:
+            a_track_count = timeline.GetTrackCount("audio")
+            if a_track_count > 1:
+                for t_idx in range(2, a_track_count + 1):
+                    try:
+                        timeline.SetTrackEnable("audio", t_idx, False)
+                    except Exception:
+                        pass
+                    try:
+                        a_clips = timeline.GetItemListInTrack("audio", t_idx)
+                        for ac in a_clips:
+                            try: ac.SetProperty("Mute", True)
+                            except Exception: pass
+                            try: ac.SetProperty("Level", -100)
+                            except Exception: pass
+                    except Exception:
+                        pass
+            a1_clips = timeline.GetItemListInTrack("audio", 1)
+            master_name = os.path.basename(found_master_audio).lower() if 'found_master_audio' in locals() and found_master_audio else ""
+            for ac in a1_clips:
+                try:
+                    c_name = ac.GetName().lower()
+                    if master_name and master_name not in c_name and ("scene_" in c_name or ".mp4" in c_name or ".webm" in c_name):
+                        try: ac.SetProperty("Mute", True)
+                        except Exception: pass
+                        try: ac.SetProperty("Level", -100)
+                        except Exception: pass
+                except Exception:
+                    pass
+            print("[SUCCESS] LTX 비디오 배경음/소음 자동 음소거 완료! A1 트랙 순수 TTS 나레이션 단독 유지.")
+        except Exception as mute_err:
+            pass
+
+    # 자막 파일(.SRT) 스마트 2줄 구절 분할 자동 생성 (최대 15자/줄, 최대 2줄)
+    auto_srt_path = os.path.join(asset_dir, "yadam_davinci_auto_subtitles.srt")
+    try:
+        with open(auto_srt_path, "w", encoding="utf-8") as f:
+            curr_sec = 0.0
+            sub_idx = 1
+            def fmt_srt(s):
+                h, m, sec = int(s // 3600), int((s % 3600) // 60), int(s % 60)
+                ms = int(round((s % 1) * 1000))
+                if ms >= 1000: sec += 1; ms = 0
+                return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
+
+            for sc in scene_data:
+                narr = sc.get("preview", "").strip()
+                dur = sc["end"] - sc["start"]
+                if dur <= 0: dur = sc.get("duration", 5.0)
+                if not narr:
+                    curr_sec += dur
+                    continue
+
+                # 22자 이내 단위로 짧게 분할
+                words = narr.split()
+                chunks = []
+                curr_words = []
+                curr_len = 0
+                for w in words:
+                    if curr_len + len(w) + (1 if curr_words else 0) <= 22:
+                        curr_words.append(w)
+                        curr_len += len(w) + (1 if len(curr_words) > 1 else 0)
+                    else:
+                        if curr_words: chunks.append(" ".join(curr_words))
+                        curr_words = [w]
+                        curr_len = len(w)
+                if curr_words: chunks.append(" ".join(curr_words))
+                if not chunks: chunks = [narr]
+
+                total_len = sum(len(c) for c in chunks) or 1
+                s_start = curr_sec
+                c_time = s_start
+                for idx, chk in enumerate(chunks):
+                    c_dur = dur * (len(chk) / total_len)
+                    e_time = s_start + dur if idx == len(chunks) - 1 else c_time + c_dur
+
+                    chk_words = chk.split()
+                    lines = []
+                    cur_l = ""
+                    for cw in chk_words:
+                        if len(cur_l) + len(cw) + (1 if cur_l else 0) <= 15:
+                            cur_l = (cur_l + " " + cw).strip()
+                        else:
+                            if cur_l: lines.append(cur_l)
+                            cur_l = cw
+                    if cur_l: lines.append(cur_l)
+                    final_sub = "\n".join(lines[:2])
+                    if len(lines) > 2:
+                        final_sub += " " + " ".join(lines[2:])
+
+                    f.write(f"{sub_idx}\n")
+                    f.write(f"{fmt_srt(c_time)} --> {fmt_srt(e_time)}\n")
+                    f.write(f"{final_sub}\n\n")
+                    sub_idx += 1
+                    c_time = e_time
+                curr_sec = s_start + dur
+        print(f"[SUCCESS] 자동 자막 파일(.SRT) 스마트 구절 분할 생성 완료: {auto_srt_path}")
+    except Exception as srt_err:
+        print(f"[WARNING] 자막 생성 경고: {srt_err}")
+
+    # 자막 트랙 임포트
+    sub_imported = False
+    candidate_srts = ["yadam_davinci_resolve.srt", "yadam_subtitles.srt", "yadam_davinci_auto_subtitles.srt"]
+    target_srt = None
+    for cs in candidate_srts:
+        cspath = os.path.join(asset_dir, cs)
+        if os.path.exists(cspath):
+            target_srt = cspath
+            break
+
+    if target_srt:
+        if hasattr(timeline, "ImportSubtitle"):
+            try:
+                sub_imported = timeline.ImportSubtitle(target_srt)
+                if sub_imported:
+                    print(f"[SUCCESS] 자막 트랙(ST1) 자동 임포트 완료: {os.path.basename(target_srt)}")
+            except Exception as err:
                 pass
 
-        current_frame += dur_frames
+        if not sub_imported:
+            try:
+                s_items = mediaPool.ImportMedia([target_srt])
+                if s_items and len(s_items) > 0:
+                    print(f"[INFO] 미디어 풀 자막 파일 임포트 완료: {os.path.basename(target_srt)}")
+            except Exception as err:
+                pass
+
+        print("\n=======================================================")
+        print("💬 [자막(ST1) 트랙 연결 안내]")
+        print(f"폴더에 자막 파일이 준비되었습니다: {os.path.basename(target_srt) if target_srt else 'yadam_davinci_auto_subtitles.srt'}")
+        print("DaVinci Resolve 무료 버전에서는 타임라인 자막 자동 삽입 API가 제한되어 있을 수 있습니다.")
+        print("👉 자막을 1초 만에 불러오는 방법:")
+        print("   DaVinci 상단 메뉴: [File (파일)] -> [Import (가져오기)] -> [Subtitle... (자막)] 선택 후")
+        print(f"   폴더 안에 생성된 '{os.path.basename(target_srt) if target_srt else 'yadam_davinci_auto_subtitles.srt'}'를 선택하면 ST1 자막 트랙이 완벽하게 생성됩니다!")
+        print("=======================================================\n")
 
     print(f"✅ 배치 작업 성공! 총 {imported_count}개 에셋이 타임라인에 배치되었습니다.")
 

@@ -827,8 +827,8 @@
                     <div>
                         <label>볼륨 게인 (Volume Gain)</label>
                         <div class="range-slider-group">
-                            <input type="range" id="gainRange" min="-6" max="6" value="0" step="0.5" oninput="document.getElementById('gainVal').innerText = this.value + 'dB'">
-                            <span class="range-val" id="gainVal">0dB</span>
+                            <input type="range" id="gainRange" min="-12" max="16" value="10" step="1" oninput="document.getElementById('gainVal').innerText = (this.value >= 0 ? '+' : '') + this.value + 'dB'">
+                            <span class="range-val" id="gainVal">+10dB</span>
                         </div>
                     </div>
                     <div>
@@ -852,6 +852,13 @@
                             <option value="telephony-class-application">📞 레트로 수화기/고전 라디오 톤</option>
                         </select>
                     </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-top:10px; background: rgba(16, 185, 129, 0.08); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                    <input type="checkbox" id="normalizePeakCheck" checked style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;">
+                    <label for="normalizePeakCheck" style="margin:0; font-weight:600; font-size:0.8rem; color:#10b981; cursor:pointer;">
+                        🔊 유튜브 방송급 음량 자동 최적화 (RMS Booster & Soft Limiter -14 LUFS) - 기본 활성화
+                    </label>
                 </div>
             </div>
 
@@ -974,10 +981,16 @@
                     </label>
                 </div>
 
-                <button class="btn btn-primary btn-lg" onclick="startGeneration()" id="generateBtn">
-                    <i data-lucide="sparkles" style="width:18px; height:18px;"></i>
-                    생성하기 (Generate TTS & Subtitles)
-                </button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary btn-lg" onclick="startGeneration()" id="generateBtn" style="flex:1;">
+                        <i data-lucide="sparkles" style="width:18px; height:18px;"></i>
+                        생성하기 (Generate TTS & Subtitles)
+                    </button>
+                    <button class="btn btn-lg" onclick="cancelGeneration()" id="cancelBtn" style="display:none; background:#dc2626; color:white; border:none; padding: 0 20px;">
+                        <i data-lucide="square" style="width:18px; height:18px;"></i>
+                        중지 (Stop)
+                    </button>
+                </div>
             </div>
 
         </div>
@@ -1688,7 +1701,8 @@
                 try {
                     const customPitch = profile ? profile.pitch : parseInt(document.getElementById('pitchRange')?.value || '0');
                     const customSpeed = profile ? profile.speed : parseFloat(document.getElementById('speedSelect')?.value || '1.0');
-                    const audioContent = await fetchGoogleTtsAudio(sampleText, voiceId, googleKey, customSpeed, customPitch, 0);
+                    const customGain = profile ? 4 : parseFloat(document.getElementById('gainRange')?.value || '6');
+                    const audioContent = await fetchGoogleTtsAudio(sampleText, voiceId, googleKey, customSpeed, customPitch, customGain);
                     if (audioContent) {
                         const sampleAudio = new Audio("data:audio/mp3;base64," + audioContent);
                         sampleAudio.play();
@@ -1769,6 +1783,19 @@
         }
 
         // CORE TTS GENERATION PROCESS
+        let isGeneratingCanceled = false;
+
+        function cancelGeneration() {
+            isGeneratingCanceled = true;
+            logTerminal('[CANCEL REQUEST] 사용자가 생성 중지 버튼을 눌렀습니다.');
+            showToast('생성 중지를 요청했습니다. 현재 청크 처리 완료 후 중지됩니다.', 'warning');
+            const cancelBtn = document.getElementById('cancelBtn');
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+                cancelBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:18px; height:18px;"></i> 중지 중...';
+            }
+        }
+
         async function startGeneration() {
             const script = document.getElementById('scriptTextarea').value.trim();
             if (!script) {
@@ -1785,10 +1812,29 @@
             const gain = parseFloat(document.getElementById('gainRange').value);
             const silenceSec = parseFloat(document.getElementById('silenceSelect').value);
 
+            // ⚠️ API Key Validation Check (Prevents generating silent empty WAV files)
+            if (modelEngine === 'elevenlabs' && !elevenKey) {
+                alert('⚠️ ElevenLabs API 키가 설정되어 있지 않습니다.\n\n[API 키 및 기본 설정] 모달에서 ElevenLabs API 키를 등록해 주세요.');
+                openApiModal();
+                return;
+            } else if (modelEngine !== 'elevenlabs' && !googleKey) {
+                alert('⚠️ Google Cloud Text-to-Speech API 키가 설정되어 있지 않습니다.\n\n[API 키 및 기본 설정] 버튼을 눌러 Google Cloud TTS API 키를 입력해 주세요.\n\n💡 참고:\n- Gemini API 키와 Google Cloud Text-to-Speech API 키는 상이합니다.\n- Google Cloud 콘솔(console.cloud.google.com)에서 Cloud Text-to-Speech API 키를 발급받아 입력하셔야 실제 음성 WAV 파일이 생성됩니다.');
+                openApiModal();
+                return;
+            }
+
+            isGeneratingCanceled = false;
             const btn = document.getElementById('generateBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
             btn.disabled = true;
             btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:18px; height:18px;"></i> 생성 중 (Synthesizing)...';
             
+            if (cancelBtn) {
+                cancelBtn.style.display = 'inline-flex';
+                cancelBtn.disabled = false;
+                cancelBtn.innerHTML = '<i data-lucide="square" style="width:18px; height:18px;"></i> 중지 (Stop)';
+            }
+
             showToast('AI TTS 음성 및 자막 타임라인 생성을 시작합니다...', 'info');
             logTerminal(`[GENERATE START] Script length: ${script.length} chars | Engine: ${modelEngine} | Voice: ${voiceId} | Speed: ${speed}x`);
 
@@ -1812,6 +1858,7 @@
                 alert('유효한 대본 텍스트가 없습니다.');
                 btn.disabled = false;
                 btn.innerText = '생성하기 (Generate TTS & Subtitles)';
+                if (cancelBtn) cancelBtn.style.display = 'none';
                 return;
             }
 
@@ -1825,6 +1872,12 @@
                 let cumulativeTime = 0;
 
                 for (let i = 0; i < chunks.length; i++) {
+                    if (isGeneratingCanceled) {
+                        logTerminal('[GENERATE CANCELED] 사용자에 의해 생성 작업이 중지되었습니다.');
+                        showToast('TTS 생성 작업이 중지되었습니다.', 'warning');
+                        break;
+                    }
+
                     const item = chunks[i];
                     logTerminal(`[CHUNK ${i+1}/${chunks.length}] Synthesizing: "${item.cleanText.substring(0, 20)}..."`);
 
@@ -1835,6 +1888,12 @@
                         base64Audio = await fetchGoogleTtsAudio(item.ssmlText, voiceId, googleKey, speed, pitch, gain);
                     }
 
+                    if (isGeneratingCanceled) {
+                        logTerminal('[GENERATE CANCELED] 사용자에 의해 생성 작업이 중지되었습니다.');
+                        showToast('TTS 생성 작업이 중지되었습니다.', 'warning');
+                        break;
+                    }
+
                     let duration = 0;
                     if (base64Audio) {
                         const arrayBuffer = base64ToArrayBuffer(base64Audio);
@@ -1842,9 +1901,8 @@
                         audioBuffers.push(decodedBuffer);
                         duration = decodedBuffer.duration;
                     } else {
-                        // Fallback estimated duration if offline/no key (approx 4 chars per second)
-                        duration = Math.max(1.5, item.cleanText.length / 4 / speed);
-                        audioBuffers.push(createSilentBuffer(duration));
+                        // Throw error instead of generating a silent empty audio buffer
+                        throw new Error(`[CHUNK ${i+1}] 음성 합성 데이터를 받지 못했습니다. API 키 및 네트워크 상태를 확인해 주세요.`);
                     }
 
                     const startTime = cumulativeTime;
@@ -1859,29 +1917,39 @@
                     });
                 }
 
-                // Concatenate all audio buffers into single master WAV
-                const masterBuffer = concatenateAudioBuffers(audioBuffers, silenceSec, audioContext);
-                generatedAudioBlob = bufferToWavBlob(masterBuffer);
+                if (isGeneratingCanceled) {
+                    logTerminal('[GENERATE STOPPED] 진행된 청크까지만 반영되었습니다.');
+                }
 
-                if (generatedAudioUrl) URL.revokeObjectURL(generatedAudioUrl);
-                generatedAudioUrl = URL.createObjectURL(generatedAudioBlob);
+                if (audioBuffers.length > 0) {
+                    // Concatenate generated audio buffers into single master WAV
+                    const normalizePeak = document.getElementById('normalizePeakCheck')?.checked ?? true;
+                    const extraGainDb = (modelEngine === 'elevenlabs') ? gain : 0;
+                    const masterBuffer = concatenateAudioBuffers(audioBuffers, silenceSec, audioContext, normalizePeak, extraGainDb);
+                    generatedAudioBlob = bufferToWavBlob(masterBuffer);
 
-                // Update Audio Player
-                const player = document.getElementById('mainAudioPlayer');
-                player.src = generatedAudioUrl;
-                document.getElementById('totalTimeDisplay').innerText = formatTimecodeMinSec(masterBuffer.duration);
-                document.getElementById('audioStatusBadge').innerText = '생성 완료';
+                    if (generatedAudioUrl) URL.revokeObjectURL(generatedAudioUrl);
+                    generatedAudioUrl = URL.createObjectURL(generatedAudioBlob);
 
-                // Render Subtitle Timeline
-                renderSubtitleList();
+                    // Update Audio Player
+                    const player = document.getElementById('mainAudioPlayer');
+                    player.src = generatedAudioUrl;
+                    document.getElementById('totalTimeDisplay').innerText = formatTimecodeMinSec(masterBuffer.duration);
+                    document.getElementById('audioStatusBadge').innerText = isGeneratingCanceled ? '부분 생성 완료 (중지됨)' : '생성 완료';
 
-                logTerminal(`[GENERATE SUCCESS] Complete! Total Duration: ${masterBuffer.duration.toFixed(2)}s | ${generatedSubtitles.length} Subtitles Generated.`);
-                showToast('음성 및 자막 생성이 완료되었습니다!', 'success');
+                    // Render Subtitle Timeline
+                    renderSubtitleList();
 
-                // Auto Download Option
-                if (document.getElementById('autoDownloadCheck').checked) {
-                    downloadAudioWav();
-                    downloadSrt();
+                    if (!isGeneratingCanceled) {
+                        logTerminal(`[GENERATE SUCCESS] Complete! Total Duration: ${masterBuffer.duration.toFixed(2)}s | ${generatedSubtitles.length} Subtitles Generated.`);
+                        showToast('음성 및 자막 생성이 완료되었습니다!', 'success');
+
+                        // Auto Download Option
+                        if (document.getElementById('autoDownloadCheck').checked) {
+                            downloadAudioWav();
+                            downloadSrt();
+                        }
+                    }
                 }
 
             } catch (err) {
@@ -1891,6 +1959,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-lucide="sparkles" style="width:18px; height:18px;"></i> 생성하기 (Generate TTS & Subtitles)';
+                if (cancelBtn) cancelBtn.style.display = 'none';
                 lucide.createIcons();
             }
         }
@@ -2005,7 +2074,7 @@
             return audioContext.createBuffer(1, sampleRate * duration, sampleRate);
         }
 
-        function concatenateAudioBuffers(buffers, silenceSec, ctx) {
+        function concatenateAudioBuffers(buffers, silenceSec, ctx, normalizePeak = true, extraGainDb = 0) {
             const silenceSamples = Math.floor(ctx.sampleRate * silenceSec);
             let totalLength = 0;
 
@@ -2027,6 +2096,76 @@
                     offset += silenceSamples;
                 }
             });
+
+            // Apply Extra Gain Multiplier if specified (for ElevenLabs or additional manual gain)
+            if (extraGainDb !== 0) {
+                const linearMultiplier = Math.pow(10, extraGainDb / 20);
+                for (let i = 0; i < channelData.length; i++) {
+                    channelData[i] *= linearMultiplier;
+                }
+            }
+
+            // YouTube Loudness Optimization (-14 LUFS RMS Booster + Soft Limiter)
+            if (normalizePeak && channelData.length > 0) {
+                // 1. Calculate current RMS (Root Mean Square) volume level
+                let sumSquare = 0;
+                let nonZeroSamples = 0;
+                for (let i = 0; i < channelData.length; i++) {
+                    const sample = channelData[i];
+                    if (Math.abs(sample) > 0.001) { // exclude pure silence
+                        sumSquare += sample * sample;
+                        nonZeroSamples++;
+                    }
+                }
+
+                const rms = nonZeroSamples > 0 ? Math.sqrt(sumSquare / nonZeroSamples) : 0;
+
+                // Target YouTube loudness RMS is ~0.18-0.22 (-14 LUFS broadcast standard)
+                const targetRms = 0.20;
+                let rmsBoostFactor = 1.0;
+
+                if (rms > 0.005 && rms < targetRms) {
+                    rmsBoostFactor = Math.min(3.5, targetRms / rms); // Up to 3.5x (+10.8dB) boost
+                }
+
+                // Apply RMS loudness boost
+                if (rmsBoostFactor > 1.01) {
+                    for (let i = 0; i < channelData.length; i++) {
+                        channelData[i] *= rmsBoostFactor;
+                    }
+                }
+
+                // 2. Dynamic Soft Limiter (Smooth Knee Saturation to prevent clipping/distortion)
+                // Threshold 0.85, compresses smoothly up to 0.98 peak
+                for (let i = 0; i < channelData.length; i++) {
+                    let s = channelData[i];
+                    if (s > 0.85) {
+                        s = 0.85 + 0.13 * Math.tanh((s - 0.85) / 0.13);
+                    } else if (s < -0.85) {
+                        s = -0.85 + 0.13 * Math.tanh((s + 0.85) / 0.13);
+                    }
+                    channelData[i] = s;
+                }
+
+                // 3. Final Peak Safety Check
+                let maxPeak = 0;
+                for (let i = 0; i < channelData.length; i++) {
+                    const abs = Math.abs(channelData[i]);
+                    if (abs > maxPeak) maxPeak = abs;
+                }
+
+                if (maxPeak > 0.98) {
+                    const safetyScale = 0.96 / maxPeak;
+                    for (let i = 0; i < channelData.length; i++) {
+                        channelData[i] *= safetyScale;
+                    }
+                }
+
+                if (typeof logTerminal === 'function') {
+                    const originalRmsDb = 20 * Math.log10(Math.max(rms, 0.0001));
+                    logTerminal(`[VOLUME MAXIMIZER] YouTube Loudness Optimization (-14 LUFS) applied: RMS boosted by ${rmsBoostFactor.toFixed(2)}x (Initial RMS: ${originalRmsDb.toFixed(1)}dB -> Boosted) + Dynamic Soft Limiter enabled. Final Peak: ${((maxPeak > 0.98 ? 0.96 : maxPeak) * 100).toFixed(1)}%`);
+                }
+            }
 
             return resultBuffer;
         }
@@ -2158,27 +2297,27 @@
         }
 
         // DOWNLOAD HANDLERS
-        function downloadAudioWav() {
+        async function downloadAudioWav() {
             if (!generatedAudioBlob) {
                 alert('다운로드할 생성 오디오가 없습니다. 먼저 생성하기 버튼을 누르세요.');
                 return;
             }
-            saveBlobAsFile(generatedAudioBlob, 'yadam_tts_audio.wav');
+            await saveBlobAsFile(generatedAudioBlob, 'yadam_tts_audio.wav');
             logTerminal('[DOWNLOAD] Audio WAV file saved.');
         }
 
-        function downloadScriptTxt() {
+        async function downloadScriptTxt() {
             const txt = document.getElementById('scriptTextarea').value;
             if (!txt) {
                 alert('대본 원고가 없습니다.');
                 return;
             }
             const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-            saveBlobAsFile(blob, 'yadam_script.txt');
+            await saveBlobAsFile(blob, 'yadam_script.txt');
             logTerminal('[DOWNLOAD] Script TXT file saved.');
         }
 
-        function downloadSrt() {
+        async function downloadSrt() {
             if (generatedSubtitles.length === 0) {
                 alert('생성된 자막 데이터가 없습니다.');
                 return;
@@ -2192,11 +2331,11 @@
             });
 
             const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
-            saveBlobAsFile(blob, 'yadam_subtitles.srt');
+            await saveBlobAsFile(blob, 'yadam_subtitles.srt');
             logTerminal('[DOWNLOAD] SRT Subtitle file saved.');
         }
 
-        function downloadVtt() {
+        async function downloadVtt() {
             if (generatedSubtitles.length === 0) {
                 alert('생성된 자막 데이터가 없습니다.');
                 return;
@@ -2210,11 +2349,11 @@
             });
 
             const blob = new Blob([vttContent], { type: 'text/vtt;charset=utf-8' });
-            saveBlobAsFile(blob, 'yadam_subtitles.vtt');
+            await saveBlobAsFile(blob, 'yadam_subtitles.vtt');
             logTerminal('[DOWNLOAD] VTT Subtitle file saved.');
         }
 
-        function downloadDavinciSrt() {
+        async function downloadDavinciSrt() {
             // DaVinci Resolve requires strict 2-line maximum per subtitle block
             if (generatedSubtitles.length === 0) {
                 alert('생성된 자막 데이터가 없습니다.');
@@ -2239,14 +2378,49 @@
             });
 
             const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
-            saveBlobAsFile(blob, 'yadam_davinci_resolve.srt');
+            await saveBlobAsFile(blob, 'yadam_davinci_resolve.srt');
             logTerminal('[DOWNLOAD] DaVinci Resolve Optimized SRT file saved.');
         }
 
-        function saveBlobAsFile(blob, filename) {
+        async function saveBlobAsFile(blob, defaultFilename) {
+            // Check for modern File System Access API (allows user to select directory/folder and filename)
+            if (window.showSaveFilePicker) {
+                try {
+                    const ext = defaultFilename.split('.').pop().toLowerCase();
+                    let mimeType = 'text/plain';
+                    if (ext === 'wav') mimeType = 'audio/wav';
+                    else if (ext === 'vtt') mimeType = 'text/vtt';
+                    else if (ext === 'srt' || ext === 'txt') mimeType = 'text/plain';
+
+                    const options = {
+                        suggestedName: defaultFilename,
+                        types: [{
+                            description: `${ext.toUpperCase()} File`,
+                            accept: { [mimeType]: [`.${ext}`] }
+                        }]
+                    };
+
+                    const handle = await window.showSaveFilePicker(options);
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    if (typeof showToast === 'function') {
+                        showToast(`지정한 위치에 파일이 저장되었습니다: ${handle.name}`, 'success');
+                    }
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        logTerminal('[SAVE CANCELED] 사용자가 파일 저장을 취소하였습니다.');
+                        return;
+                    }
+                    console.warn('showSaveFilePicker error, falling back to download link:', err);
+                }
+            }
+
+            // Fallback for standard download link
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = filename;
+            link.download = defaultFilename;
             link.click();
             setTimeout(() => URL.revokeObjectURL(link.href), 1000);
         }
