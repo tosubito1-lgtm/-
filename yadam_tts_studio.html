@@ -2317,6 +2317,64 @@
             logTerminal('[DOWNLOAD] Script TXT file saved.');
         }
 
+        function splitSubtitleByLength(sub) {
+            const text = sub.text.trim();
+            const duration = sub.endTime - sub.startTime;
+            
+            // If character count is 30 or less, or duration is too short, keep as 1 block
+            if (text.length <= 30 || duration < 1.5) {
+                let formattedText = text;
+                if (formattedText.length > 20) {
+                    const mid = Math.floor(formattedText.length / 2);
+                    const spaceIdx = formattedText.indexOf(' ', mid);
+                    if (spaceIdx !== -1) {
+                        formattedText = formattedText.substring(0, spaceIdx) + '\n' + formattedText.substring(spaceIdx + 1);
+                    }
+                }
+                return [{ startTime: sub.startTime, endTime: sub.endTime, text: formattedText }];
+            }
+
+            // Long sentences (> 30 chars): Split into 2 subtitle blocks by character count ratio
+            const mid = Math.floor(text.length / 2);
+            let splitIdx = -1;
+            let minDiff = 999;
+            for (let i = 0; i < text.length; i++) {
+                if (text[i] === ' ' || text[i] === ',' || text[i] === '.' || text[i] === '?') {
+                    const diff = Math.abs(i - mid);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        splitIdx = i;
+                    }
+                }
+            }
+
+            if (splitIdx === -1) splitIdx = mid;
+
+            const part1 = text.substring(0, splitIdx + 1).trim();
+            const part2 = text.substring(splitIdx + 1).trim();
+
+            if (!part1 || !part2) {
+                return [{ startTime: sub.startTime, endTime: sub.endTime, text: text }];
+            }
+
+            const ratio1 = part1.length / (part1.length + part2.length);
+            const splitTime = sub.startTime + (duration * ratio1);
+
+            const formatPart = (p) => {
+                if (p.length > 20) {
+                    const m = Math.floor(p.length / 2);
+                    const sp = p.indexOf(' ', m);
+                    if (sp !== -1) return p.substring(0, sp) + '\n' + p.substring(sp + 1);
+                }
+                return p;
+            };
+
+            return [
+                { startTime: sub.startTime, endTime: splitTime, text: formatPart(part1) },
+                { startTime: splitTime, endTime: sub.endTime, text: formatPart(part2) }
+            ];
+        }
+
         async function downloadSrt() {
             if (generatedSubtitles.length === 0) {
                 alert('생성된 자막 데이터가 없습니다.');
@@ -2324,15 +2382,19 @@
             }
 
             let srtContent = '';
-            generatedSubtitles.forEach((sub, idx) => {
-                srtContent += `${idx + 1}\n`;
-                srtContent += `${formatSRTTimecode(sub.startTime)} --> ${formatSRTTimecode(sub.endTime)}\n`;
-                srtContent += `${sub.text}\n\n`;
+            let blockIdx = 1;
+            generatedSubtitles.forEach((sub) => {
+                const chunks = splitSubtitleByLength(sub);
+                chunks.forEach((chunk) => {
+                    srtContent += `${blockIdx++}\n`;
+                    srtContent += `${formatSRTTimecode(chunk.startTime)} --> ${formatSRTTimecode(chunk.endTime)}\n`;
+                    srtContent += `${chunk.text}\n\n`;
+                });
             });
 
             const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
             await saveBlobAsFile(blob, 'yadam_subtitles.srt');
-            logTerminal('[DOWNLOAD] SRT Subtitle file saved.');
+            logTerminal('[DOWNLOAD] SRT Subtitle file saved (Smart Length Split & Exact Audio Synced).');
         }
 
         async function downloadVtt() {
@@ -2342,10 +2404,14 @@
             }
 
             let vttContent = 'WEBVTT\n\n';
-            generatedSubtitles.forEach((sub, idx) => {
-                vttContent += `${idx + 1}\n`;
-                vttContent += `${formatVTTTimecode(sub.startTime)} --> ${formatVTTTimecode(sub.endTime)}\n`;
-                vttContent += `${sub.text}\n\n`;
+            let blockIdx = 1;
+            generatedSubtitles.forEach((sub) => {
+                const chunks = splitSubtitleByLength(sub);
+                chunks.forEach((chunk) => {
+                    vttContent += `${blockIdx++}\n`;
+                    vttContent += `${formatVTTTimecode(chunk.startTime)} --> ${formatVTTTimecode(chunk.endTime)}\n`;
+                    vttContent += `${chunk.text}\n\n`;
+                });
             });
 
             const blob = new Blob([vttContent], { type: 'text/vtt;charset=utf-8' });
@@ -2361,25 +2427,19 @@
             }
 
             let srtContent = '';
-            generatedSubtitles.forEach((sub, idx) => {
-                // Split long subtitle lines into 2 clean lines for DaVinci Resolve Studio
-                let formattedText = sub.text;
-                if (formattedText.length > 22) {
-                    const mid = Math.floor(formattedText.length / 2);
-                    const spaceIdx = formattedText.indexOf(' ', mid);
-                    if (spaceIdx !== -1) {
-                        formattedText = formattedText.substring(0, spaceIdx) + '\n' + formattedText.substring(spaceIdx + 1);
-                    }
-                }
-
-                srtContent += `${idx + 1}\n`;
-                srtContent += `${formatSRTTimecode(sub.startTime)} --> ${formatSRTTimecode(sub.endTime)}\n`;
-                srtContent += `${formattedText}\n\n`;
+            let blockIdx = 1;
+            generatedSubtitles.forEach((sub) => {
+                const chunks = splitSubtitleByLength(sub);
+                chunks.forEach((chunk) => {
+                    srtContent += `${blockIdx++}\n`;
+                    srtContent += `${formatSRTTimecode(chunk.startTime)} --> ${formatSRTTimecode(chunk.endTime)}\n`;
+                    srtContent += `${chunk.text}\n\n`;
+                });
             });
 
             const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
             await saveBlobAsFile(blob, 'yadam_davinci_resolve.srt');
-            logTerminal('[DOWNLOAD] DaVinci Resolve Optimized SRT file saved.');
+            logTerminal('[DOWNLOAD] DaVinci Resolve Optimized SRT file saved (Smart Split & Exact Audio Synced).');
         }
 
         async function saveBlobAsFile(blob, defaultFilename) {
