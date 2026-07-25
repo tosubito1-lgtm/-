@@ -710,7 +710,7 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
     
     // Stitch modifiers together
-    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "claymation");
+    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "yadam");
     const activeModel = modelName || "gemini-3.1-flash-image";
 
     console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
@@ -788,7 +788,7 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
       basePrompt = `${translatedPrompt}, high-integrity WAN dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
     }
     
-    const finalPrompt = injectArtStyle(basePrompt, artStyle || "claymation");
+    const finalPrompt = injectArtStyle(basePrompt, artStyle || "yadam");
     const activeModel = modelName || "gemini-3.1-flash-image";
 
     console.log(`Generating scene image. Model: ${activeModel}, WAN-Intro: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);

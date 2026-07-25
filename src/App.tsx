@@ -199,7 +199,7 @@ export default function App() {
   >("16:9");
   const [artStyle, setArtStyle] = useState<
     "realistic" | "3d" | "anime" | "yadam" | "claymation"
-  >("claymation");
+  >("yadam");
   const [quantityOverride, setQuantityOverride] = useState(false);
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
@@ -1875,14 +1875,45 @@ export default function App() {
       let finalPlan = thumbnailData;
 
       if (!finalPlan || forceReanalyze || !finalPlan.visualPrompt || compositionStyleOverride || colorMoodOverride) {
+        // Sanitize objects to exclude heavy base64 image strings and keep payload under 50KB
+        const sanitizedScenes = targetScenes.map((sc) => ({
+          id: sc.id,
+          stage: sc.stage,
+          locationName: sc.locationName,
+          visualDescription: sc.visualDescription,
+          narrationText: sc.narrationText,
+          refinedImagePrompt: sc.refinedImagePrompt,
+          characterNames: sc.characterNames,
+          cameraWork: sc.cameraWork,
+          lightingMood: sc.lightingMood,
+        }));
+
+        const sanitizedCharacters = (characters || []).map((ch) => ({
+          id: ch.id,
+          name: ch.name,
+          role: ch.role,
+          appearance: ch.appearance,
+          appearanceEnglish: ch.appearanceEnglish,
+          clothing: ch.clothing,
+          clothingEnglish: ch.clothingEnglish,
+          visualKeywords: ch.visualKeywords,
+        }));
+
+        const sanitizedLocations = (locations || []).map((loc) => ({
+          id: loc.id,
+          name: loc.name,
+          description: loc.description,
+          visualPrompt: loc.visualPrompt,
+        }));
+
         const response = await fetch("/api/analyze-thumbnail-director", {
           method: "POST",
           headers: getHeaders(),
           body: JSON.stringify({
             script: scriptText,
-            scenes: targetScenes,
-            characters,
-            locations,
+            scenes: sanitizedScenes,
+            characters: sanitizedCharacters,
+            locations: sanitizedLocations,
             compositionStyleOverride,
             colorMoodOverride,
           }),
@@ -5210,7 +5241,25 @@ export default function App() {
                       모든 썸네일이 비슷한 구도나 색감으로 만들어져 유튜브 필터링에 걸리지 않도록 방지합니다. AI 디렉터가 선정한 기본 연출을 유지하거나, 아래의 구도와 색상 무드를 사용자가 원하는 대로 직접 조합하여 개성 있는 독창적인 썸네일을 재발행할 수 있습니다.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Art Style Select */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-purple-300 font-bold block flex items-center gap-1">
+                          🖌️ 썸네일 적용 화풍 (Art Style)
+                        </label>
+                        <select
+                          value={artStyle}
+                          onChange={(e) => setArtStyle(e.target.value as any)}
+                          className="w-full bg-[#1b1b26] border border-purple-500/30 rounded px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-purple-500 cursor-pointer font-sans font-semibold"
+                        >
+                          <option value="yadam">야담 한포 일러스트 (Traditional Joseon Illust)</option>
+                          <option value="claymation">클레이 점토 인형 (Claymation Stop-Motion)</option>
+                          <option value="realistic">역사 극사실주의 (Cinematic Realistic)</option>
+                          <option value="3d">3D 애니 캐릭터 (Pixar Toy Character)</option>
+                          <option value="anime">레트로 수채화 애니 (Hand-drawn Watercolor)</option>
+                        </select>
+                      </div>
+
                       {/* Composition Select */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] text-white/50 font-bold block">
