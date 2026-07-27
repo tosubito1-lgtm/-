@@ -40,6 +40,11 @@ import {
   Layers,
   Zap,
   Lightbulb,
+  BarChart3,
+  TrendingUp,
+  Database,
+  Target,
+  Cpu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -52,6 +57,8 @@ import {
   YadamSafetyReport,
   StoryFormat,
   LengthPreset,
+  GrowthPatternItem,
+  GrowthAnalysisResult,
 } from "./types";
 
 // Simple, high-reliability IndexedDB wrapper to bypass 5MB LocalStorage limit
@@ -224,7 +231,11 @@ export default function App() {
   const [overlayText, setOverlayText] = useState("");
   const [overlayStyle, setOverlayStyle] = useState<"classic-brush" | "horror-mystery" | "clean-serif" | "bold-modern">("classic-brush");
   const [overlaySize, setOverlaySize] = useState(48);
-  const [overlayColor, setOverlayColor] = useState("#facc15"); // Golden yellow (Standard high CTR)
+  const [overlayColor, setOverlayColor] = useState("#ffffff"); // Base text color (Line 1 or standard)
+  const [secondaryLineColor, setSecondaryLineColor] = useState("#facc15"); // Line 2 color for multi-line dual tone
+  const [enableDualLineColor, setEnableDualLineColor] = useState(true); // Toggle line 1 vs line 2 dual-tone contrast
+  const [highlightWord, setHighlightWord] = useState(""); // Specific word to emphasize in highlightColor
+  const [highlightColor, setHighlightColor] = useState("#facc15"); // Point highlight color (default Golden Yellow)
   const [overlayY, setOverlayY] = useState(80); // percentage (10 to 90)
   const [overlayX, setOverlayX] = useState(50); // percentage (10 to 90)
   const [overlayRotation, setOverlayRotation] = useState(-3); // subtle rotation to add dramatic visual tension
@@ -243,9 +254,12 @@ export default function App() {
     }
 
     switch (templateId) {
-      case "template-01": // 👑 궁중 미스터리 (황금 붓글씨)
+      case "template-01": // 👑 궁중 미스터리 (상단 흰색 + 하단 황금 붓글씨)
         setOverlayStyle("classic-brush");
-        setOverlayColor("#facc15");
+        setOverlayColor("#ffffff");
+        setSecondaryLineColor("#facc15");
+        setHighlightColor("#facc15");
+        setEnableDualLineColor(true);
         setOverlaySize(52);
         setOverlayY(82);
         setOverlayX(50);
@@ -253,11 +267,14 @@ export default function App() {
         setEnableBackingGlow(true);
         setEnableBackingRibbon(false);
         if (textToUse) setOverlayText(textToUse);
-        showFeedback("템플릿 01: [👑 궁중 미스터리 / 황금 붓글씨] 제목 레이어가 자동 합성되었습니다.", "success");
+        showFeedback("템플릿 01: [👑 궁중 미스터리 / 황금 듀얼 붓글씨] 제목 레이어가 자동 합성되었습니다.", "success");
         break;
-      case "template-02": // 🩸 잔혹 서스펜스 (혈색 독도체)
+      case "template-02": // 🩸 잔혹 서스펜스 (상단 흰색 + 하단 핏빛독도체)
         setOverlayStyle("horror-mystery");
-        setOverlayColor("#ef4444");
+        setOverlayColor("#ffffff");
+        setSecondaryLineColor("#ef4444");
+        setHighlightColor("#ef4444");
+        setEnableDualLineColor(true);
         setOverlaySize(64);
         setOverlayY(50);
         setOverlayX(50);
@@ -265,11 +282,14 @@ export default function App() {
         setEnableBackingGlow(true);
         setEnableBackingRibbon(false);
         if (textToUse) setOverlayText(textToUse);
-        showFeedback("템플릿 02: [🩸 잔혹 서스펜스 / 혈색 독도체] 제목 레이어가 자동 합성되었습니다.", "success");
+        showFeedback("템플릿 02: [🩸 잔혹 서스펜스 / 핏빛 듀얼 독도체] 제목 레이어가 자동 합성되었습니다.", "success");
         break;
-      case "template-03": // 🔥 하이라이트 킹고딕 (하단 리본)
+      case "template-03": // 🔥 하이라이트 킹고딕 (하단 노랑 리본)
         setOverlayStyle("bold-modern");
         setOverlayColor("#ffffff");
+        setSecondaryLineColor("#fde047");
+        setHighlightColor("#fde047");
+        setEnableDualLineColor(true);
         setOverlaySize(48);
         setOverlayY(85);
         setOverlayX(50);
@@ -279,9 +299,12 @@ export default function App() {
         if (textToUse) setOverlayText(textToUse);
         showFeedback("템플릿 03: [🔥 하이라이트 킹고딕 / 리본 패널] 제목 레이어가 자동 합성되었습니다.", "success");
         break;
-      case "template-04": // 📜 정통 궁중 명조 (상단 오버레이)
+      case "template-04": // 📜 정통 궁중 명조 (에메랄드 듀얼)
         setOverlayStyle("clean-serif");
         setOverlayColor("#ffffff");
+        setSecondaryLineColor("#34d399");
+        setHighlightColor("#facc15");
+        setEnableDualLineColor(true);
         setOverlaySize(44);
         setOverlayY(22);
         setOverlayX(50);
@@ -289,11 +312,14 @@ export default function App() {
         setEnableBackingGlow(true);
         setEnableBackingRibbon(false);
         if (textToUse) setOverlayText(textToUse);
-        showFeedback("템플릿 04: [📜 정통 궁중 명조 / 상단 오버레이] 제목 레이어가 자동 합성되었습니다.", "success");
+        showFeedback("템플릿 04: [📜 정통 궁중 명조 / 에메랄드 듀얼] 제목 레이어가 자동 합성되었습니다.", "success");
         break;
-      case "template-05": // ⚡ Shorts 모바일 최적화 (중앙 고딕)
+      case "template-05": // ⚡ Shorts 모바일 최적화 (중앙 사이안 고딕)
         setOverlayStyle("bold-modern");
-        setOverlayColor("#fde047");
+        setOverlayColor("#ffffff");
+        setSecondaryLineColor("#38bdf8");
+        setHighlightColor("#fde047");
+        setEnableDualLineColor(true);
         setOverlaySize(56);
         setOverlayY(50);
         setOverlayX(50);
@@ -301,7 +327,7 @@ export default function App() {
         setEnableBackingGlow(true);
         setEnableBackingRibbon(false);
         if (textToUse) setOverlayText(textToUse);
-        showFeedback("템플릿 05: [⚡ Shorts 모바일 최적화 / 중앙 고딕] 제목 레이어가 자동 합성되었습니다.", "success");
+        showFeedback("템플릿 05: [⚡ Shorts 모바일 최적화 / 중앙 사이안 고딕] 제목 레이어가 자동 합성되었습니다.", "success");
         break;
     }
   };
@@ -345,10 +371,27 @@ export default function App() {
 
   // UI control
   const [activeTab, setActiveTab] = useState<
-    "editor" | "characters" | "storyboard" | "thumbnail" | "safety"
+    "editor" | "characters" | "storyboard" | "thumbnail" | "safety" | "analytics"
   >("editor");
   const [safetyReport, setSafetyReport] = useState<YadamSafetyReport | null>(null);
   const [isAuditingSafety, setIsAuditingSafety] = useState(false);
+
+  // AI PD Growth Analytics & Pattern DB Engine States
+  const [growthPatterns, setGrowthPatterns] = useState<GrowthPatternItem[]>([]);
+  const [growthInput, setGrowthInput] = useState({
+    videoTitle: "사도세자가 가장 가까운 사람에게 배신당한 이유",
+    thumbnailText: "혈색 독도체: 가장 가까운 자의 배신",
+    hookScript: "도대체 왜 사도세자는 기어이 8일 동안 뒤주 속에서 비참한 죽음을 맞이해야 했을까? 실록에는 적히지 않은 궁궐 최후의 음모...",
+    ctr: 8.4,
+    avgRetentionPercent: 64.2,
+    views: 480000,
+    topic: "조선 왕실 야담 비사",
+  });
+  const [growthResult, setGrowthResult] = useState<GrowthAnalysisResult | null>(null);
+  const [isAnalyzingGrowth, setIsAnalyzingGrowth] = useState(false);
+  const [selectedGrowthPresetIdx, setSelectedGrowthPresetIdx] = useState<number | null>(0);
+  const [showGrowthGuide, setShowGrowthGuide] = useState(true);
+  const [showMainGuide, setShowMainGuide] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<{
     title: string;
     imageUrl: string;
@@ -811,7 +854,155 @@ export default function App() {
     };
 
     loadSession();
+
+    // Initialize/Restore AI PD Channel Growth Pattern DB
+    getIndexedDBValue("yadam_growth_patterns").then((saved) => {
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        setGrowthPatterns(saved);
+      } else {
+        const DEFAULT_PATTERNS: GrowthPatternItem[] = [
+          {
+            id: "pat_01",
+            category: "keyword",
+            patternName: "'배신' / '비극' 키워드 후킹",
+            CTRImpact: "CTR +2.4% 상승 효과",
+            retentionImpact: "도입부 클릭전환율 극대화",
+            description: "조선 왕실 인물의 비밀스러운 배신이나 비참한 운명을 강조하는 서두 연출",
+            createdAt: "2026-06-01",
+            sourceVideoTitle: "사도세자가 가장 가까운 사람에게 배신당한 이유"
+          },
+          {
+            id: "pat_02",
+            category: "thumbnail",
+            patternName: "황금 붓글씨 캘리그래피 하단 배치",
+            CTRImpact: "CTR +3.1% 상승 효과",
+            retentionImpact: "모바일 피드 가독성 88% 향상",
+            description: "검은 드리운 그림자 배경 위에 황금빛 3-4자 한글 캘리그래피 자막 오버레이",
+            createdAt: "2026-06-01",
+            sourceVideoTitle: "조선 왕실에서 감추려 했던 3가지 기이한 사망 미스터리"
+          },
+          {
+            id: "pat_03",
+            category: "hook",
+            patternName: "도입 5초 의문 제시 오프닝",
+            CTRImpact: "도입 이탈률 -14% 감소",
+            retentionImpact: "평균 시청지속률 60% 이상 달성",
+            description: "'도대체 왜 ~했을까?' 형태의 풀리지 않는 미스터리 질문을 오프닝 15초 내 제시",
+            createdAt: "2026-06-01",
+            sourceVideoTitle: "사도세자가 가장 가까운 사람에게 배신당한 이유"
+          }
+        ];
+        setGrowthPatterns(DEFAULT_PATTERNS);
+        setIndexedDBValue("yadam_growth_patterns", DEFAULT_PATTERNS);
+      }
+    });
   }, []);
+
+  const GROWTH_PRESETS = [
+    {
+      title: "사도세자의 비극 (성과 우수)",
+      data: {
+        videoTitle: "사도세자가 가장 가까운 사람에게 배신당한 이유",
+        thumbnailText: "혈색 독도체: 가장 가까운 자의 배신",
+        hookScript: "도대체 왜 사도세자는 기어이 8일 동안 뒤주 속에서 비참한 죽음을 맞이해야 했을까? 실록에는 적히지 않은 궁궐 최후의 음모...",
+        ctr: 8.4,
+        avgRetentionPercent: 64.2,
+        views: 480000,
+        topic: "조선 왕실 야담 비사",
+      }
+    },
+    {
+      title: "연산군 광기의 진실 (성과 보통)",
+      data: {
+        videoTitle: "연산군의 폭정과 폐위의 날",
+        thumbnailText: "왕의 폭정",
+        hookScript: "조선 10대 국왕 연산군, 그는 왜 희대의 폭군으로 기록되었는가? 연산군의 일대기를 조명해봅니다.",
+        ctr: 4.2,
+        avgRetentionPercent: 41.0,
+        views: 85000,
+        topic: "조선 왕조 실록 히스토리",
+      }
+    },
+    {
+      title: "조선 왕실 미제 사건 (성과 최상)",
+      data: {
+        videoTitle: "조선 왕실에서 감추려 했던 3가지 기이한 사망 미스터리",
+        thumbnailText: "황금 붓글씨: 실록에서 지워진 죽음",
+        hookScript: "첫 번째 사건, 밤중에 왕의 처소에서 들려온 비명 소리... 사관이 붓을 놓게 만든 기이한 환각의 진실은 무엇이었을까?",
+        ctr: 9.8,
+        avgRetentionPercent: 71.5,
+        views: 1250000,
+        topic: "미스터리 야담 비화",
+      }
+    }
+  ];
+
+  const handleSelectGrowthPreset = (idx: number) => {
+    setSelectedGrowthPresetIdx(idx);
+    const preset = GROWTH_PRESETS[idx];
+    if (preset) {
+      setGrowthInput(preset.data);
+      showFeedback(`'${preset.title}' 샘플 성과 데이터가 설정되었습니다.`, "info");
+    }
+  };
+
+  const handleAnalyzeGrowthPerformance = async () => {
+    if (!growthInput.videoTitle.trim()) {
+      showFeedback("분석할 영상 제목을 입력해 주세요.", "error");
+      return;
+    }
+
+    setIsAnalyzingGrowth(true);
+    showFeedback("유튜브 성과 분석 및 AI 패턴 학습 엔진을 가동 중입니다...", "info");
+
+    try {
+      const response = await fetch("/api/analyze-growth-performance", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(growthInput),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "성과 데이터 분석 실패");
+      }
+
+      const data: GrowthAnalysisResult = await response.json();
+      setGrowthResult(data);
+      showFeedback("AI PD 성과 분석 및 흥행 패턴 도출이 완료되었습니다!", "success");
+    } catch (err: any) {
+      console.error(err);
+      showFeedback(`분석 중 오류 발생: ${err.message}`, "error");
+    } finally {
+      setIsAnalyzingGrowth(false);
+    }
+  };
+
+  const handleSaveExtractedPatternsToDb = () => {
+    if (!growthResult || !growthResult.extractedPatterns || growthResult.extractedPatterns.length === 0) {
+      showFeedback("저장할 추출 패턴이 없습니다.", "error");
+      return;
+    }
+
+    const newItems: GrowthPatternItem[] = growthResult.extractedPatterns.map((pat, idx) => ({
+      ...pat,
+      id: `ext_${Date.now()}_${idx}`,
+      createdAt: new Date().toISOString().slice(0, 10),
+      sourceVideoTitle: growthInput.videoTitle,
+    }));
+
+    const updated = [...newItems, ...growthPatterns];
+    setGrowthPatterns(updated);
+    setIndexedDBValue("yadam_growth_patterns", updated);
+    showFeedback(`축하합니다! ${newItems.length}개의 성공 패턴이 채널 AI 패턴 DB에 축적되었습니다.`, "success");
+  };
+
+  const handleDeleteGrowthPattern = (id: string) => {
+    const updated = growthPatterns.filter((p) => p.id !== id);
+    setGrowthPatterns(updated);
+    setIndexedDBValue("yadam_growth_patterns", updated);
+    showFeedback("선택한 흥행 패턴 항목이 삭제되었습니다.", "info");
+  };
 
   // Save session state helper with IndexedDB primary storage and LocalStorage backup
   const saveSession = (
@@ -2028,39 +2219,87 @@ export default function App() {
       const totalHeight = lineHeight * (textLines.length - 1);
       const startY = -totalHeight / 2;
 
-      textLines.forEach((line, index) => {
+      textLines.forEach((lineText, index) => {
         const lineY = startY + index * lineHeight;
+        const lineBaseColor = (enableDualLineColor && index > 0) ? secondaryLineColor : overlayColor;
+
+        // Extract text chunks (support bracket syntax [word] / {word} and highlightWord)
+        const chunks: { text: string; isHighlight: boolean }[] = [];
+        const hasBrackets = /\[.*?\]|\{.*?\}/.test(lineText);
+
+        if (hasBrackets) {
+          let lastIndex = 0;
+          let match: RegExpExecArray | null;
+          const regex = /\[(.*?)\]|\{(.*?)\}/g;
+          while ((match = regex.exec(lineText)) !== null) {
+            if (match.index > lastIndex) {
+              chunks.push({ text: lineText.slice(lastIndex, match.index), isHighlight: false });
+            }
+            const innerText = match[1] || match[2];
+            chunks.push({ text: innerText, isHighlight: true });
+            lastIndex = regex.lastIndex;
+          }
+          if (lastIndex < lineText.length) {
+            chunks.push({ text: lineText.slice(lastIndex), isHighlight: false });
+          }
+        } else if (highlightWord && highlightWord.trim() && lineText.includes(highlightWord.trim())) {
+          const target = highlightWord.trim();
+          const parts = lineText.split(target);
+          parts.forEach((part, i) => {
+            if (part) chunks.push({ text: part, isHighlight: false });
+            if (i < parts.length - 1) chunks.push({ text: target, isHighlight: true });
+          });
+        } else {
+          chunks.push({ text: lineText, isHighlight: false });
+        }
+
+        // Measure clean line text width
+        const cleanLineText = chunks.map(c => c.text).join("");
+        const totalLineWidth = ctx.measureText(cleanLineText).width;
 
         // Draw Ribbon Background plate
         if (enableBackingRibbon) {
-          const textWidth = ctx.measureText(line).width;
           ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-          ctx.fillRect(-textWidth / 2 - 20 * scale, lineY - lineHeight / 2, textWidth + 40 * scale, lineHeight);
+          ctx.fillRect(-totalLineWidth / 2 - 20 * scale, lineY - lineHeight / 2, totalLineWidth + 40 * scale, lineHeight);
         }
 
-        // Draw Shadows and Glow Outlines
+        const startX = -totalLineWidth / 2;
+
+        // Pass 1: Draw Shadows and Glow Outlines for all chunks
         if (enableBackingGlow) {
-          ctx.strokeStyle = "#000000";
-          ctx.lineWidth = 14 * scale;
-          ctx.lineJoin = "round";
-          ctx.strokeText(line, 0, lineY);
-          
-          ctx.lineWidth = 8 * scale;
-          ctx.strokeText(line, 0, lineY);
+          let strokeX = startX;
+          ctx.textAlign = "left";
+          chunks.forEach((chunk) => {
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 14 * scale;
+            ctx.lineJoin = "round";
+            ctx.strokeText(chunk.text, strokeX, lineY);
+            
+            ctx.lineWidth = 8 * scale;
+            ctx.strokeText(chunk.text, strokeX, lineY);
 
-          ctx.strokeStyle = "rgba(0,0,0,0.5)";
-          ctx.lineWidth = 20 * scale;
-          ctx.strokeText(line, 0, lineY);
-        } else {
-          ctx.shadowColor = "rgba(0,0,0,0.85)";
-          ctx.shadowBlur = 10 * scale;
-          ctx.shadowOffsetX = 3 * scale;
-          ctx.shadowOffsetY = 3 * scale;
+            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.lineWidth = 20 * scale;
+            ctx.strokeText(chunk.text, strokeX, lineY);
+
+            strokeX += ctx.measureText(chunk.text).width;
+          });
         }
 
-        // Fill Foreground Text
-        ctx.fillStyle = overlayColor;
-        ctx.fillText(line, 0, lineY);
+        // Pass 2: Fill Foreground Text chunks with respective colors
+        let fillX = startX;
+        ctx.textAlign = "left";
+        chunks.forEach((chunk) => {
+          if (!enableBackingGlow) {
+            ctx.shadowColor = "rgba(0,0,0,0.85)";
+            ctx.shadowBlur = 10 * scale;
+            ctx.shadowOffsetX = 3 * scale;
+            ctx.shadowOffsetY = 3 * scale;
+          }
+          ctx.fillStyle = chunk.isHighlight ? highlightColor : lineBaseColor;
+          ctx.fillText(chunk.text, fillX, lineY);
+          fillX += ctx.measureText(chunk.text).width;
+        });
       });
 
       ctx.restore();
@@ -2085,6 +2324,60 @@ export default function App() {
     img.onerror = () => {
       showFeedback("썸네일 원본 리소스 분석에 일시적인 장애가 생겨 실시간 캘리그래피 합성에 실패했습니다.", "error");
     };
+  };
+
+  // Helper to render multi-color live text overlay in React preview
+  const renderFormattedOverlayText = (text: string) => {
+    if (!text) return null;
+    const textLines = text.split("\n");
+
+    return textLines.map((lineText, lineIdx) => {
+      const lineBaseColor = (enableDualLineColor && lineIdx > 0) ? secondaryLineColor : overlayColor;
+
+      const chunks: { text: string; isHighlight: boolean }[] = [];
+      const hasBrackets = /\[.*?\]|\{.*?\}/.test(lineText);
+
+      if (hasBrackets) {
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        const regex = /\[(.*?)\]|\{(.*?)\}/g;
+        while ((match = regex.exec(lineText)) !== null) {
+          if (match.index > lastIndex) {
+            chunks.push({ text: lineText.slice(lastIndex, match.index), isHighlight: false });
+          }
+          const innerText = match[1] || match[2];
+          chunks.push({ text: innerText, isHighlight: true });
+          lastIndex = regex.lastIndex;
+        }
+        if (lastIndex < lineText.length) {
+          chunks.push({ text: lineText.slice(lastIndex), isHighlight: false });
+        }
+      } else if (highlightWord && highlightWord.trim() && lineText.includes(highlightWord.trim())) {
+        const target = highlightWord.trim();
+        const parts = lineText.split(target);
+        parts.forEach((part, i) => {
+          if (part) chunks.push({ text: part, isHighlight: false });
+          if (i < parts.length - 1) chunks.push({ text: target, isHighlight: true });
+        });
+      } else {
+        chunks.push({ text: lineText, isHighlight: false });
+      }
+
+      return (
+        <div key={lineIdx} className="block whitespace-nowrap">
+          {chunks.map((chunk, cIdx) => (
+            <span
+              key={cIdx}
+              style={{
+                color: chunk.isHighlight ? highlightColor : lineBaseColor,
+              }}
+            >
+              {chunk.text}
+            </span>
+          ))}
+        </div>
+      );
+    });
   };
 
   // Extract all LTX I2V motion prompts together as a clean copyable batch
@@ -5152,7 +5445,7 @@ export default function App() {
                                   textTransform: "uppercase"
                                 }}
                               >
-                                {overlayText}
+                                {renderFormattedOverlayText(overlayText)}
                               </div>
                             </div>
                           )}
@@ -5504,40 +5797,175 @@ export default function App() {
 
                         {showThumbnailFineTune && (
                           <div className="space-y-3.5 pt-3 border-t border-white/5 mt-2 animate-fade-in">
-                            {/* Font Color & Size */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                              <div className="space-y-1">
-                                <label className="text-[10px] text-white/50 font-bold block">글자 크기: {overlaySize}px</label>
-                                <input
-                                  type="range"
-                                  min="24"
-                                  max="100"
-                                  value={overlaySize}
-                                  onChange={(e) => setOverlaySize(Number(e.target.value))}
-                                  className="w-full accent-purple-500 h-1 bg-white/5 rounded-lg appearance-none cursor-pointer"
-                                />
+                            {/* Font Size Slider */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-white/50 font-bold">
+                                <span>글자 크기</span>
+                                <span>{overlaySize}px</span>
                               </div>
-                              <div className="space-y-1">
-                                <label className="text-[10px] text-white/50 font-bold block font-mono">글자 색상</label>
-                                <div className="flex items-center gap-1.5 mt-1">
+                              <input
+                                type="range"
+                                min="24"
+                                max="100"
+                                value={overlaySize}
+                                onChange={(e) => setOverlaySize(Number(e.target.value))}
+                                className="w-full accent-purple-500 h-1 bg-white/5 rounded-lg appearance-none cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Multi-Color & Highlight Panel */}
+                            <div className="space-y-2.5 bg-[#14141e] p-3 rounded border border-purple-500/20">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-purple-300 font-bold flex items-center gap-1">
+                                  🎨 자막 멀티 컬러 & 포인트 강조 (CTR 시각화 엔진)
+                                </span>
+                                <label className="flex items-center gap-1 text-[9px] text-white/60 cursor-pointer">
                                   <input
-                                    type="color"
-                                    value={overlayColor}
-                                    onChange={(e) => setOverlayColor(e.target.value)}
-                                    className="w-6 h-6 bg-transparent border-0 cursor-pointer"
+                                    type="checkbox"
+                                    checked={enableDualLineColor}
+                                    onChange={(e) => setEnableDualLineColor(e.target.checked)}
+                                    className="rounded border-white/10 text-purple-500 focus:ring-0 bg-transparent"
                                   />
-                                  <div className="flex gap-1">
-                                    {["#facc15", "#ef4444", "#ffffff", "#50e3c2"].map((c) => (
-                                      <button
-                                        key={c}
-                                        type="button"
-                                        onClick={() => setOverlayColor(c)}
-                                        className="w-4 h-4 rounded-full border border-white/10 shrink-0"
-                                        style={{ backgroundColor: c }}
-                                      />
-                                    ))}
+                                  <span>2행 듀얼 색상</span>
+                                </label>
+                              </div>
+
+                              {/* Color controls grid */}
+                              <div className="grid grid-cols-2 gap-2.5 text-[10px]">
+                                {/* Base / 1st line color */}
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-white/50 block font-mono">1행 / 기본 색상</label>
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="color"
+                                      value={overlayColor}
+                                      onChange={(e) => setOverlayColor(e.target.value)}
+                                      className="w-5 h-5 bg-transparent border-0 cursor-pointer"
+                                    />
+                                    <div className="flex gap-1">
+                                      {["#ffffff", "#facc15", "#ef4444", "#38bdf8"].map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() => setOverlayColor(c)}
+                                          className={`w-3.5 h-3.5 rounded-full border ${overlayColor === c ? "border-purple-400 scale-110" : "border-white/10"} shrink-0`}
+                                          style={{ backgroundColor: c }}
+                                        />
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
+
+                                {/* 2nd line color */}
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-white/50 block font-mono">2행 / 하단 대비 색상</label>
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="color"
+                                      value={secondaryLineColor}
+                                      onChange={(e) => setSecondaryLineColor(e.target.value)}
+                                      disabled={!enableDualLineColor}
+                                      className="w-5 h-5 bg-transparent border-0 cursor-pointer disabled:opacity-40"
+                                    />
+                                    <div className="flex gap-1">
+                                      {["#facc15", "#ef4444", "#34d399", "#38bdf8"].map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() => setSecondaryLineColor(c)}
+                                          disabled={!enableDualLineColor}
+                                          className={`w-3.5 h-3.5 rounded-full border ${secondaryLineColor === c ? "border-purple-400 scale-110" : "border-white/10"} shrink-0 disabled:opacity-40`}
+                                          style={{ backgroundColor: c }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Highlight word input and color */}
+                              <div className="space-y-1 pt-1 border-t border-white/5">
+                                <label className="text-[9px] text-white/50 block">포인트 강조 단어 지정 (또는 문구에 <code className="text-yellow-400 font-mono">[강조단어]</code> 입력)</label>
+                                <div className="flex gap-2 items-center">
+                                  <input
+                                    type="text"
+                                    value={highlightWord}
+                                    onChange={(e) => setHighlightWord(e.target.value)}
+                                    placeholder="예: 진실, 비밀, 왕도..."
+                                    className="flex-1 bg-[#12121a] border border-white/10 rounded px-2 py-1 text-[11px] text-yellow-300 focus:outline-none focus:border-yellow-500 font-medium"
+                                  />
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <input
+                                      type="color"
+                                      value={highlightColor}
+                                      onChange={(e) => setHighlightColor(e.target.value)}
+                                      className="w-5 h-5 bg-transparent border-0 cursor-pointer"
+                                    />
+                                    <div className="flex gap-1">
+                                      {["#facc15", "#ef4444", "#38bdf8", "#22c55e"].map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() => setHighlightColor(c)}
+                                          className={`w-3.5 h-3.5 rounded-full border ${highlightColor === c ? "border-yellow-400 scale-110" : "border-white/10"} shrink-0`}
+                                          style={{ backgroundColor: c }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Fast Dual-Color Presets */}
+                              <div className="pt-1.5 flex flex-wrap gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOverlayColor("#ffffff");
+                                    setSecondaryLineColor("#facc15");
+                                    setHighlightColor("#facc15");
+                                    setEnableDualLineColor(true);
+                                  }}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] text-yellow-300 font-medium transition-all"
+                                >
+                                  ⚡ 1행흰색+2행황금
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOverlayColor("#ffffff");
+                                    setSecondaryLineColor("#ef4444");
+                                    setHighlightColor("#ef4444");
+                                    setEnableDualLineColor(true);
+                                  }}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] text-red-400 font-medium transition-all"
+                                >
+                                  🩸 1행흰색+2행핏빛
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOverlayColor("#facc15");
+                                    setSecondaryLineColor("#ffffff");
+                                    setHighlightColor("#ef4444");
+                                    setEnableDualLineColor(true);
+                                  }}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] text-amber-300 font-medium transition-all"
+                                >
+                                  👑 1행황금+2행흰색
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOverlayColor("#ffffff");
+                                    setSecondaryLineColor("#38bdf8");
+                                    setHighlightColor("#facc15");
+                                    setEnableDualLineColor(true);
+                                  }}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] text-cyan-300 font-medium transition-all"
+                                >
+                                  💎 1행흰색+2행사이안
+                                </button>
                               </div>
                             </div>
 
@@ -5721,6 +6149,162 @@ export default function App() {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* YOUTUBE PUBLISHING & SEO MARKETING ASSETS PACK */}
+                <div className="col-span-1 lg:col-span-12 mt-2 bg-[#121216] border border-purple-500/20 rounded-lg p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-wide uppercase flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+                        유튜브 영상 발행 & SEO 마케팅 에셋 (YouTube Publishing Pack)
+                      </h3>
+                      <p className="text-white/50 text-[11px] leading-relaxed mt-1">
+                        시청자들의 클릭 및 알고리즘 검색 유입을 극대화하기 위해 AI가 자동 생성한 영상 설명란, SEO 해시태그, 고정 댓글 및 5대 카테고리별 카피 모음입니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Grid layout for Description, Hashtags & Pinned Comment */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* 1. 유튜브 영상 설명란 문구 (Video Description) */}
+                    <div className="bg-[#171720] border border-white/10 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-bold text-purple-300 flex items-center gap-1.5">
+                            📝 유튜브 영상 설명란 문구
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (thumbnailData?.videoDescription) {
+                                copyToClipboard(thumbnailData.videoDescription, "video_desc");
+                                showFeedback("설명란 문구가 클립보드에 복사되었습니다!", "success");
+                              }
+                            }}
+                            className="text-[10px] text-purple-400 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 rounded px-2 py-0.5 font-mono transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            {copiedText === "video_desc" ? "복사완료!" : "📋 전체 복사"}
+                          </button>
+                        </div>
+                        <div className="bg-[#0e0e14] p-3 rounded border border-white/5 text-xs text-white/80 leading-relaxed font-sans whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                          {thumbnailData?.videoDescription || "분석 완료 시 완벽한 유튜브 설명란 문구가 도출됩니다."}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. SEO 최적화 해시태그 (SEO Hashtags) */}
+                    <div className="bg-[#171720] border border-white/10 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                            🏷️ SEO 최적화 해시태그
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const tags = thumbnailData?.hashtags ? thumbnailData.hashtags.join(" ") : "";
+                              if (tags) {
+                                copyToClipboard(tags, "hashtags");
+                                showFeedback("SEO 해시태그 목록이 복사되었습니다!", "success");
+                              }
+                            }}
+                            className="text-[10px] text-emerald-400 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 rounded px-2 py-0.5 font-mono transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            {copiedText === "hashtags" ? "복사완료!" : "🏷️ 전체 복사"}
+                          </button>
+                        </div>
+                        <div className="bg-[#0e0e14] p-3 rounded border border-white/5 flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto">
+                          {thumbnailData?.hashtags && thumbnailData.hashtags.length > 0 ? (
+                            thumbnailData.hashtags.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                onClick={() => {
+                                  copyToClipboard(tag, `tag_${idx}`);
+                                  showFeedback(`"${tag}" 해시태그가 복사되었습니다.`, "success");
+                                }}
+                                className="bg-emerald-950/30 hover:bg-emerald-900/50 text-emerald-300 hover:text-white border border-emerald-500/20 rounded px-2 py-1 text-[10px] font-mono cursor-pointer transition-all"
+                                title="클릭하여 이 해시태그 단독 복사"
+                              >
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-white/40 text-xs">SEO 최적화 해시태그 생성 대기 중...</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Pinned Comment (고정 댓글 제안) */}
+                    <div className="bg-[#171720] border border-white/10 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                            📌 Pinned Comment (고정 댓글 제안)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (thumbnailData?.pinnedComment) {
+                                copyToClipboard(thumbnailData.pinnedComment, "pinned_comment");
+                                showFeedback("고정 댓글이 클립보드에 복사되었습니다!", "success");
+                              }
+                            }}
+                            className="text-[10px] text-amber-400 hover:text-white bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 rounded px-2 py-0.5 font-mono transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            {copiedText === "pinned_comment" ? "복사완료!" : "📌 고정댓글 복사"}
+                          </button>
+                        </div>
+                        <div className="bg-[#0e0e14] p-3 rounded border border-white/5 text-xs text-amber-100/90 leading-relaxed font-serif whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                          {thumbnailData?.pinnedComment || "구독 및 댓글 유도를 위한 맞춤 고정 댓글이 준비됩니다."}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. 클릭유도 썸네일 카피 5대 카테고리 후보 */}
+                  {thumbnailData?.thumbnailCopyCandidates && thumbnailData.thumbnailCopyCandidates.length > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-white/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          🎯 클릭유도 썸네일 카피 5대 카테고리 후보 추천 (클릭시 오버레이 적용)
+                        </span>
+                        <span className="text-[10px] text-purple-400 font-mono">문구 클릭 시 실시간 자막 장착 & 복사 ⚡</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        {thumbnailData.thumbnailCopyCandidates.map((cat, catIdx) => (
+                          <div key={catIdx} className="bg-[#171720] border border-white/10 rounded-lg p-3 space-y-2">
+                            <div className="text-[11px] font-bold text-purple-300 pb-1.5 border-b border-white/5 flex items-center gap-1 truncate">
+                              <span className="w-1.5 h-1.5 bg-purple-500 rounded-full shrink-0"></span>
+                              {cat.categoryName}
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {cat.copies?.map((copyText, copyIdx) => (
+                                <div
+                                  key={copyIdx}
+                                  onClick={() => {
+                                    setOverlayText(copyText);
+                                    copyToClipboard(copyText, `copy_cat_${catIdx}_${copyIdx}`);
+                                    showFeedback(`"${copyText}" 문구가 캘리그래피 레이어에 바로 적용되고 복사되었습니다!`, "success");
+                                  }}
+                                  className="p-2 bg-[#0d0d12] hover:bg-purple-950/40 border border-white/5 hover:border-purple-500/40 rounded text-[11px] font-serif text-white hover:text-purple-300 cursor-pointer transition-all flex items-center justify-between group"
+                                  title="클릭 시 자막 오버레이 적용 + 복사"
+                                >
+                                  <span className="truncate">{copyText}</span>
+                                  <span className="text-[9px] text-purple-400 opacity-0 group-hover:opacity-100 font-mono shrink-0 ml-1">
+                                    적용
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -6212,16 +6796,468 @@ export default function App() {
             )}
           </motion.div>
         )}
+
+        {/* TAB 6: AI PD YOUTUBE GROWTH ANALYTICS & PATTERN LEARNING ENGINE */}
+        {activeTab === "analytics" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            id="pane-analytics"
+            className="space-y-6"
+          >
+            {/* Header Status Card */}
+            <div className="bg-[#121216] border border-amber-500/20 rounded-xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 shrink-0">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-white tracking-tight">
+                      AI PD 성장형 성과 분석 & 흥행 패턴 DB (3단계 선순환 엔진)
+                    </h2>
+                    <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                      성장 루프
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/50 mt-1">
+                    유튜브 실적(조회수·CTR·시청지속률)과 후킹 대본을 분석하여 흥행 공식을 학습하고, 채널 전용 AI 패턴 DB에 축적합니다.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowGrowthGuide(!showGrowthGuide)}
+                  className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                  {showGrowthGuide ? "가이드 접기" : "📖 초보자용 가이드 보기"}
+                </button>
+                <div className="flex items-center gap-2 bg-[#181822] p-2 rounded-lg border border-white/5">
+                  <Database className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-white">
+                    축적된 패턴: <span className="text-amber-400 font-mono text-sm">{growthPatterns.length}개</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Built-in Guide Callout */}
+            {showGrowthGuide && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-gradient-to-r from-amber-950/30 via-[#181824] to-amber-950/20 border border-amber-500/30 rounded-xl p-5 space-y-3 relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                  <h3 className="text-xs font-bold text-amber-400 flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-amber-400" />
+                    💡 [1분 가이드] AI PD 성장형 분석 & 패턴 DB 활용법
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowGrowthGuide(false)}
+                    className="text-white/40 hover:text-white text-xs cursor-pointer"
+                  >
+                    닫기 ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-white/80 pt-1">
+                  <div className="bg-[#121216]/80 p-3 rounded-lg border border-white/5 space-y-1">
+                    <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] font-mono font-bold">1</span>
+                      성과 데이터 입력 (또는 샘플 선택)
+                    </div>
+                    <p className="text-[11px] text-white/60 leading-relaxed">
+                      유튜브 스튜디오에서 확인한 조회수, CTR(클릭률 %), 시청지속률(%)과 15초 오프닝 대본을 입력합니다. <span className="text-amber-400 font-bold">🚀 상단 3개 샘플 버튼</span>으로 빠르게 체험할 수 있습니다.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#121216]/80 p-3 rounded-lg border border-white/5 space-y-1">
+                    <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] font-mono font-bold">2</span>
+                      AI PD 정밀 진단 & 패턴 도출
+                    </div>
+                    <p className="text-[11px] text-white/60 leading-relaxed">
+                      <span className="text-amber-400 font-bold">[2단계 진단 버튼]</span>을 누르면 AI가 CTR 유발점, 오프닝 이탈 원인, 썸네일 가독성을 다각도 점수로 진단하고 3~5개의 흥행 공식을 도출합니다.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#121216]/80 p-3 rounded-lg border border-white/5 space-y-1">
+                    <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] font-mono font-bold">3</span>
+                      채널 전용 AI 패턴 DB 축적 & 반영
+                    </div>
+                    <p className="text-[11px] text-white/60 leading-relaxed">
+                      <span className="text-amber-400 font-bold">[💾 추출된 패턴 저축]</span>을 누르면 채널 DB에 저장되며, 향후 새로운 야담 대본을 집필할 때 AI가 이 성공 규칙을 자동 반영하여 흥행 확률을 높여줍니다.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 1단계: 성과 데이터 입력 및 샘플 선택 */}
+            <div className="bg-[#121216] border border-white/5 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                <label className="text-xs uppercase tracking-wider font-bold text-amber-400 flex items-center gap-1.5 font-mono">
+                  <Target className="w-4 h-4" />
+                  1단계: 유튜브 성과 데이터 수집 & 샘플 선택
+                </label>
+                <span className="text-[10px] text-white/40">
+                  분석 데이터 기반으로 AI가 CTR/지속률 방해 및 성공 요인을 판별합니다.
+                </span>
+              </div>
+
+              {/* Preset selector */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-mono font-bold text-white/50 block uppercase">
+                  🚀 빠른 테스트용 채널 성과 샘플 선택
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {GROWTH_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectGrowthPreset(idx)}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        selectedGrowthPresetIdx === idx
+                          ? "bg-amber-500/15 border-amber-500/50 text-amber-300 font-bold"
+                          : "bg-[#181822] border-white/5 text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="text-xs font-bold truncate">{preset.title}</div>
+                      <div className="text-[10px] text-white/40 font-mono mt-1 flex justify-between">
+                        <span>CTR {preset.data.ctr}%</span>
+                        <span>지속률 {preset.data.avgRetentionPercent}%</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    영상 제목 (Video Title) <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={growthInput.videoTitle}
+                    onChange={(e) => setGrowthInput({ ...growthInput, videoTitle: e.target.value })}
+                    placeholder="예: 사도세자가 가장 가까운 사람에게 배신당한 이유"
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    썸네일 컨셉 / 텍스트 (Thumbnail Concept)
+                  </label>
+                  <input
+                    type="text"
+                    value={growthInput.thumbnailText}
+                    onChange={(e) => setGrowthInput({ ...growthInput, thumbnailText: e.target.value })}
+                    placeholder="예: 혈색 독도체: 가장 가까운 자의 배신"
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    도입부 후킹 스크립트 (Intro 15s Hook Script)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={growthInput.hookScript}
+                    onChange={(e) => setGrowthInput({ ...growthInput, hookScript: e.target.value })}
+                    placeholder="도입 15초 나레이션을 입력하세요..."
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    클릭률 CTR (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={growthInput.ctr}
+                    onChange={(e) => setGrowthInput({ ...growthInput, ctr: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    평균 시청지속률 (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={growthInput.avgRetentionPercent}
+                    onChange={(e) => setGrowthInput({ ...growthInput, avgRetentionPercent: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    누적 조회수 (Views)
+                  </label>
+                  <input
+                    type="number"
+                    value={growthInput.views}
+                    onChange={(e) => setGrowthInput({ ...growthInput, views: parseInt(e.target.value) || 0 })}
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-white/80 block">
+                    주제 / 카테고리
+                  </label>
+                  <input
+                    type="text"
+                    value={growthInput.topic}
+                    onChange={(e) => setGrowthInput({ ...growthInput, topic: e.target.value })}
+                    className="w-full bg-[#181822] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isAnalyzingGrowth}
+                onClick={handleAnalyzeGrowthPerformance}
+                className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-amber-950/40 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isAnalyzingGrowth ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    AI PD 성과 정밀 분석 및 패턴 학습 중...
+                  </>
+                ) : (
+                  <>
+                    <Cpu className="w-4 h-4 text-white" />
+                    2단계: AI PD 성과 진단 및 흥행 패턴 도출 가동
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 2단계: AI 분석 결과 및 피드백 */}
+            {growthResult && (
+              <div className="space-y-6">
+                {/* Scores Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-xl space-y-1 text-center">
+                    <span className="text-[10px] text-white/40 uppercase font-mono font-bold">CTR 잠재력 지수</span>
+                    <div className="text-2xl font-bold font-mono text-amber-400">
+                      {growthResult.scores.ctrPotentialScore}점
+                    </div>
+                    <p className="text-[10px] text-white/40">제목/썸네일 호기심 발동력</p>
+                  </div>
+
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-xl space-y-1 text-center">
+                    <span className="text-[10px] text-white/40 uppercase font-mono font-bold">시청지속 영향도</span>
+                    <div className="text-2xl font-bold font-mono text-blue-400">
+                      {growthResult.scores.retentionImpactScore}점
+                    </div>
+                    <p className="text-[10px] text-white/40">도입 15초 이탈 방지 수준</p>
+                  </div>
+
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-xl space-y-1 text-center">
+                    <span className="text-[10px] text-white/40 uppercase font-mono font-bold">감정 후킹 강도</span>
+                    <div className="text-2xl font-bold font-mono text-rose-400">
+                      {growthResult.scores.emotionalHookScore}점
+                    </div>
+                    <p className="text-[10px] text-white/40">분노·호기심 자극 수치</p>
+                  </div>
+
+                  <div className="bg-[#121216] border border-amber-500/30 bg-amber-500/5 p-4 rounded-xl space-y-1 text-center">
+                    <span className="text-[10px] text-amber-400 uppercase font-mono font-bold">AI 종합 흥행 지수</span>
+                    <div className="text-2xl font-bold font-mono text-amber-300">
+                      {growthResult.scores.overallScore}점
+                    </div>
+                    <p className="text-[10px] text-amber-400/60">알고리즘 추천 우수도</p>
+                  </div>
+                </div>
+
+                {/* Feedback Details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[#121216] border border-white/10 rounded-xl p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                      📌 제목 구성 피드백
+                    </h4>
+                    <p className="text-xs text-white/80 leading-relaxed font-serif">
+                      {growthResult.feedback.titleAnalysis}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#121216] border border-white/10 rounded-xl p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
+                      🎬 도입 후킹 스크립트 진단
+                    </h4>
+                    <p className="text-xs text-white/80 leading-relaxed font-serif">
+                      {growthResult.feedback.hookAnalysis}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#121216] border border-white/10 rounded-xl p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                      🖼️ 썸네일 가독성 & 비주얼 조언
+                    </h4>
+                    <p className="text-xs text-white/80 leading-relaxed font-serif">
+                      {growthResult.feedback.thumbnailAnalysis}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Extracted Patterns Card */}
+                <div className="bg-[#121216] border border-amber-500/30 rounded-xl p-5 space-y-4 shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        3단계: 새로 추출된 성공 공식 패턴 ({growthResult.extractedPatterns.length}개)
+                      </h3>
+                      <p className="text-xs text-white/50 mt-0.5">
+                        이 영상 분석에서 도출된 핵심 흥행 규칙입니다. 패턴 DB에 저장하면 다음 대본/썸네일 생성 시 자동 적용됩니다.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveExtractedPatternsToDb}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-md cursor-pointer"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      💾 추출된 패턴 AI DB에 저축
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {growthResult.extractedPatterns.map((pattern, pIdx) => (
+                      <div
+                        key={pIdx}
+                        className="bg-[#181822] border border-white/10 p-3.5 rounded-lg space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold font-mono uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded">
+                            {pattern.category}
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                            {pattern.CTRImpact}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold text-white">
+                          {pattern.patternName}
+                        </h4>
+                        <p className="text-[11px] text-white/60 leading-relaxed">
+                          {pattern.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3단계: 채널 AI 패턴 DB 목록 */}
+            <div className="bg-[#121216] border border-white/5 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Database className="w-4 h-4 text-amber-400" />
+                    채널 전용 AI 패턴 지식 DB (누적 {growthPatterns.length}개)
+                  </h3>
+                  <p className="text-xs text-white/40 mt-0.5">
+                    스토리보드 제어 엔진이 대본을 집필할 때 이 DB 항목들을 우선 참조하여 흥행 확률을 지속 상향시킵니다.
+                  </p>
+                </div>
+              </div>
+
+              {growthPatterns.length === 0 ? (
+                <div className="text-center py-8 text-white/40 text-xs">
+                  아직 등록된 흥행 패턴이 없습니다. 위 1~2단계를 통해 영상 데이터를 분석하고 성공 패턴을 추가해 보세요!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {growthPatterns.map((pat) => (
+                    <div
+                      key={pat.id}
+                      className="bg-[#181822] border border-white/5 hover:border-amber-500/30 p-3.5 rounded-lg flex flex-col justify-between gap-3 transition-all relative group"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[9px] font-bold font-mono uppercase px-2 py-0.5 rounded border ${
+                            pat.category === "keyword"
+                              ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                              : pat.category === "thumbnail"
+                              ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                              : pat.category === "hook"
+                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          }`}>
+                            {pat.category}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteGrowthPattern(pat.id)}
+                            className="text-white/20 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+                            title="패턴 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-white">
+                          {pat.patternName}
+                        </h4>
+
+                        <p className="text-[11px] text-white/60 leading-relaxed">
+                          {pat.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-white/5 text-[10px] text-white/40 font-mono flex items-center justify-between">
+                        <span className="text-amber-400/80">{pat.CTRImpact}</span>
+                        {pat.createdAt && <span>{pat.createdAt}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* RIGHT COMPONENT: PERSISTENT CONTROLLER CONSOLE (lg:col-span-4) */}
       <div className="lg:col-span-4 flex flex-col gap-5 self-start sticky top-6" id="persistent-controller-pane">
         {/* 🌟 Step Viewer System: Vertical Navigation Menu */}
         <div className="bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col gap-3 shadow-md">
-          <h3 className="text-[10px] uppercase tracking-widest font-bold text-white/50 pb-2 border-b border-white/5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-            야담 플래너 단계별 콘텐츠 뷰어
-          </h3>
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <h3 className="text-[10px] uppercase tracking-widest font-bold text-white/50 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+              야담 플래너 단계별 콘텐츠 뷰어
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowFullUserManualModal(true)}
+              className="px-2 py-0.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+              title="전체 프로그램 가이드 열기"
+            >
+              <BookOpen className="w-3 h-3 text-blue-400" />
+              📖 전체 가이드
+            </button>
+          </div>
           <div className="flex flex-col gap-1.5">
             <button
               type="button"
@@ -6323,6 +7359,23 @@ export default function App() {
                 4단계: 수익정지 안전 진단기
               </span>
               <span className="text-[9px] px-1.5 py-0.5 bg-rose-500/10 rounded text-rose-400 font-mono font-bold">안전</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("analytics")}
+              id="tab-btn-analytics"
+              className={`w-full py-2.5 px-3 rounded text-left text-xs font-bold transition-all flex items-center justify-between gap-2 border ${
+                activeTab === "analytics"
+                  ? "bg-amber-600/10 border-amber-500/30 text-amber-400 shadow-lg shadow-amber-500/10 font-bold"
+                  : "bg-transparent border-transparent text-white/40 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+                AI PD: 성과 분석 & 패턴 DB
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/10 rounded text-amber-400 font-mono font-bold">성장 루프</span>
             </button>
           </div>
         </div>

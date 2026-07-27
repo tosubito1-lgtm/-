@@ -79,6 +79,11 @@ export interface GenerationConfig {
   lengthPreset?: LengthPreset;
 }
 
+export interface ThumbnailDirectorCandidateCategory {
+  categoryName: string;
+  copies: string[];
+}
+
 export interface ThumbnailDirectorData {
   chosenSceneId: number;
   sceneTitle: string;
@@ -92,6 +97,12 @@ export interface ThumbnailDirectorData {
   imageUrl?: string;
   isGenerating?: boolean;
   error?: string;
+  
+  // YouTube Publishing & Marketing Assets
+  videoDescription?: string;
+  hashtags?: string[];
+  pinnedComment?: string;
+  thumbnailCopyCandidates?: ThumbnailDirectorCandidateCategory[];
 }
 
 export interface YadamSafetyReport {
@@ -120,6 +131,38 @@ export interface YadamSafetyReport {
     riskFactors: string[];          // 양산형 알고리즘 제재 위험 요소
     actionableAdvice: string[];     // 수익 정지 방지를 위한 구체적 개선 조치
   };
+}
+
+export interface GrowthPatternItem {
+  id: string;
+  category: "keyword" | "thumbnail" | "hook" | "structure";
+  patternName: string;
+  CTRImpact: string;
+  retentionImpact: string;
+  description: string;
+  createdAt?: string;
+  sourceVideoTitle?: string;
+}
+
+export interface GrowthAnalysisResult {
+  videoTitle: string;
+  thumbnailText?: string;
+  hookScript?: string;
+  ctr?: number;
+  avgRetentionPercent?: number;
+  views?: number;
+  scores: {
+    ctrPotentialScore: number;
+    retentionImpactScore: number;
+    emotionalHookScore: number;
+    overallScore: number;
+  };
+  feedback: {
+    titleAnalysis: string;
+    hookAnalysis: string;
+    thumbnailAnalysis: string;
+  };
+  extractedPatterns: GrowthPatternItem[];
 }
 
 

@@ -269,12 +269,12 @@
         /* 그리드 버튼 배치 */
         .stage-btn-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 6px;
         }
         .stage-btn-grid button {
-            font-size: 0.8rem;
-            padding: 6px;
+            font-size: 0.78rem;
+            padding: 6px 4px;
         }
         
         /* 다음에 클릭해야 할 단계 단추용 선명한 하이라이팅 스타일 */
@@ -428,7 +428,6 @@
                         <option value="추적">진실 추적 (S29-38)</option>
                         <option value="반전">반전 기획 (S39-48)</option>
                         <option value="결말">결말 피날레 (S49-62)</option>
-                        <option value="썸네일">유튜브 썸네일 최적화</option>
                         <option value="대본1">통합 대본 1부 (S1-31)</option>
                         <option value="대본2">통합 대본 2부 (S32-62)</option>
                         <option value="TTS1">TTS 원고 1부 (S1-31)</option>
@@ -570,7 +569,6 @@
                     <button id="btn-stage-추적" class="btn btn-secondary" onclick="triggerStage('추적')">추적(심화)</button>
                     <button id="btn-stage-반전" class="btn btn-secondary" onclick="triggerStage('반전')">반전(클라이맥스)</button>
                     <button id="btn-stage-결말" class="btn btn-secondary" onclick="triggerStage('결말')">결말(피날레)</button>
-                    <button id="btn-stage-썸네일" class="btn btn-secondary" onclick="triggerStage('썸네일')">유튜브최적화</button>
                 </div>
             </div>
 
@@ -727,13 +725,6 @@
   5. 고어 및 잔인함 배제: 상처나 핏자국을 노골적으로 표현하는 대신 붉은 등불 조명이나 깨진 그릇, 땅에 흩어진 붉은 꽃잎 등의 시각적 은유를 활용할 것.
 
 
-────────────────────────────
-■ 4단계: 유튜브 최적화 기획 (썸네일)
-사용자가 "썸네일" 또는 "4단계"를 요청하면 아래를 빠짐없이 출력한다:
-- 썸네일 핵심 비주얼 기획 (가장 흥미롭고 자극적인 상황 및 클로즈업 가이드)
-- 자극적인 썸네일 카피 5가지 후보
-- 설명란 메타데이터 가이드 (챕터 타임라인 포함)
-- SEO 최적화 해시태그 및 유선 댓글 서술안
 `;
     </script>
 
@@ -741,7 +732,7 @@
     <script>
         let chatHistory = [];
         const fallbackDefaultTitle = "실록에서 사라진 7일";
-        const STAGE_SEQUENCE = ['0단계', '1단계', '인트로', '사건발생', '의혹', '추적', '반전', '결말', '썸네일'];
+        const STAGE_SEQUENCE = ['0단계', '1단계', '인트로', '사건발생', '의혹', '추적', '반전', '결말'];
         let lastTriggeredStage = null;
         let isContentSaved = true;
         let currentActiveStage = '기획';
@@ -922,7 +913,6 @@ Return JSON strictly with this schema:
                     '추적': '진실 추적 (S29-38)',
                     '반전': '반전 기획 (S39-48)',
                     '결말': '결말 피날레 (S49-62)',
-                    '썸네일': '유튜브 썸네일 최적화',
                     '대본': '통합 대본 전체 (S1-62)',
                     '대본1': '통합 대본 1부 (S1-31)',
                     '대본2': '통합 대본 2부 (S32-62)',
@@ -1311,9 +1301,6 @@ Return JSON strictly with this schema:
                           "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
                           "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해." + extraRules; 
-                    break;
-                case '썸네일': 
-                    cmd = "4단계: 유튜브 썸네일 및 매체 최적화 기획을 수행해줘. 가장 충격적이고 호기심을 폭발시키는 클라이맥스 씬 기반의 디렉션 프롬프트와 썸네일 텍스트 문구 5선 후보, 설명란(타임라인 포함), 해시태그, Pinned Comment(고정 댓글 제안)까지 완결성 있게 뽑아줘."; 
                     break;
             }
             sendPrompt(cmd);

@@ -935,6 +935,18 @@ Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail t
 - Style: Focus on shocks, twists, secrets, royal conspiracies, or high curiosity.
 - Banned: No explanatory titles, no spoilers, no copying of the video's original title.
 - Examples: '왕도 속았다', '숨겨진 진실', '범인은 따로 있었다', '왕이 감춘 비밀', '모두가 거짓이었다', '죽은 줄 알았다', '절대 들켜선 안 됐다', '그날 밤의 진실'.
+
+=== YOUTUBE PUBLISHING & SEO MARKETING ASSETS ===
+Generate comprehensive publishing materials in Korean to maximize video search ranking, click-through rate, and viewer engagement:
+1. Video Description (영상 설명란 문구): Write a 6~10 line engaging Korean YouTube description. Include a dramatic story synopsis without major endgame spoilers, key emotional highlights, structured timeline/timestamp breakdown hints, and subscription/like encouragement.
+2. SEO Hashtags (SEO 최적화 해시태그): Provide 8 to 12 popular, highly relevant search hashtags starting with '#' (e.g. #야담 #조선비사 #역사미스터리 #한국야담 #궁중비사 #조선시대 #옛날이야기 #역사스토리텔링).
+3. Pinned Comment (고정 댓글 제안): Write an interactive Korean pinned comment that prompts viewers to leave comments sharing their thoughts and reminds them to subscribe and enable notifications.
+4. 5 Copy Candidate Categories (클릭유도 썸네일 카피 5대 카테고리 후보): Create 5 distinct marketing copy categories, each containing 3 short, punchy, high-CTR Korean thumbnail text phrases (max 12 characters per phrase):
+   - Category 1: "호기심 유발형" (Curiosity-driven)
+   - Category 2: "비극/비사 강조형" (Tragedy & Secret History)
+   - Category 3: "반전/음모 강조형" (Twist & Conspiracy)
+   - Category 4: "도발적 질문형" (Provocative Question)
+   - Category 5: "임팩트 단문형" (Short Impact)
 `;
 
     const responseSchema = {
@@ -952,9 +964,46 @@ Propose exactly 5 highly compelling Korean clickbait phrases for the thumbnail t
           items: { type: Type.STRING }
         },
         recommendedText: { type: Type.STRING, description: "The single best caption recommended for generating the highest possible CTR." },
-        recommendationReason: { type: Type.STRING, description: "Detailed Korean explanation of the tactical marketing-strategic reason why this recommended text will hook viewers." }
+        recommendationReason: { type: Type.STRING, description: "Detailed Korean explanation of the tactical marketing-strategic reason why this recommended text will hook viewers." },
+        videoDescription: { type: Type.STRING, description: "Engaging, high-converting Korean YouTube video description text including plot synopsis, key highlights, and subscription calls-to-action." },
+        hashtags: {
+          type: Type.ARRAY,
+          description: "8 to 12 SEO-optimized Korean hashtags starting with '#' for YouTube search algorithm optimization.",
+          items: { type: Type.STRING }
+        },
+        pinnedComment: { type: Type.STRING, description: "Engaging Korean pinned comment text designed to trigger viewer comments, discussions, and subscription engagement." },
+        thumbnailCopyCandidates: {
+          type: Type.ARRAY,
+          description: "5 categories of click-inducing thumbnail copy candidates (3 phrases per category).",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              categoryName: { type: Type.STRING, description: "Category name: '호기심 유발형', '비극/비사 강조형', '반전/음모 강조형', '도발적 질문형', or '임팩트 단문형'." },
+              copies: {
+                type: Type.ARRAY,
+                description: "3 short, punchy Korean phrases (max 12 characters each).",
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["categoryName", "copies"]
+          }
+        }
       },
-      required: ["chosenSceneId", "sceneTitle", "selectionReason", "compositionStyle", "colorMood", "visualPrompt", "textCandidates", "recommendedText", "recommendationReason"]
+      required: [
+        "chosenSceneId",
+        "sceneTitle",
+        "selectionReason",
+        "compositionStyle",
+        "colorMood",
+        "visualPrompt",
+        "textCandidates",
+        "recommendedText",
+        "recommendationReason",
+        "videoDescription",
+        "hashtags",
+        "pinnedComment",
+        "thumbnailCopyCandidates"
+      ]
     };
 
     let userPromptOverride = "";
@@ -1164,6 +1213,111 @@ async function startServer() {
 
   app.get("/davinci_automation_pro.html", (req, res) => {
     res.sendFile(path.join(process.cwd(), "davinci_automation_pro.html"));
+  });
+
+  /**
+   * Endpoint for AI YouTube Growth Analytics & Pattern Learning Engine (Step 1~3)
+   */
+  app.post("/api/analyze-growth-performance", async (req, res): Promise<void> => {
+    try {
+      const { videoTitle, thumbnailText, hookScript, ctr, avgRetentionPercent, views, topic } = req.body;
+      
+      if (!videoTitle || typeof videoTitle !== "string" || videoTitle.trim().length === 0) {
+        res.status(400).json({ error: "영상 제목(videoTitle)은 필수 항목입니다." });
+        return;
+      }
+
+      const ai = getGenAI(req);
+
+      const systemInstruction = `
+You are an expert YouTube Channel Growth Strategist & AI Content Pattern Analyst for Korean historical mystery/yadam channels.
+Analyze the performance data of a YouTube video and extract actionable content patterns, CTR drivers, retention boosters, and concrete scoring metrics.
+
+=== INPUT DATA ===
+Title: "${videoTitle}"
+Thumbnail Text / Concept: "${thumbnailText || "미지정"}"
+Hook Script (Intro 15s): "${hookScript || "미지정"}"
+Actual Performance: CTR ${ctr || 0}%, Average Retention ${avgRetentionPercent || 0}%, Views ${views || 0}
+Topic / Category: "${topic || "조선 야담"}"
+
+=== OUTPUT SCHEMA ===
+1. scores:
+   - ctrPotentialScore (0-100)
+   - retentionImpactScore (0-100)
+   - emotionalHookScore (0-100)
+   - overallScore (0-100)
+2. feedback:
+   - titleAnalysis (Korean explanation of why this title worked or failed)
+   - hookAnalysis (Korean explanation of intro retention risk/boost)
+   - thumbnailAnalysis (Korean advice on visual contrast & text typography)
+3. extractedPatterns: An array of 3-5 high-value pattern rules to store in the channel's AI Pattern DB:
+   - id: string
+   - category: "keyword" | "thumbnail" | "hook" | "structure"
+   - patternName: short title in Korean (e.g., "'배신' 단어 포함", "도입 5초 이내 반전 제시", "황금 붓글씨 하단 배치")
+   - CTRImpact: estimated or observed impact text (e.g., "CTR +2.3% 상승 효과")
+   - retentionImpact: impact text (e.g., "도입 이탈률 -15% 감소")
+   - description: detailed advice on how to reuse this pattern in future videos.
+`;
+
+      const responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          scores: {
+            type: Type.OBJECT,
+            properties: {
+              ctrPotentialScore: { type: Type.INTEGER },
+              retentionImpactScore: { type: Type.INTEGER },
+              emotionalHookScore: { type: Type.INTEGER },
+              overallScore: { type: Type.INTEGER },
+            },
+            required: ["ctrPotentialScore", "retentionImpactScore", "emotionalHookScore", "overallScore"],
+          },
+          feedback: {
+            type: Type.OBJECT,
+            properties: {
+              titleAnalysis: { type: Type.STRING },
+              hookAnalysis: { type: Type.STRING },
+              thumbnailAnalysis: { type: Type.STRING },
+            },
+            required: ["titleAnalysis", "hookAnalysis", "thumbnailAnalysis"],
+          },
+          extractedPatterns: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                category: { type: Type.STRING, enum: ["keyword", "thumbnail", "hook", "structure"] },
+                patternName: { type: Type.STRING },
+                CTRImpact: { type: Type.STRING },
+                retentionImpact: { type: Type.STRING },
+                description: { type: Type.STRING },
+              },
+              required: ["id", "category", "patternName", "CTRImpact", "retentionImpact", "description"],
+            },
+          },
+        },
+        required: ["scores", "feedback", "extractedPatterns"],
+      };
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: "유튜브 성과 데이터와 후킹 원고를 분석하여 성공/개선 패턴과 점수를 도출해 주세요.",
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.3,
+        },
+      });
+
+      const parsed = JSON.parse(response.text || "{}");
+      res.json(parsed);
+
+    } catch (error: any) {
+      console.error("Error analyzing growth performance:", error);
+      res.status(500).json({ error: error.message || "Failed to analyze growth performance." });
+    }
   });
 
   if (process.env.NODE_ENV !== "production") {
