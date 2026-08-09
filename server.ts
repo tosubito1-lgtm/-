@@ -60,33 +60,43 @@ function getGenAI(req: express.Request): GoogleGenAI {
  */
 app.post("/api/analyze-script", async (req, res): Promise<void> => {
   try {
-    const { script, quantityOverride, quantityValue, storyFormat = "classic", lengthPreset = "standard" } = req.body;
+    const { script, quantityOverride, quantityValue, storyFormat = "classic", lengthPreset = "standard", growthPatterns } = req.body;
     if (!script || typeof script !== "string" || script.trim().length === 0) {
       res.status(400).json({ error: "Script text is required and cannot be empty." });
       return;
     }
 
-    // Check if it's an advanced structured template script (highly customized format)
-    const isStructured = script.includes("[S1.]") || script.includes("[S1]") || script.includes("[IMAGE GENERATION PROMPT]");
-    if (isStructured) {
-      const parsedData = parseStructuredScript(script);
-      if (parsedData) {
-        console.log(`[STORYBOARD ENGINE] Instantly parsed structured script (${parsedData.scenes.length} scenes) locally!`);
-        res.json(parsedData);
-        return;
-      }
-    }
-
+    // Always pass script to Gemini AI engine for dynamic character, location, and scene extraction
     const ai = getGenAI(req);
 
-    const systemInstruction = `
+    let systemInstruction = `
 You are a highly professional historical storyteller storyboard engine specializing in YouTube script analysis and image prompt engineering.
 Your goals are:
 1. Extract and standardize 1 to 4 main characters (Character DB).
 2. Extract recurring settings/locations (Location DB).
 3. Generate a modular sequence of storyboard scene blocks matching the timeline with dynamic scene pacing and LTX Video recommendations.
 
-=== STORY FORMAT TEMPLATE MODE (${storyFormat.toUpperCase()}) ===
+=== NARRATION-TO-IMAGE PERFECT COMPATIBILITY & SENSORY PROMPT RULES ===
+- 100% VISUAL ALIGNMENT: Every key character, emotion, object, action, and location mentioned in 'narrationText' MUST be explicitly mirrored in 'visualDescription' and 'refinedImagePrompt'.
+- NO AI PROMPT BUZZWORDS: Strictly BAN vague filler words like "masterpiece", "hyperrealistic", "cinematic lighting", "photorealistic", "AI art", "high resolution".
+- SPECIFIC SENSORY ANCHORS: Replace buzzwords with concrete physical cues:
+  * Exact Light Source: "single flickering oil lamp casting dark charcoal shadows on hanji paper", "cold pale moonlight shining through wooden window shutters".
+  * Realistic Texture: "hand-woven coarse hemp robe", "embroidered silk dragon emblem with fine golden threads".
+  * Physical Gaze & Gesture: "eyes wide with sudden realization", "trembling hands gripping an unrolled ancient parchment", "head turned 45 degrees towards dark courtyard".
+- HUMANLIKE NATURAL STORYTELLING: Ensure the narration text flows as naturally spoken, engaging human speech without repetitive robotic filler or clichés, ensuring seamless alignment between audio narration and generated visual frames.`;
+
+    if (Array.isArray(growthPatterns) && growthPatterns.length > 0) {
+      systemInstruction += `\n\n=== LEARNED CHANNEL AI PD GROWTH PATTERNS (HIGH PRIORITY SUCCESS FORMULAS) ===
+Incorporate the following proven success formulas learned from past channel performance:
+`;
+      growthPatterns.forEach((gp: any) => {
+        if (gp.title && gp.takeaway) {
+          systemInstruction += `- [${gp.title}]: ${gp.takeaway}\n`;
+        }
+      });
+    }
+
+    systemInstruction += `\n\n=== STORY FORMAT TEMPLATE MODE (${storyFormat ? storyFormat.toUpperCase() : "CLASSIC"}) ===
 - Adapt the narrative progression according to the selected format mode:
   1. 'in_media_res' (충격 장면 선공개 / 반전 추리형):
      - Scenes 1~2: Show the shocking climax/result first ("도대체 조선 최고의 비극은 왜 일어났을까?").
@@ -350,6 +360,15 @@ app.post("/api/generate-script", async (req, res): Promise<void> => {
     const systemInstruction = `
 You are a master Korean historical storyteller (야담/사극 전문 대본 작가) for high-retention YouTube channels.
 Write a rich, dramatic, highly engaging historical script in Korean based on the provided topic.
+
+=== STRICT ANTI-AI CLICHÉ & NATURAL HUMAN TONE RULES ===
+- NEVER USE AI CLICHÉS: Strictly BAN phrases like "역사의 수레바퀴 속에서", "역사에 만약은 없다지만", "거대한 운명의 막이 오르고", "상상조차 할 수 없었던", "놀랍게도 그것은 시작에 불과했다".
+- AUTHENTIC HISTORICAL ANCHORING: Every script MUST explicitly state specific historical anchors:
+  * Exact Era/Reign & Year: e.g. "숙종 19년 계유년 깊은 밤", "영조 38년 한여름", "세종 재위 14년".
+  * Specific Official Titles & Ranks: Use real historical titles like "승정원 도승지", "의정부 좌참찬", "훈련도감 포도대장", "내의원 어의", "사헌부 지평".
+  * Real Historical Records & Sources: Cite real sources such as 《조선왕조실록》, 《승정원일기》, 《연려실기술》, 《대동야승》, 《삼국사기》.
+- NATURAL SPOKEN SPOKEN TONE: Write in authentic human storytelling style—as if an old scholar or seasoned storyteller is leaning in to whisper an untold royal mystery.
+- ZERO ANACHRONISM: Absolutely no modern terms or academic jargon (e.g. "심리학적", "스트레스", "시스템", "트라우마").
 
 === SCRIPT FORMAT REQUIREMENTS ===
 1. Structure the script using standardized scene blocks:

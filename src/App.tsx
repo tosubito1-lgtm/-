@@ -45,6 +45,8 @@ import {
   Database,
   Target,
   Cpu,
+  CheckSquare,
+  Brain,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -211,6 +213,8 @@ export default function App() {
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
   const [sceneLtxMotions, setSceneLtxMotions] = useState<Record<number, string>>({});
+  const [selectedSceneIds, setSelectedSceneIds] = useState<number[]>([]);
+  const [applyGrowthPatternsToAnalysis, setApplyGrowthPatternsToAnalysis] = useState(true);
 
   // Core application state
   const [analysis, setAnalysis] = useState<StoryboardAnalysisResponse | null>(
@@ -443,6 +447,7 @@ export default function App() {
   const [showBatchTelemetry, setShowBatchTelemetry] = useState(false);
 
   // Beginner 3-Step Guide Modal State
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showSfxGuideModal, setShowSfxGuideModal] = useState(false);
   const [showFullUserManualModal, setShowFullUserManualModal] = useState(false);
@@ -467,7 +472,7 @@ export default function App() {
 
   const stopRequestedRef = useRef<boolean>(false);
 
-  // Helper definition to inject character clothing & appearance for maximum visual stability across scenes
+  // Helper definition to inject character clothing & appearance with Smart Compact Lock (Zero token bloat)
   const getConsistentlyInjectedPrompt = (scene: SceneItem): string => {
     let finalPrompt = scene.refinedImagePrompt;
 
@@ -475,31 +480,29 @@ export default function App() {
       return finalPrompt;
     }
 
-    // Accumulate matching characters info
+    // 1. Smart Compact Character Lock Tags
     if (scene.characterNames && scene.characterNames.length > 0) {
-      const charInfos = scene.characterNames
+      const compactCharTags = scene.characterNames
         .map((charName) => {
           const found = characters.find(
             (c) =>
               c.name.trim().toLowerCase() === charName.trim().toLowerCase(),
           );
           if (found) {
-            // Use high-fidelity English attributes if available for optimal Imagen 3 alignment
-            const appearanceDetail = found.appearanceEnglish || `외모: ${found.appearance}`;
-            const clothingDetail = found.clothingEnglish || `의상: ${found.clothing}`;
-            const genderAge = found.appearanceEnglish ? "" : `${found.gender}, ${found.age}, `;
-            return `${found.name} (${genderAge}${appearanceDetail}, ${clothingDetail})`;
+            // Short, precise English visual tags to maximize Imagen 3 compliance without prompt bloat
+            const detail = found.clothingEnglish || found.appearanceEnglish || `${found.gender} ${found.age}, ${found.clothing}`;
+            return `${found.name} (${detail})`;
           }
           return null;
         })
         .filter(Boolean);
 
-      if (charInfos.length > 0) {
-        finalPrompt += ` . [Character details for consistency: ${charInfos.join(", ")}. CRITICAL NOTE: Do NOT spawn or add these characters standing, sitting, or active unless the main prompt explicitly states they are active or present. If they are described as a silhouette, lying dead, sick, or represented solely by their robe or an empty bed, maintain that exact static/silhouette composition strictly and apply only their facial/clothing color schemes to those shapes, without generating a separate living or standing person.]`;
+      if (compactCharTags.length > 0) {
+        finalPrompt += ` . [Char Lock: ${compactCharTags.join(" | ")}]`;
       }
     }
 
-    // Accumulate matching location environment info
+    // 2. Smart Compact Location Lock Tag
     if (scene.locationName) {
       const locFound = locations.find(
         (l) =>
@@ -508,7 +511,8 @@ export default function App() {
       );
       if (locFound) {
         const locDetail = locFound.descriptionEnglish || locFound.description;
-        finalPrompt += ` . [Location details: ${locFound.name} - ${locDetail}]`;
+        const shortLoc = locDetail.length > 60 ? locDetail.substring(0, 60) + "..." : locDetail;
+        finalPrompt += ` . [Env: ${locFound.name} (${shortLoc})]`;
       }
     }
 
@@ -814,6 +818,9 @@ export default function App() {
           if (parsed.locations) setLocations(parsed.locations);
           if (parsed.scenes) setScenes(parsed.scenes);
           if (parsed.scriptText) setScriptText(parsed.scriptText);
+          if (parsed.scriptTopic) setScriptTopic(parsed.scriptTopic);
+          if (parsed.storyFormat) setStoryFormat(parsed.storyFormat);
+          if (parsed.lengthPreset) setLengthPreset(parsed.lengthPreset);
           if (parsed.modelName) setModelName(parsed.modelName);
           if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
           if (parsed.artStyle) setArtStyle(parsed.artStyle);
@@ -1023,6 +1030,9 @@ export default function App() {
       locations: currentLoc,
       scenes: currentSc,
       scriptText,
+      scriptTopic,
+      storyFormat,
+      lengthPreset,
       modelName,
       aspectRatio,
       artStyle,
@@ -1074,12 +1084,13 @@ export default function App() {
   };
 
   const clearSession = () => {
-    if (
-      window.confirm(
-        "현재 작업 중인 프로젝트와 데이터를 영구히 초기화하시겠습니까?",
-      )
-    ) {
+    setShowResetConfirmModal(true);
+  };
+
+  const executeClearSession = () => {
+    try {
       localStorage.removeItem("yadam_storyboard_session");
+      localStorage.removeItem("yadam_planner_script");
       deleteIndexedDBValue(SESSION_KEY).catch((e) => {
         console.error("Failed to delete session from IndexedDB", e);
       });
@@ -1087,9 +1098,17 @@ export default function App() {
       setCharacters([]);
       setLocations([]);
       setScenes([]);
-      setScriptText(YADAM_STORY_PRESET);
+      setScriptText("");
+      setScriptTopic("");
+      setThumbnailData(undefined);
+      setSceneLtxMotions({});
+      setSafetyReport(null);
       setActiveTab("editor");
-      showFeedback("프로젝트가 초기화되었습니다.", "info");
+      setShowResetConfirmModal(false);
+      showFeedback("프로젝트와 모든 데이터가 깨끗이 초기화되었습니다.", "info");
+    } catch (err: any) {
+      console.error("Reset session error:", err);
+      showFeedback("초기화 처리 중 오류가 발생했습니다.", "error");
     }
   };
 
@@ -1183,6 +1202,9 @@ export default function App() {
       setCharacters([]);
       setLocations([]);
       setScenes([]);
+      setThumbnailData(undefined);
+      setSceneLtxMotions({});
+      setSafetyReport(null);
     }
 
     const timer = setInterval(() => {
@@ -1235,6 +1257,7 @@ export default function App() {
           artStyle,
           storyFormat,
           lengthPreset,
+          growthPatterns: applyGrowthPatternsToAnalysis ? growthPatterns : [],
         }),
       });
 
@@ -1879,6 +1902,176 @@ export default function App() {
     if (!stopRequestedRef.current) {
       showFeedback("실패작 큐 재시도가 완료되었습니다.", "success");
     }
+  };
+
+  // Scene Multi-Select Batch Queue Helpers
+  const handleSelectAllScenes = () => {
+    setSelectedSceneIds(scenes.map((s) => s.id));
+    showFeedback(`전체 ${scenes.length}개 장면 카드가 선택되었습니다.`, "info");
+  };
+
+  const handleSelectFailedScenes = () => {
+    const failedIds = scenes.filter((s) => s.error && !s.imageUrl).map((s) => s.id);
+    if (failedIds.length === 0) {
+      showFeedback("생성 실패한 장면이 존재하지 않습니다.", "info");
+      return;
+    }
+    setSelectedSceneIds(failedIds);
+    showFeedback(`생성 실패한 ${failedIds.length}개 장면 카드가 선택되었습니다.`, "info");
+  };
+
+  const handleSelectUnrenderedScenes = () => {
+    const unrenderedIds = scenes.filter((s) => !s.imageUrl).map((s) => s.id);
+    if (unrenderedIds.length === 0) {
+      showFeedback("미생성된 장면이 존재하지 않습니다.", "info");
+      return;
+    }
+    setSelectedSceneIds(unrenderedIds);
+    showFeedback(`미생성된 ${unrenderedIds.length}개 장면 카드가 선택되었습니다.`, "info");
+  };
+
+  const handleClearSceneSelection = () => {
+    setSelectedSceneIds([]);
+  };
+
+  const handleToggleSceneSelection = (sceneId: number) => {
+    setSelectedSceneIds((prev) =>
+      prev.includes(sceneId) ? prev.filter((id) => id !== sceneId) : [...prev, sceneId]
+    );
+  };
+
+  // Step 2-3b: Selective Re-roll and batch generation for selected scene cards
+  const handleGenerateSelectedScenes = async () => {
+    if (selectedSceneIds.length === 0) {
+      showFeedback("선택된 장면이 없습니다. 먼저 장면 카드의 체크박스를 선택해 주세요.", "info");
+      return;
+    }
+
+    setIsGeneratingScenes(true);
+    stopRequestedRef.current = false;
+    const updatedScenes = [...scenes];
+
+    for (let i = 0; i < updatedScenes.length; i++) {
+      if (!selectedSceneIds.includes(updatedScenes[i].id)) continue;
+
+      if (stopRequestedRef.current) {
+        showFeedback("선택 장면 일괄 재시도 작업이 중단되었습니다.", "info");
+        break;
+      }
+
+      setCurrentSceneIndex(i);
+      updatedScenes[i].isGenerating = true;
+      updatedScenes[i].error = undefined;
+      setScenes([...updatedScenes]);
+
+      try {
+        const isIntroScene = updatedScenes[i].id <= 8;
+        const response = await fetch("/api/generate-scene-image", {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            prompt: getConsistentlyInjectedPrompt(updatedScenes[i]),
+            artStyle,
+            modelName,
+            aspectRatio,
+            isWanIntro: wanIntroOptimized && isIntroScene,
+          }),
+        });
+
+        const data = await safeParseJSON(response, "장면 렌더링 실패");
+        updatedScenes[i].imageUrl = data.imageUrl;
+        updatedScenes[i].error = undefined;
+      } catch (err: any) {
+        console.error(err);
+        updatedScenes[i].error = err.message || "생성 실패";
+      } finally {
+        updatedScenes[i].isGenerating = false;
+        setScenes([...updatedScenes]);
+        saveSession(analysis, characters, locations, updatedScenes, batchSavedTokens, batchConsoleLogs);
+
+        if (stopRequestedRef.current) break;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+
+    setCurrentSceneIndex(null);
+    setIsGeneratingScenes(false);
+    if (!stopRequestedRef.current) {
+      showFeedback(`선택된 ${selectedSceneIds.length}개 장면 일괄 렌더링이 완료되었습니다!`, "success");
+    }
+  };
+
+  // Complete Production Package Bundle Exporter
+  const handleDownloadFullProductionPackage = () => {
+    let pkg = "=========================================================\n";
+    pkg += "🎬 야담 크리에이터 종합 프로덕션 에셋 번들 패키지 (Complete Production Pack)\n";
+    pkg += `생성 일자: ${new Date().toLocaleString("ko-KR")}\n`;
+    pkg += `적용 화풍: ${artStyle} | 가로비: ${aspectRatio} | 이미지 모델: ${modelName}\n`;
+    pkg += "=========================================================\n\n";
+
+    pkg += "■ 1. 스토리보드 대본 원고 (Script Text) ■\n";
+    pkg += (scriptText || "작성된 대본이 없습니다.") + "\n\n";
+
+    pkg += "■ 2. 등장인물 데이터베이스 (Character DB) ■\n";
+    if (characters.length > 0) {
+      characters.forEach((c, idx) => {
+        pkg += `[인물 #${idx + 1}] ${c.name} (${c.gender}/${c.age})\n`;
+        pkg += `  - 외모: ${c.appearance}\n  - 의복: ${c.clothing}\n  - 성격: ${c.traits}\n`;
+        pkg += `  - 프롬프트: ${c.characterSheetPrompt}\n`;
+        if (c.imageUrl) pkg += `  - 포트레이트 이미지 URL: ${c.imageUrl.substring(0, 80)}...\n`;
+        pkg += "\n";
+      });
+    } else {
+      pkg += "등장인물 정보가 존재하지 않습니다.\n\n";
+    }
+
+    pkg += "■ 3. 타임라인 씬 목록 및 이미지 프롬프트 (Scene Timeline) ■\n";
+    if (scenes.length > 0) {
+      scenes.forEach((s) => {
+        pkg += `[Scene #${s.id}] (장소: ${s.locationName} | 페이싱: ${s.pacingType} | 시간: ${s.durationSeconds}초)\n`;
+        pkg += `  - 자막 나레이션: ${s.narrationText}\n`;
+        pkg += `  - 연출 지침: ${s.visualDescription}\n`;
+        pkg += `  - 렌더 프롬프트: ${s.refinedImagePrompt}\n`;
+        if (s.ltxRecommended) {
+          pkg += `  - 📹 LTX 비디오 추천: YES (${s.ltxReason})\n`;
+          pkg += `  - 📹 LTX 모션 프롬프트: ${s.ltxPrompt || sceneLtxMotions[s.id] || "slow zoom in"}\n`;
+        }
+        if (s.imageUrl) {
+          pkg += `  - 🖼️ 이미지 데이터: ${s.imageUrl.substring(0, 80)}...\n`;
+        }
+        pkg += "\n";
+      });
+    } else {
+      pkg += "타임라인 씬 정보가 비어있습니다.\n\n";
+    }
+
+    pkg += "■ 4. 유튜브 마케팅 에셋 & SEO 설정 (YouTube Publishing Pack) ■\n";
+    if (thumbnailData) {
+      pkg += `- 썸네일 추천 문구: "${thumbnailData.recommendedText}"\n`;
+      pkg += `- 기획 의도: ${thumbnailData.recommendationReason}\n`;
+      pkg += `- 비디오 설명란 문구:\n${thumbnailData.videoDescription || "N/A"}\n\n`;
+      pkg += `- SEO 해시태그: ${thumbnailData.hashtags ? thumbnailData.hashtags.join(" ") : "N/A"}\n\n`;
+      pkg += `- Pinned Comment (고정 댓글):\n${thumbnailData.pinnedComment || "N/A"}\n\n`;
+    } else {
+      pkg += "마케팅 에셋 데이터가 비어있습니다.\n\n";
+    }
+
+    pkg += "■ 5. 축적된 AI PD 채널 흥행 패턴 DB (Learned Growth Patterns) ■\n";
+    if (growthPatterns.length > 0) {
+      growthPatterns.forEach((gp, idx) => {
+        pkg += `[패턴 #${idx + 1}] ${gp.title} (조회수: ${gp.views.toLocaleString()}회 | CTR: ${gp.ctr}%)\n`;
+        pkg += `  - 핵심 성공 공식: ${gp.takeaway}\n\n`;
+      });
+    } else {
+      pkg += "축적된 흥행 패턴이 없습니다.\n\n";
+    }
+
+    const blob = new Blob([pkg], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `[YadamStudio]_Complete_Production_Pack_${new Date().toISOString().slice(0, 10)}.txt`;
+    link.click();
+    showFeedback("종합 프로덕션 에셋 패키지(.TXT) 파일이 성공적으로 다운로드되었습니다!", "success");
   };
 
   // Step 2-4: Gemini Batch API Simulation & Execution with 50% Token Discount
@@ -3314,6 +3507,9 @@ export default function App() {
       locations,
       scenes,
       scriptText,
+      scriptTopic,
+      storyFormat,
+      lengthPreset,
       modelName,
       aspectRatio,
       artStyle,
@@ -3356,6 +3552,9 @@ export default function App() {
             setLocations(parsed.locations || []);
             setScenes(parsed.scenes || []);
             setScriptText(parsed.scriptText || YADAM_STORY_PRESET);
+            if (parsed.scriptTopic) setScriptTopic(parsed.scriptTopic);
+            if (parsed.storyFormat) setStoryFormat(parsed.storyFormat);
+            if (parsed.lengthPreset) setLengthPreset(parsed.lengthPreset);
             if (parsed.modelName) setModelName(parsed.modelName);
             if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
             if (parsed.artStyle) setArtStyle(parsed.artStyle);
@@ -3477,6 +3676,15 @@ export default function App() {
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               🎬 초보자 가이드
+            </button>
+            <button
+              onClick={handleDownloadFullProductionPackage}
+              id="btn-download-complete-package"
+              className="px-3 py-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/40 hover:to-teal-600/40 border border-emerald-500/50 text-emerald-300 hover:text-white rounded text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/40"
+              title="대본, 인물, 타임라인, LTX 모션, 마케팅 에셋을 단 한 번의 클릭으로 전체 번들 패키지 다운로드"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              📦 1-Click 전체 패키지
             </button>
             <button
               onClick={handleExportBackup}
@@ -3638,23 +3846,20 @@ export default function App() {
               id="pane-editor"
               className="bg-[#121216] border border-white/5 rounded-xl p-5 flex flex-col gap-4"
             >
-              <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+              <div className="flex flex-wrap justify-between items-center pb-2 border-b border-white/5 gap-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/50 flex items-center gap-1.5">
                   Storyboard Script Input & Preview
+                  <span className="text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-mono font-semibold">
+                    ⚡ Gemini 1M Context Window
+                  </span>
                 </label>
-                <span
-                  className={`text-[10px] font-mono transition-colors ${
-                    scriptText.length > 25000
-                      ? "text-rose-400 font-bold"
-                      : scriptText.length > 20000
-                        ? "text-amber-400"
-                        : "text-blue-400"
-                  }`}
-                >
-                  글자 수: {scriptText.length.toLocaleString()} / 25,000자 권장
-                  (토큰: ~{Math.round(scriptText.length * 1.5).toLocaleString()}
-                  )
-                </span>
+                <div className="flex items-center gap-2.5 text-[10px] font-mono text-cyan-300/90 bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-md">
+                  <span>글자 수: <strong className="text-white">{scriptText.length.toLocaleString()}자</strong></span>
+                  <span className="text-white/20">|</span>
+                  <span>예상 토큰: <strong className="text-cyan-200">~{Math.round(scriptText.length * 1.5).toLocaleString()}</strong></span>
+                  <span className="text-white/20">|</span>
+                  <span className="text-emerald-400 font-bold">장편 통분석 지원</span>
+                </div>
               </div>
 
               {isAnalyzing ? (
@@ -3841,6 +4046,42 @@ export default function App() {
                     placeholder="여기에 한 편짜리 비디오 역사, 조선시대 로맨스 야담, 공포 민담 대본 원고를 넣어주세요..."
                     className="w-full h-[400px] font-mono text-sm leading-relaxed text-white/70 bg-[#1a1a22] rounded-lg p-4 border border-white/5 focus:border-blue-500/50 outline-none resize-none transition-all"
                   />
+
+                  {/* AI PD Channel Growth Patterns Auto-Injection Toggle */}
+                  <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-purple-950/40 to-indigo-950/40 border border-purple-500/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                        <Brain className="w-4 h-4 text-purple-300 animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-purple-200">AI PD 흥행 성공 패턴 자동 반영</span>
+                          <span className="text-[10px] bg-purple-500/20 text-purple-300 font-mono font-semibold px-2 py-0.5 rounded border border-purple-500/30">
+                            {growthPatterns.length}개 학습됨
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-white/50 mt-0.5">
+                          {growthPatterns.length > 0 
+                            ? `축적된 ${growthPatterns.length}개 핵심 흥행 패턴(고CTR/시청지속률)을 스토리보드 생성지침에 직접 주입합니다.`
+                            : "Tab 6 [AI PD 성과분석]에서 채널 흥행 데이터를 학습시키면 대본 분석 시 자동 반영됩니다."}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setApplyGrowthPatternsToAnalysis(!applyGrowthPatternsToAnalysis)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        applyGrowthPatternsToAnalysis ? "bg-purple-600" : "bg-white/10"
+                      }`}
+                      title="스토리보드 분석 시 AI PD 학습 패턴 주입 여부 토글"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          applyGrowthPatternsToAnalysis ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
 
                   <div className="flex gap-2">
                     <button
@@ -4694,6 +4935,56 @@ export default function App() {
               )}
             </div>
 
+            {/* Improvement 1: Selective Re-roll & Batch Queue Selection Control Bar */}
+            <div className="bg-[#121216] border border-blue-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-blue-400 font-mono flex items-center gap-1.5 mr-1">
+                  <CheckSquare className="w-4 h-4 text-blue-400" />
+                  선택 큐 제어:
+                </span>
+                <button
+                  onClick={handleSelectAllScenes}
+                  className="px-2.5 py-1 bg-[#1a1a24] hover:bg-[#222230] border border-white/10 text-white/80 hover:text-white rounded text-xs transition-all font-medium"
+                >
+                  ☑️ 전체 선택 ({scenes.length})
+                </button>
+                <button
+                  onClick={handleSelectUnrenderedScenes}
+                  className="px-2.5 py-1 bg-[#1a1a24] hover:bg-[#222230] border border-white/10 text-amber-300 hover:text-white rounded text-xs transition-all font-medium"
+                >
+                  ⏳ 미생성 씬 선택
+                </button>
+                <button
+                  onClick={handleSelectFailedScenes}
+                  className="px-2.5 py-1 bg-[#1a1a24] hover:bg-[#222230] border border-white/10 text-rose-300 hover:text-white rounded text-xs transition-all font-medium"
+                >
+                  ⚠️ 실패 씬 선택
+                </button>
+                {selectedSceneIds.length > 0 && (
+                  <button
+                    onClick={handleClearSceneSelection}
+                    className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white/80 rounded text-xs transition-all"
+                  >
+                    🧹 선택 해제
+                  </button>
+                )}
+                <span className="text-xs font-mono text-emerald-400 font-bold ml-1">
+                  [{selectedSceneIds.length}개 씬 선택됨]
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerateSelectedScenes}
+                  disabled={isGeneratingScenes || selectedSceneIds.length === 0}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded transition-all flex items-center gap-1.5 shadow-md shadow-blue-950/40 disabled:opacity-40"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingScenes ? "animate-spin" : ""}`} />
+                  ⚡ 선택한 {selectedSceneIds.length}개 씬만 일괄 재생성 / Re-roll
+                </button>
+              </div>
+            </div>
+
             {/* Grid of scenes containing narration detail cards */}
             <div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
@@ -4849,6 +5140,26 @@ export default function App() {
                           {scene.locationName}
                         </span>
                       </div>
+
+                      {/* Multi-Select Checkbox Badge on top-right overlay */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSceneSelection(scene.id);
+                        }}
+                        className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all shadow-md z-10 ${
+                          selectedSceneIds.includes(scene.id)
+                            ? "bg-emerald-500 text-black border border-emerald-300"
+                            : "bg-black/80 text-white/60 hover:text-white border border-white/20"
+                        }`}
+                        title="일괄 재생성(Re-roll) 및 패키지 다중 선택"
+                      >
+                        <span className="w-3 h-3 rounded-sm border border-current flex items-center justify-center text-[9px] font-bold">
+                          {selectedSceneIds.includes(scene.id) ? "✓" : ""}
+                        </span>
+                        <span>{selectedSceneIds.includes(scene.id) ? "선택됨" : "선택"}</span>
+                      </button>
                     </div>
 
                     {/* Meta parameters footer inside card */}
@@ -5029,6 +5340,52 @@ export default function App() {
                                   ))}
                                 </div>
                               )}
+
+                            {/* LTX 2.3 Camera Motion Quick Presets */}
+                            <div className="pt-2 border-t border-white/5 space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] text-indigo-300 font-mono font-bold flex items-center gap-1">
+                                  <Video className="w-3 h-3 text-indigo-400" />
+                                  LTX 2.3 카메라 모션:
+                                </span>
+                                <span className="text-[8px] font-mono text-white/40">
+                                  {sceneLtxMotions[scene.id] || scene.cameraMotion || "기본 (Auto Zoom)"}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {[
+                                  { label: "🔍 Zoom In", val: "slow_zoom", prompt: "slow dramatic camera zoom in on main subject face" },
+                                  { label: "🚀 Dolly Push", val: "dolly_in", prompt: "dramatic dolly push in, cinematic shallow depth of field" },
+                                  { label: "🔄 Orbit Pan", val: "orbit", prompt: "smooth 360 degree slow camera orbit around character" },
+                                  { label: "🌬️ Wind Motion", val: "pan_left", prompt: "subtle pan left with gentle wind blowing robes and hair" }
+                                ].map((p) => {
+                                  const isSelected = (sceneLtxMotions[scene.id] === p.val || scene.cameraMotion === p.val);
+                                  return (
+                                    <button
+                                      key={p.val}
+                                      type="button"
+                                      onClick={() => {
+                                        setSceneLtxMotions((prev) => ({ ...prev, [scene.id]: p.val }));
+                                        const updated = scenes.map((s) =>
+                                          s.id === scene.id
+                                            ? { ...s, cameraMotion: p.val, ltxPrompt: p.prompt, ltxRecommended: true }
+                                            : s
+                                        );
+                                        setScenes(updated);
+                                        showFeedback(`Scene #${scene.id}에 [${p.label}] 모션 프리셋이 지정되었습니다.`, "success");
+                                      }}
+                                      className={`px-1.5 py-0.5 rounded text-[8px] font-mono border transition-all ${
+                                        isSelected
+                                          ? "bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold"
+                                          : "bg-[#1a1a24] text-white/40 border-white/5 hover:text-white/80"
+                                      }`}
+                                    >
+                                      {p.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
 
                           {/* Structured prompt and action logs */}
@@ -7917,10 +8274,10 @@ export default function App() {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      유튜브 완전 자동화 초보자 3단계 마스터 가이드
+                      유튜브 완전 자동화 초보자 4단계 마스터 가이드
                     </h2>
                     <p className="text-xs text-amber-400/80 font-mono">
-                      내 시스템 + 외부 TTS 생성기 + 다빈치 리졸브 완벽 연동 워크플로우
+                      대본 스캔 ➔ 스마트 컴팩트 잠금 & 선택 Re-roll ➔ LTX 2.3 비디오 ➔ 다빈치 1초 마스터 연동
                     </p>
                   </div>
                 </div>
@@ -7933,6 +8290,42 @@ export default function App() {
               </div>
 
               <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
+                {/* Highlights of Core Engine Upgrades */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+                  <div className="bg-[#121620] border border-emerald-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-emerald-300 font-bold flex items-center gap-1.5">
+                      📦 1-Click 전체 에셋 패키지
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      메인 상단 <code className="text-emerald-300 bg-black/40 px-1 rounded">[📦 1-Click 전체 패키지]</code> 버튼 한 번으로 대본, 인물 DB, 타임라인 영문 프롬프트, LTX 카메라 모션, 마케팅 에셋, 흥행 패턴을 단일 TXT 번들로 즉시 내보냅니다.
+                    </p>
+                  </div>
+                  <div className="bg-[#121620] border border-purple-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-purple-300 font-bold flex items-center gap-1.5">
+                      🧠 AI PD 흥행 성공 패턴 자동 반영
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      Tab 6 [AI PD 성과분석]에서 학습된 채널만의 흥행 공식(CTR/시청지속률 성공 사례)을 스토리보드 스캔 시 Gemini 프롬프트 제약조건으로 자동 주입합니다.
+                    </p>
+                  </div>
+                  <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-blue-300 font-bold flex items-center gap-1.5">
+                      🔒 스마트 컴팩트 비주얼 잠금
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      <code className="text-blue-300 bg-black/40 px-1 rounded">[Char Lock: Name (Attr)]</code> 태그로 프롬프트 길이를 대폭 단축하여 Imagen 3 토큰 과부하를 막고 100% 외모/의복 고증을 유지합니다.
+                    </p>
+                  </div>
+                  <div className="bg-[#121620] border border-amber-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                      ⚡ 선택한 씬만 일괄 재생성 (Re-roll)
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      카드의 체크박스나 <code className="text-amber-300 bg-black/40 px-1 rounded">[미생성 씬]</code>, <code className="text-amber-300 bg-black/40 px-1 rounded">[실패 씬]</code> 버튼으로 문제가 있는 씬만 선택하여 일괄 재렌더링할 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Folder Structure Highlight Box */}
                 <div className="bg-[#0f1015] border border-amber-500/40 rounded-xl p-4 space-y-2 font-mono">
                   <div className="flex items-center justify-between text-amber-400 font-bold text-xs pb-2 border-b border-white/10">
@@ -7959,7 +8352,7 @@ export default function App() {
                   </p>
                 </div>
 
-                {/* Step 1 */}
+                {/* Exact Audio Sync Principle */}
                 <div className="bg-[#121620] border border-purple-500/40 rounded-xl p-4 space-y-2.5">
                   <div className="flex items-center justify-between text-purple-300 font-bold text-xs pb-2 border-b border-purple-500/20">
                     <span className="flex items-center gap-1.5">
@@ -7983,29 +8376,24 @@ export default function App() {
                         <li><span className="text-amber-300 font-bold">[3. 다빈치 스크립트 (.py)]</span>를 다운로드받아 실행하면, 비디오/이미지, 오디오, 자막 트랙 전체가 0.00초 오차 없이 100% 완벽 결합됩니다.</li>
                       </ol>
                     </div>
-                    <p className="pt-1.5 text-emerald-300 font-medium border-t border-purple-500/20 text-[10.5px]">
-                      ✂️ <strong>긴 자막 분할(Split)시 오디오 싱크는 어떻게 되나요?</strong><br />
-                      <span className="text-white/80 font-normal">
-                        대본이 길어 2~3개 자막 블록으로 나뉘더라도 <strong>100% 완벽하게 오디오 싱크가 유지</strong>됩니다! 씬 전체 오디오 구간(예: 10초) 내부에서 글자 수 비율에 따라 세부 자막 타임코드가 자동 안분되므로, 자막은 화면을 가리지 않게 나뉘고 오디오와 영상 타임라인 싱크는 0.000초 오차도 없이 완벽 유지됩니다.
-                      </span>
-                    </p>
                   </div>
                 </div>
 
+                {/* Step 1 */}
                 <div className="bg-[#181820] border border-sky-500/20 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
                     <span className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-xs">1</span>
-                    대본 작성 및 외부 TTS / SRT 타임코드 동기화
+                    대본 붙여넣기 & AI PD 흥행 패턴 주입 스캔
                   </div>
                   <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
                     <li>
-                      <strong className="text-white">대본 추출:</strong> 야담에서 분석 완료 후 스토리보드 상단의 <span className="text-sky-300 font-bold">[TTS / SRT 대본]</span> 버튼을 클릭하여 <code className="text-sky-200 bg-sky-950/60 px-1 rounded">.txt</code> 대본과 기본 자막파일을 내보냅니다.
+                      <strong className="text-white">대본 붙여넣기:</strong> Tab 1 [대본 분석]의 입력창에 준비한 대본 원고를 붙여넣습니다.
                     </li>
                     <li>
-                      <strong className="text-white">외부 TTS 오디오 생성:</strong> 오프라인 야담 TTS 스튜디오(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">yadam_tts_studio.html</code>) 또는 사용 중이신 TTS 프로그램에 대본을 넣고 전체 오디오 파일(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">audio.mp3</code>)과 타임코드 자막(<code className="text-sky-200 bg-sky-950/60 px-1 rounded">subtitles.srt</code>)을 생성합니다.
+                      <strong className="text-white">흥행 성공 패턴 반영:</strong> 입력창 하단의 <span className="text-purple-300 font-bold">"AI PD 흥행 성공 패턴 자동 반영"</span> 토글을 활성화하면, Tab 6에서 분석한 채널 흥행 공식이 스토리보드 프롬프트에 자동 주입되어 최고 retention 구조로 스캔됩니다.
                     </li>
                     <li>
-                      <strong className="text-white">타임코드 100% 동기화:</strong> 야담으로 돌아와 상단의 <span className="text-purple-300 font-bold">[SRT 타임코드 동기화]</span> 버튼을 눌러 다운받은 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">.srt</code> 파일을 선택합니다. 전체 스토리보드의 씬별 오디오 시작시간과 길이가 실제 음성에 맞춰 정밀 자동 수정됩니다.
+                      <strong className="text-white">대본 및 SRT 내보내기:</strong> 스캔 완료 후 상단의 <span className="text-sky-300 font-bold">[TTS / SRT 대본]</span> 버튼을 클릭하여 <code className="text-sky-200 bg-sky-950/60 px-1 rounded">.txt</code> 대본과 초기 자막을 다운로드합니다.
                     </li>
                   </ul>
                 </div>
@@ -8014,14 +8402,17 @@ export default function App() {
                 <div className="bg-[#181820] border border-indigo-500/20 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
                     <span className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs">2</span>
-                    이미지 및 LTX 2.3 비디오 연출 영상 생성
+                    스마트 컴팩트 잠금, 선택 씬 Re-roll 및 LTX 비디오 모션 지정
                   </div>
                   <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
                     <li>
-                      <strong className="text-white">이미지 & 비디오 제작:</strong> 야담 씬 카드에 적힌 영문 프롬프트로 이미지를 만들고, LTX 모션 프롬프트를 활용해 5초 영상(<code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">.mp4</code>)으로 변환합니다.
+                      <strong className="text-white">컴팩트 비주얼 잠금:</strong> 씬별 영문 프롬프트 뒤에 인물/배경 사양(<code className="text-blue-300 bg-black/40 px-1 rounded">[Char Lock: ...]</code>)이 가볍게 자동 결합되어 100% 외모 고증을 유지합니다.
                     </li>
                     <li>
-                      <strong className="text-white">파일명 정리:</strong> 완성된 영상이나 이미지 파일을 위의 파일 구조 트리처럼 <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_001.png</code>, <code className="text-indigo-200 bg-indigo-950/60 px-1 rounded">scene_003.mp4</code> ... 형태로 이름을 지정하여 하나의 작업 폴더에 모아둡니다.
+                      <strong className="text-white">선택 씬 일괄 재생성 (Re-roll):</strong> 타임라인 상단의 <span className="text-amber-300 font-bold">[⏳ 미생성 씬 선택]</span> 또는 <span className="text-rose-300 font-bold">[⚠️ 실패 씬 선택]</span> 버튼을 누른 후, <span className="text-blue-300 font-bold">[⚡ 선택한 N개 씬만 일괄 재생성]</span>을 누르면 문제가 발생한 카드만 선별적으로 재생성합니다.
+                    </li>
+                    <li>
+                      <strong className="text-white">LTX 2.3 카메라 모션:</strong> 주요 절정 씬 카드 하단에서 <span className="text-indigo-300 font-bold">🔍 Zoom In</span>, <span className="text-indigo-300 font-bold">🚀 Dolly Push</span>, <span className="text-indigo-300 font-bold">🔄 Orbit</span> 등 카메라 연출 프리셋을 클릭하면 비디오 생성 프롬프트가 자동 세팅됩니다.
                     </li>
                   </ul>
                 </div>
@@ -8045,7 +8436,7 @@ export default function App() {
                   </ul>
                 </div>
 
-                {/* Step 4: New 2026 Anti-Pattern & Variable Pipeline Master Guide */}
+                {/* Step 4 */}
                 <div className="bg-[#181820] border border-rose-500/30 rounded-xl p-4 space-y-2.5">
                   <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
                     <span className="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xs">4</span>
@@ -8529,6 +8920,56 @@ export default function App() {
                   className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-950/50"
                 >
                   매뉴얼 확인 완료 (닫기)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Confirmation Modal */}
+      <AnimatePresence>
+        {showResetConfirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 10 }}
+              className="bg-[#121218] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center gap-3 text-rose-400">
+                <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20">
+                  <Trash2 className="w-6 h-6 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">프로젝트 영구 초기화</h3>
+                  <p className="text-xs text-rose-400/80 font-mono">RESET ALL SESSION DATA</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-white/70 leading-relaxed bg-black/40 p-3.5 rounded-xl border border-white/5">
+                현재 작업 중인 대본 원고, 캐릭터 시트, 장소 DB, 스토리보드 씬 및 모든 이미지/데이터가 <strong>영구히 초기화</strong>됩니다.<br /><br />
+                진짜로 새로운 대본 작업을 위해 초기화하시겠습니까?
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowResetConfirmModal(false)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white/80 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  취소 (유지하기)
+                </button>
+                <button
+                  onClick={executeClearSession}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-950/50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  네, 모두 초기화합니다
                 </button>
               </div>
             </motion.div>
