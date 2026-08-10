@@ -4087,7 +4087,7 @@ export default function App() {
                         • <strong className="text-amber-300">권장 입력 원고</strong>: 나레이션/대사뿐만 아니라 <strong className="text-white">상황, 지문, 인물 행동, 배경 묘사</strong>가 포함된 <strong>전체 이야기 스토리 원고</strong>를 입력해 주세요. (인물/장소/씬 자동 파싱)
                       </p>
                       <p>
-                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 9.5초 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문의 역동적 액션/감정 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO]</strong> 태그가 부여되며, <strong>9.5초 실 낭독 규격(약 75~90자)</strong>으로 자동 계산되어 최상의 영상 몰입감을 제공합니다.
+                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 60~70자 / 9초)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 105~135자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
                       </p>
                       <p>
                         • <strong className="text-emerald-300">AI 문체 및 고정댓글 지침 내장</strong>: 상단 <strong className="text-amber-300">[대본 플래너]</strong>의 AI 집필 도구는 <strong>"하지만 이것은 단순한 ~가 아니었습니다"</strong> 같은 AI 정형 클리셰를 배제하고, <strong className="text-cyan-300">[1. 최종 대본], [2. 역사성 검수 요약], [3. 📌 유튜브 고정댓글]</strong>까지 한번에 집필합니다. (출처 날조 엄금)
@@ -8358,10 +8358,10 @@ export default function App() {
                   </div>
                   <div className="bg-[#121620] border border-purple-500/30 rounded-xl p-3 space-y-1">
                     <span className="text-purple-300 font-bold flex items-center gap-1.5">
-                      🎬 하이브리드 30~40% 비디오 & 9.5초 낭독
+                      🎬 하이브리드 비디오 & 호흡별 낭독 규격
                     </span>
                     <p className="text-white/70 font-sans text-[10.5px]">
-                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, 인트로 100% 및 본문 클라이맥스에 [TYPE: VIDEO] (9.5초/75~90자) 태그를 부여하여 타임라인 및 TTS와 완벽히 동기화합니다.
+                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (9초/60~70자) 및 [TYPE: IMAGE] (15초(13~18초)/105~135자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
                     </p>
                   </div>
                   <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">

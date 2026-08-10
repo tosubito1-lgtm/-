@@ -110,12 +110,12 @@ Incorporate the following proven success formulas learned from past channel perf
   5. 'classic' (기본 기승전결형):
      - Traditional chronological flow.
 
-=== DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (9.5s VIDEO vs 15s IMAGE) ===
-- Apply exact pacing and narration character constraints based on media type:
-  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 75 ~ 90 Korean characters (optimized for 9.5s pure TTS narration).
+=== DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (9s VIDEO vs 15s IMAGE) ===
+- Apply exact pacing and narration character constraints based on measured human reading speed (~8.5 chars/sec):
+  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 60 ~ 70 Korean characters (1 short impactful sentence, 9s pure TTS narration).
   2. MAIN BODY SCENES (Scene 9 onwards):
-     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 75 ~ 90 Korean characters (9.5s pure TTS duration).
-     - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 110 ~ 130 Korean characters (15s pure TTS duration).
+     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 60 ~ 70 Korean characters (1 short sentence, 9s pure TTS duration).
+     - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 105 ~ 135 Korean characters (2 descriptive sentences, 15s (13~18s) pure TTS duration).
   3. TOTAL VIDEO SCENE RATIO: Combined with Intro, total video scenes should account for approx. 30% ~ 40% of the entire storyboard.
 - Set 'mediaType': 'video' for [TYPE: VIDEO] scenes (ltxRecommended: true, durationSeconds: 10) and 'image' for [TYPE: IMAGE] scenes (ltxRecommended: false, durationSeconds: 15).
 
@@ -380,10 +380,10 @@ Write a rich, natural, authentic Korean historical script and pinned comment bas
 
 === HYBRID VIDEO & NARRATION DURATION RULES ===
 - Mark scenes with media tags: [TYPE: VIDEO] or [TYPE: IMAGE].
-- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be exactly 75 ~ 90 Korean chars for 9.5s pure TTS duration.
+- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be 1 short sentence, 60 ~ 70 Korean chars (9s pure TTS duration).
 - MAIN BODY SCENES:
-  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 75 ~ 90 Korean chars (9.5s pure TTS duration).
-  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 110 ~ 130 Korean chars (15s pure TTS duration).
+  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 1 short sentence, 60 ~ 70 Korean chars (9s pure TTS duration).
+  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 2 descriptive sentences, 105 ~ 135 Korean chars (15s / 13~18s pure TTS duration).
 - TOTAL VIDEO SCENES: Approx. 30% ~ 40% of the entire storyboard.
 
 === REQUIRED OUTPUT STRUCTURE ===
@@ -391,7 +391,8 @@ You MUST structure the generated output into 3 distinct sections:
 
 [1. 최종 대본]
 (Write main script using standard scene blocks with media tags:
- [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (75~90자)" (연출 지시어)
+ [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (60~70자)" (연출 지시어)
+ [S9.] [장소이름 / 캐릭터ID] [TYPE: IMAGE] "나래이션 텍스트 (105~135자)" (연출 지시어)
  [IMAGE GENERATION PROMPT]: English descriptive visual prompt)
 
 [2. 역사적 사실 / 야담 / 재구성 검수 요약]
