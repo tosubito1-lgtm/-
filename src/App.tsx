@@ -139,7 +139,7 @@ function formatSecondsToSRTTimecode(totalSec: number): string {
 }
 
 // Helper to calculate exact scene durations and timecodes based on workflow rules
-function calculateSceneTimecodes<T extends { id?: number; durationSeconds?: number; startTimecode?: string; endTimecode?: string }>(
+function calculateSceneTimecodes<T extends { id?: number; durationSeconds?: number; startTimecode?: string; endTimecode?: string; mediaType?: 'video' | 'image'; ltxRecommended?: boolean; narrationText?: string; visualDescription?: string }>(
   sceneList: T[]
 ): T[] {
   const total = sceneList.length;
@@ -150,21 +150,28 @@ function calculateSceneTimecodes<T extends { id?: number; durationSeconds?: numb
     const sceneNum = idx + 1;
     let duration = 15;
 
-    if (isShortsMode) {
-      // Shorts Mode: 10s per scene (10 scenes = 100s / 1m 40s)
+    const rawText = `${sc.narrationText || ''} ${sc.visualDescription || ''}`;
+    const hasVideoTag = (sc as any).mediaType === 'video' || sc.ltxRecommended || rawText.includes('[TYPE: VIDEO]') || rawText.includes('TYPE: VIDEO');
+    const hasImageTag = (sc as any).mediaType === 'image' || rawText.includes('[TYPE: IMAGE]') || rawText.includes('TYPE: IMAGE');
+
+    if ((sc as any).durationSeconds && (sc as any).durationSeconds > 0) {
+      duration = (sc as any).durationSeconds;
+    } else if (isShortsMode) {
       duration = 10;
+    } else if (sceneNum <= 8) {
+      // Intro scenes: always 10s (for 9.5s pure narration)
+      duration = 10;
+    } else if (sceneNum > total - 2) {
+      // Outro scenes: 10s
+      duration = 10;
+    } else if (hasVideoTag) {
+      // Hybrid Video recommended scene: 10s (for 9.5s pure narration)
+      duration = 10;
+    } else if (hasImageTag) {
+      // Image scene: 15s (for 110~130 chars narration)
+      duration = 15;
     } else {
-      // Longform Mode (60 scenes = approx 14m 10s = 850s):
-      // Intro (Scene 1 ~ 8): 10s
-      // Main Body (Scene 9 ~ total - 2): 15s
-      // Outro (Scene total - 1 ~ total): 10s
-      if (sceneNum <= 8) {
-        duration = 10;
-      } else if (sceneNum > total - 2) {
-        duration = 10;
-      } else {
-        duration = 15;
-      }
+      duration = 15;
     }
 
     const startSec = currentSec;
@@ -175,6 +182,8 @@ function calculateSceneTimecodes<T extends { id?: number; durationSeconds?: numb
       ...sc,
       id: sceneNum,
       durationSeconds: duration,
+      mediaType: hasVideoTag ? 'video' : (hasImageTag ? 'image' : (sceneNum <= 8 ? 'video' : 'image')),
+      ltxRecommended: hasVideoTag || sceneNum <= 8,
       startTimecode: formatSecondsToSRTTimecode(startSec),
       endTimecode: formatSecondsToSRTTimecode(endSec),
     };
@@ -3206,13 +3215,36 @@ export default function App() {
       return `${hrs}:${mins}:${secs},${ms}`;
     };
 
+    // Pure speech sanitizer for TTS & Subtitles (strips brackets, stage directions, scene headers, TYPE tags)
+    const sanitizePureSpeech = (text: string) => {
+      if (!text) return "";
+      let cleaned = text;
+      if (cleaned.includes("이곳에 들어올") || cleaned.includes("작성해 주세요")) return "";
+      
+      // 1. Strip explicit TYPE tags like [TYPE: VIDEO], [TYPE: IMAGE], TYPE: VIDEO
+      cleaned = cleaned.replace(/\[?\s*TYPE\s*:\s*(VIDEO|IMAGE)\s*\]?/gi, '');
+      
+      // 2. Strip Scene headers like [S1.], [Scene #1], Scene 1:, 씬 1:, S1., S01.
+      cleaned = cleaned.replace(/^\[?\s*(S|Scene|씬)\s*#?\d+\.?\s*\]?:?\s*/i, '');
+      
+      // 3. Strip character/location headers in brackets like [대궐 뜰 / Ch_A]
+      cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
+      
+      // 4. Strip stage directions in parentheses like (한숨을 쉬며), (경악하며), (BGM: ...), (카메라 서서히 줌인)
+      cleaned = cleaned.replace(/\([^\)]*\)/g, '');
+      
+      // 5. Strip stage directions in curly brackets like {지문}
+      cleaned = cleaned.replace(/\{[^\}]*\}/g, '');
+      
+      // 6. Strip IMAGE GENERATION PROMPT lines if accidentally present
+      cleaned = cleaned.replace(/\[?IMAGE GENERATION PROMPT\]?:?.*$/gmi, '');
+      
+      // 7. Normalize whitespace
+      return cleaned.replace(/\s+/g, ' ').trim();
+    };
+
     // Calculate character-length proportional scene durations for accurate default timing
-    const sceneNarrations = scenes.map((sc) => {
-      const rawNarr = sc.narrationText || "";
-      const isPlaceholder = rawNarr.includes("이곳에 들어올") || rawNarr.includes("작성해 주세요");
-      const cleanNarr = isPlaceholder ? "" : rawNarr;
-      return cleanNarr.replace(/^\[?\s*(scene|씬)\s*#?\d+\s*\]?:?\s*/i, '').trim();
-    });
+    const sceneNarrations = scenes.map((sc) => sanitizePureSpeech(sc.narrationText || ""));
 
     const totalNarrChars = sceneNarrations.reduce((acc, n) => acc + Math.max(n.length, 10), 0) || 1;
     // Estimated total TTS duration (Korean TTS average ~13.5 chars/sec)
@@ -4012,7 +4044,7 @@ export default function App() {
                   </div>
 
                   {/* [지속 누적 추가 모드] (Append Mode) 스위치 상단 극대화 기획 제공 */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/20 to-blue-950/20 border border-emerald-500/20 rounded-lg px-4 py-3 mb-4 shadow-md">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/20 to-blue-950/20 border border-emerald-500/20 rounded-lg px-4 py-3 mb-3 shadow-md">
                     <div className="flex items-start gap-2.5">
                       <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${appendMode ? 'bg-emerald-400 animate-pulse shadow-glow shadow-emerald-500/50' : 'bg-white/20'}`} />
                       <div className="space-y-0.5">
@@ -4039,11 +4071,35 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* 대본 입력 권장 가이드 안내 카드 */}
+                  <div className="bg-blue-950/30 border border-blue-500/25 rounded-lg p-3.5 mb-1 space-y-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-blue-300 font-bold text-xs">
+                        <HelpCircle className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>💡 대본 입력 및 AI 문체/역사성/하이브리드 비디오 가이드</span>
+                      </div>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-mono">
+                        30~40% 비디오 (9.5초) & 고정댓글 자동생성
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-white/80 space-y-1.5 pl-6 leading-relaxed">
+                      <p>
+                        • <strong className="text-amber-300">권장 입력 원고</strong>: 나레이션/대사뿐만 아니라 <strong className="text-white">상황, 지문, 인물 행동, 배경 묘사</strong>가 포함된 <strong>전체 이야기 스토리 원고</strong>를 입력해 주세요. (인물/장소/씬 자동 파싱)
+                      </p>
+                      <p>
+                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 9.5초 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문의 역동적 액션/감정 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO]</strong> 태그가 부여되며, <strong>9.5초 실 낭독 규격(약 75~90자)</strong>으로 자동 계산되어 최상의 영상 몰입감을 제공합니다.
+                      </p>
+                      <p>
+                        • <strong className="text-emerald-300">AI 문체 및 고정댓글 지침 내장</strong>: 상단 <strong className="text-amber-300">[대본 플래너]</strong>의 AI 집필 도구는 <strong>"하지만 이것은 단순한 ~가 아니었습니다"</strong> 같은 AI 정형 클리셰를 배제하고, <strong className="text-cyan-300">[1. 최종 대본], [2. 역사성 검수 요약], [3. 📌 유튜브 고정댓글]</strong>까지 한번에 집필합니다. (출처 날조 엄금)
+                      </p>
+                    </div>
+                  </div>
+
                   <textarea
                     id="input-script-textarea"
                     value={scriptText}
                     onChange={(e) => setScriptText(e.target.value)}
-                    placeholder="여기에 한 편짜리 비디오 역사, 조선시대 로맨스 야담, 공포 민담 대본 원고를 넣어주세요..."
+                    placeholder={`💡 지문, 인물 행동, 배경 연출, 나레이션/대사가 포함된 전체 이야기 대본 원고를 입력해 주세요.\n\n[권장 원고 예시]\n어느 깊은 밤, 조선 시대 선비 이현은 과거 시험을 마치고 가던 중 충청도 산자락에서 길을 잃었다. 검은 안개 속에서 소복을 입은 아름다운 설화가 낡은 초가집 문을 열고 매화 차를 내어주는데...`}
                     className="w-full h-[400px] font-mono text-sm leading-relaxed text-white/70 bg-[#1a1a22] rounded-lg p-4 border border-white/5 focus:border-blue-500/50 outline-none resize-none transition-all"
                   />
 
@@ -8302,10 +8358,10 @@ export default function App() {
                   </div>
                   <div className="bg-[#121620] border border-purple-500/30 rounded-xl p-3 space-y-1">
                     <span className="text-purple-300 font-bold flex items-center gap-1.5">
-                      🧠 AI PD 흥행 성공 패턴 자동 반영
+                      🎬 하이브리드 30~40% 비디오 & 9.5초 낭독
                     </span>
                     <p className="text-white/70 font-sans text-[10.5px]">
-                      Tab 6 [AI PD 성과분석]에서 학습된 채널만의 흥행 공식(CTR/시청지속률 성공 사례)을 스토리보드 스캔 시 Gemini 프롬프트 제약조건으로 자동 주입합니다.
+                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, 인트로 100% 및 본문 클라이맥스에 [TYPE: VIDEO] (9.5초/75~90자) 태그를 부여하여 타임라인 및 TTS와 완벽히 동기화합니다.
                     </p>
                   </div>
                   <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">

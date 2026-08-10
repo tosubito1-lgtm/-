@@ -83,7 +83,7 @@ Your goals are:
   * Exact Light Source: "single flickering oil lamp casting dark charcoal shadows on hanji paper", "cold pale moonlight shining through wooden window shutters".
   * Realistic Texture: "hand-woven coarse hemp robe", "embroidered silk dragon emblem with fine golden threads".
   * Physical Gaze & Gesture: "eyes wide with sudden realization", "trembling hands gripping an unrolled ancient parchment", "head turned 45 degrees towards dark courtyard".
-- HUMANLIKE NATURAL STORYTELLING: Ensure the narration text flows as naturally spoken, engaging human speech without repetitive robotic filler or clichés, ensuring seamless alignment between audio narration and generated visual frames.`;
+- HUMANLIKE NATURAL STORYTELLING & ANTI-CLICHÉ: Ensure narrationText flows as naturally spoken, engaging human speech. Strictly BAN repetitive AI robotic clichés ("하지만 이것은 단순한 ~가 아니었습니다", "놀랍게도 ~였습니다", "과연 ~였을까요?"). Keep tone dignified, natural, and historically authentic without sensationalized hype. Cleanly separate verified facts from legends and cinematic scene setups.`;
 
     if (Array.isArray(growthPatterns) && growthPatterns.length > 0) {
       systemInstruction += `\n\n=== LEARNED CHANNEL AI PD GROWTH PATTERNS (HIGH PRIORITY SUCCESS FORMULAS) ===
@@ -110,18 +110,18 @@ Incorporate the following proven success formulas learned from past channel perf
   5. 'classic' (기본 기승전결형):
      - Traditional chronological flow.
 
-=== DYNAMIC SCENE PACING & DURATION RULES ===
-- Do NOT use rigid fixed 15-second durations for all scenes.
-- Assign dynamic pacing & duration to each scene based on narrative tension:
-  * Fast Pacing ('fast', 3~6 seconds): Crisis, sudden shock, action beat, quick clue drop, dramatic cut. Narration: 20~40 Korean characters.
-  * Normal Pacing ('normal', 8~12 seconds): Standard dialogue, character psychology, story progression (AVERAGE 9~14s cadence). Narration: 50~75 Korean characters.
-  * Slow Pacing ('slow', 15~18 seconds): Majestic landscape establishing, deep emotional linger, ancient document/proof presentation. Narration: 80~110 Korean characters.
+=== DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (9.5s VIDEO vs 15s IMAGE) ===
+- Apply exact pacing and narration character constraints based on media type:
+  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 75 ~ 90 Korean characters (optimized for 9.5s pure TTS narration).
+  2. MAIN BODY SCENES (Scene 9 onwards):
+     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 75 ~ 90 Korean characters (9.5s pure TTS duration).
+     - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 110 ~ 130 Korean characters (15s pure TTS duration).
+  3. TOTAL VIDEO SCENE RATIO: Combined with Intro, total video scenes should account for approx. 30% ~ 40% of the entire storyboard.
+- Set 'mediaType': 'video' for [TYPE: VIDEO] scenes (ltxRecommended: true, durationSeconds: 10) and 'image' for [TYPE: IMAGE] scenes (ltxRecommended: false, durationSeconds: 15).
 
-=== LTX VIDEO RECOMMENDATION ENGINE (CRITICAL 10~15% RATIO RULE) ===
-- Recommend video animation (LTX Video / I2V) for EXACTLY 10% to 15% of the total scene count (e.g., 5 to 8 scenes in a 50-scene storyboard).
-- STRICT CONDITION: Recommend LTX Video ONLY for scenes with duration <= 12 SECONDS ('fast' or 'normal' pacing). Never recommend LTX for scenes longer than 12 seconds because video generation latency is too long.
-- Select scenes where motion creates maximum impact: dramatic face reactions (eyes widening, tears, shock), candle flicker in dark room, drawing a sword, wind blowing robes, falling rain, door opening.
-- For recommended scenes, set 'ltxRecommended': true, provide a concise Korean reason in 'ltxReason', and an English motion prompt in 'ltxPrompt'.
+=== LTX VIDEO RECOMMENDATION ENGINE ===
+- For [TYPE: VIDEO] scenes, set 'ltxRecommended': true, 'mediaType': 'video', 'durationSeconds': 10, provide a concise Korean reason in 'ltxReason', and an English motion prompt in 'ltxPrompt'.
+- Select scenes where motion creates maximum visual tension and emotional impact.
 
 === ARCHITECTURAL GUIDELINES ===
 - Character Sheets: Create clean portrait prompts for characters.
@@ -191,7 +191,8 @@ Incorporate the following proven success formulas learned from past channel perf
               },
               durationSeconds: { type: Type.INTEGER, description: "Dynamic duration in seconds (3 to 18)." },
               pacingType: { type: Type.STRING, enum: ["fast", "normal", "slow"] },
-              ltxRecommended: { type: Type.BOOLEAN, description: "True if recommended for LTX video transformation (must be <=12s duration, total 10-15%)." },
+              mediaType: { type: Type.STRING, enum: ["video", "image"], description: "Whether scene is optimized for video animation (10s) or image (15s)." },
+              ltxRecommended: { type: Type.BOOLEAN, description: "True if recommended for LTX video transformation." },
               ltxReason: { type: Type.STRING, description: "Reason for recommending LTX video (in Korean)." },
               ltxPrompt: { type: Type.STRING, description: "English prompt for image-to-video motion generation." }
             },
@@ -359,27 +360,63 @@ app.post("/api/generate-script", async (req, res): Promise<void> => {
 
     const systemInstruction = `
 You are a master Korean historical storyteller (야담/사극 전문 대본 작가) for high-retention YouTube channels.
-Write a rich, dramatic, highly engaging historical script in Korean based on the provided topic.
+Write a rich, natural, authentic Korean historical script and pinned comment based on the provided topic.
 
 === STRICT ANTI-AI CLICHÉ & NATURAL HUMAN TONE RULES ===
-- NEVER USE AI CLICHÉS: Strictly BAN phrases like "역사의 수레바퀴 속에서", "역사에 만약은 없다지만", "거대한 운명의 막이 오르고", "상상조차 할 수 없었던", "놀랍게도 그것은 시작에 불과했다".
-- AUTHENTIC HISTORICAL ANCHORING: Every script MUST explicitly state specific historical anchors:
-  * Exact Era/Reign & Year: e.g. "숙종 19년 계유년 깊은 밤", "영조 38년 한여름", "세종 재위 14년".
-  * Specific Official Titles & Ranks: Use real historical titles like "승정원 도승지", "의정부 좌참찬", "훈련도감 포도대장", "내의원 어의", "사헌부 지평".
-  * Real Historical Records & Sources: Cite real sources such as 《조선왕조실록》, 《승정원일기》, 《연려실기술》, 《대동야승》, 《삼국사기》.
-- NATURAL SPOKEN SPOKEN TONE: Write in authentic human storytelling style—as if an old scholar or seasoned storyteller is leaning in to whisper an untold royal mystery.
-- ZERO ANACHRONISM: Absolutely no modern terms or academic jargon (e.g. "심리학적", "스트레스", "시스템", "트라우마").
+1. BAN AI FORMULAIC CLICHÉS & PATTERNS:
+   - Strictly BAN repetitive AI phrases: "하지만 이것은 단순한 ~가 아니었습니다", "그러나 진짜 이야기는 지금부터였습니다", "놀랍게도 ~였습니다", "바로 그 순간 ~", "결국 ~하게 됩니다", "과연 ~였을까요?", "이것이 바로 ~의 시작이었습니다", "아무도 예상하지 못했습니다", "더 충격적인 사실은 ~", "그 뒤에는 놀라운 비밀이 숨어 있었습니다", "역사의 아이러니였습니다", "운명이 바뀌기 시작했습니다", "믿을 수 없는 일이 벌어졌습니다", "역사를 뒤흔든 사건이었습니다", "역사의 수레바퀴 속에서", "역사에 만약은 없다지만".
+   - BAN repetitive paragraph starters: Do NOT start every paragraph with "하지만", "그러나", "결국", "놀랍게도", "사실", "바로 그 순간", "과연", "이때".
+2. REDUCE EXAGGERATED SENSATIONAL BUZZWORDS:
+   - Avoid abusing buzzwords like "충격적인", "놀라운", "경악할 만한", "믿을 수 없는", "엄청난", "소름 돋는", "상상을 초월한", "숨겨진 진실".
+   - Convey tension through specific historical context, concrete actions, and dialogue rather than empty hype.
+3. NATURAL SPOKEN RHYTHM & FLEXIBLE PACING:
+   - Mix short punchy sentences with longer descriptive sentences for a natural human storytelling cadence.
+   - Avoid asking rhetorical questions repeatedly (e.g. "과연 왜 그랬을까요?").
+4. STRICT DISTINCTION OF HISTORICAL FACT vs LEGEND vs RECONSTRUCTION:
+   - Clearly distinguish: ① Verified historical records (실록/정사), ② Folk legends/unofficial anecdotes (야담/전승), ③ Cinematic reconstruction for visualization.
+   - Do NOT fabricate non-existent secret meetings, unrecorded assassination plots, or unverified emotional internal monologues as absolute historical fact.
+   - Use natural framing phrases like "후대의 전승에 따르면 ~", "야담에서는 ~라는 이야기가 전해집니다", "당시 정황을 바탕으로 재구성해보면 ~".
+   - STRICTLY FORBID FABRICATING FAKE SOURCES: Never make up non-existent books, fake academic papers, or fake page numbers.
+
+=== HYBRID VIDEO & NARRATION DURATION RULES ===
+- Mark scenes with media tags: [TYPE: VIDEO] or [TYPE: IMAGE].
+- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be exactly 75 ~ 90 Korean chars for 9.5s pure TTS duration.
+- MAIN BODY SCENES:
+  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 75 ~ 90 Korean chars (9.5s pure TTS duration).
+  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 110 ~ 130 Korean chars (15s pure TTS duration).
+- TOTAL VIDEO SCENES: Approx. 30% ~ 40% of the entire storyboard.
+
+=== REQUIRED OUTPUT STRUCTURE ===
+You MUST structure the generated output into 3 distinct sections:
+
+[1. 최종 대본]
+(Write main script using standard scene blocks with media tags:
+ [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (75~90자)" (연출 지시어)
+ [IMAGE GENERATION PROMPT]: English descriptive visual prompt)
+
+[2. 역사적 사실 / 야담 / 재구성 검수 요약]
+(A brief 3~5 bullet point review summarizing verified facts, legends used, and scenes reconstructed)
+
+[3. 📌 유튜브 고정댓글]
+(A ready-to-copy YouTube pinned comment, 150~300 Korean chars:
+📜 역사 기록 참고
+이번 이야기는 [사건/인물]과 관련된 역사적 기록과 후대의 전승·야담을 바탕으로 구성했습니다.
+■ 역사 기록으로 확인되는 내용:
+• [확인된 핵심 역사적 사실 1~2개]
+■ 후대의 전승·야담:
+• [사용된 야담 또는 전승 내용]
+■ 영상 속 재구성:
+• [이야기의 흐름을 위해 정황상 재구성한 세부 장면 안내]
+📚 주요 참고 자료:
+• [실제 존재하는 정사/야사 사료명만 명시]
+※ 절대 AI 작성 표기나 면책용 가짜 출처를 포함하지 말고 자연스럽게 작성할 것.)
 
 === SCRIPT FORMAT REQUIREMENTS ===
-1. Structure the script using standardized scene blocks:
-   [S1.] [장소이름 / 캐릭터ID] "나래이션 텍스트" (연출 지시어)
-   [IMAGE GENERATION PROMPT]: English descriptive visual prompt
-2. Apply the requested Story Format:
+1. Apply the requested Story Format:
    ${formatInstructions[storyFormat] || formatInstructions.classic}
-3. Target Duration: ${targetDurationText}.
-4. Tone: Dignified, immersive Korean historical storytelling tone (품격 있는 조선/고려/삼국시대 야담체).
-5. Ensure zero anachronism and high YouTube policy compliance (no gore, safe metaphors for tragedy).
-6. End with historical evidence verification (실록/야사 기록 언급) and a channel subscribe call.
+2. Target Duration: ${targetDurationText}.
+3. Tone: Dignified, immersive Korean historical storytelling tone (품격 있는 조선/고려/삼국시대 야담체).
+4. Ensure zero anachronism and high YouTube policy compliance (no gore, safe visual metaphors).
 `;
 
     const response = await ai.models.generateContent({
