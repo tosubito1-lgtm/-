@@ -749,6 +749,117 @@
             localStorage.setItem('yadam_story_format', fmt);
         }
 
+        function getPresetSceneConfig() {
+            let totalScenes = 50;
+            let targetTimeText = "표준 롱폼 (9~13분)";
+            
+            if (selectedLengthPreset === 'shorts') {
+                totalScenes = 8;
+                targetTimeText = "쇼츠 모드 (80초/8씬)";
+            } else if (selectedLengthPreset === 'deep_dive') {
+                totalScenes = 72;
+                targetTimeText = "대작/심층 탐구 모드 (14~18분)";
+            } else if (selectedLengthPreset === 'auto_flow') {
+                totalScenes = 60; // AI가 서사 밀도에 따라 48~78씬 중 가변 선택
+                targetTimeText = "AI 동적 가변 모드 (9~18분)";
+            } else if (selectedLengthPreset === 'custom') {
+                totalScenes = Math.max(5, customSceneCount);
+                const estMin = Math.round((totalScenes * 13.2) / 60);
+                targetTimeText = `사용자 지정 ${totalScenes}씬 (예상 약 ${estMin}분)`;
+            } else { // standard
+                totalScenes = 50;
+                targetTimeText = "표준 롱폼 모드 (9~13분)";
+            }
+
+            let intro, event, doubt, trace, twist, ending;
+            if (selectedLengthPreset === 'shorts') {
+                intro = [1, 2];
+                event = [3, 4];
+                doubt = [5, 5];
+                trace = [6, 6];
+                twist = [7, 7];
+                ending = [8, 8];
+            } else {
+                const iCount = Math.max(4, Math.round(totalScenes * 0.14));
+                const eCount = Math.max(5, Math.round(totalScenes * 0.17));
+                const dCount = Math.max(5, Math.round(totalScenes * 0.17));
+                const tCount = Math.max(5, Math.round(totalScenes * 0.17));
+                const wCount = Math.max(5, Math.round(totalScenes * 0.17));
+                const endCount = Math.max(4, totalScenes - (iCount + eCount + dCount + tCount + wCount));
+
+                intro = [1, iCount];
+                event = [iCount + 1, iCount + eCount];
+                doubt = [iCount + eCount + 1, iCount + eCount + dCount];
+                trace = [iCount + eCount + dCount + 1, iCount + eCount + dCount + tCount];
+                twist = [iCount + eCount + dCount + tCount + 1, iCount + eCount + dCount + tCount + wCount];
+                ending = [iCount + eCount + dCount + tCount + wCount + 1, totalScenes];
+            }
+
+            return {
+                totalScenes,
+                targetTimeText,
+                ranges: {
+                    '인트로': intro,
+                    '사건발생': event,
+                    '의혹': doubt,
+                    '추적': trace,
+                    '반전': twist,
+                    '결말': ending
+                }
+            };
+        }
+
+        function updateStageOptionLabels() {
+            const cfg = getPresetSceneConfig();
+            const r = cfg.ranges;
+            const mid = Math.floor(cfg.totalScenes / 2);
+
+            const btnMap = {
+                '0단계': `0단계:주제생성`,
+                '1단계': `1단계:목차기획 (${cfg.totalScenes}씬)`,
+                '인트로': `인트로 (S${r['인트로'][0]}-${r['인트로'][1]})`,
+                '사건발생': `사건 (S${r['사건발생'][0]}-${r['사건발생'][1]})`,
+                '의혹': `의혹 (S${r['의혹'][0]}-${r['의혹'][1]})`,
+                '추적': `추적 (S${r['추적'][0]}-${r['추적'][1]})`,
+                '반전': `반전 (S${r['반전'][0]}-${r['반전'][1]})`,
+                '결말': `결말 (S${r['결말'][0]}-${r['결말'][1]})`
+            };
+
+            Object.keys(btnMap).forEach(st => {
+                const btn = document.getElementById('btn-stage-' + st);
+                if (btn) btn.innerText = btnMap[st];
+            });
+
+            const selectEl = document.getElementById('stage-restore-select');
+            if (selectEl) {
+                const optionMap = {
+                    '0단계': `0단계: 주제생성 (${cfg.targetTimeText})`,
+                    '1단계': `1단계: 목차기획 (총 ${cfg.totalScenes}개 씬)`,
+                    '인트로': `인트로 (S${r['인트로'][0]}-${r['인트로'][1]})`,
+                    '사건발생': `사건 발생 (S${r['사건발생'][0]}-${r['사건발생'][1]})`,
+                    '의혹': `의혹/갈등 (S${r['의혹'][0]}-${r['의혹'][1]})`,
+                    '추적': `진실 추적 (S${r['추적'][0]}-${r['추적'][1]})`,
+                    '반전': `반전 기획 (S${r['반전'][0]}-${r['반전'][1]})`,
+                    '결말': `결말 피날레 (S${r['결말'][0]}-${r['결말'][1]})`,
+                    '대본1': `통합 대본 1부 (S1-${mid})`,
+                    '대본2': `통합 대본 2부 (S${mid+1}-${cfg.totalScenes})`,
+                    'TTS1': `TTS 원고 1부 (S1-${mid})`,
+                    'TTS2': `TTS 원고 2부 (S${mid+1}-${cfg.totalScenes})`,
+                    '대본': `통합 대본 전체 (S1-${cfg.totalScenes})`,
+                    'TTS': `TTS 전용 극본 전체 (S1-${cfg.totalScenes})`,
+                    'LTX추출': `LTX 2.3 영어 프롬프트`,
+                    '쇼츠': `유튜브 쇼츠 독립스토리 (8씬/80초)`,
+                    '커뮤니티': `커뮤니티 홍보 게시글`
+                };
+
+                Array.from(selectEl.options).forEach(opt => {
+                    if (optionMap[opt.value]) {
+                        opt.text = optionMap[opt.value];
+                    }
+                });
+            }
+        }
+
         function setLengthPreset(preset) {
             selectedLengthPreset = preset;
             localStorage.setItem('yadam_length_preset', preset);
@@ -772,6 +883,8 @@
             if (sliderBox) {
                 sliderBox.style.display = (preset === 'custom') ? 'flex' : 'none';
             }
+
+            updateStageOptionLabels();
         }
 
         function updateCustomSceneValue(val) {
@@ -779,6 +892,7 @@
             const label = document.getElementById('custom-scene-val-label');
             if (label) label.innerText = customSceneCount + '씬';
             localStorage.setItem('yadam_custom_scene_count', customSceneCount);
+            updateStageOptionLabels();
         }
 
         function getFormatInstructionText() {
@@ -797,17 +911,28 @@
         }
 
         function getLengthInstructionText() {
+            const cfg = getPresetSceneConfig();
+            const r = cfg.ranges;
+
+            let text = `\n\n★ [분량 지침 & 동적 씬 산출 규격: ${cfg.targetTimeText}] ★\n`;
+            text += `1. **목표 영상 총 분량**: ${cfg.targetTimeText} (계산된 총 ${cfg.totalScenes}개 씬 가이드라인)\n`;
+            text += `2. **서사 단계별 동적 씬 계산 및 낭독 배분**:\n`;
+            text += `   - 인트로 파트: Scene ${r['인트로'][0]} ~ Scene ${r['인트로'][1]} (총 ${r['인트로'][1]-r['인트로'][0]+1}개 씬, 100% [TYPE: VIDEO] 약 60~70자/9초)\n`;
+            text += `   - 사건발생 파트: Scene ${r['사건발생'][0]} ~ Scene ${r['사건발생'][1]} (총 ${r['사건발생'][1]-r['사건발생'][0]+1}개 씬)\n`;
+            text += `   - 의혹/갈등 파트: Scene ${r['의혹'][0]} ~ Scene ${r['의혹'][1]} (총 ${r['의혹'][1]-r['의혹'][0]+1}개 씬)\n`;
+            text += `   - 진실추적 파트: Scene ${r['추적'][0]} ~ Scene ${r['추적'][1]} (총 ${r['추적'][1]-r['추적'][0]+1}개 씬)\n`;
+            text += `   - 대반전 파트: Scene ${r['반전'][0]} ~ Scene ${r['반전'][1]} (총 ${r['반전'][1]-r['반전'][0]+1}개 씬)\n`;
+            text += `   - 결말피날레 파트: Scene ${r['결말'][0]} ~ Scene ${r['결말'][1]} (총 ${r['결말'][1]-r['결말'][0]+1}개 씬)\n`;
+
             if (selectedLengthPreset === 'shorts') {
-                return "\n\n★ [분량 지침: 80초 쇼츠 모드 (총 8개 씬 / 씬당 10초)] ★\n8개 씬으로 80초 안에 완결되는 독립 쇼츠 대본으로 기획하라.";
-            } else if (selectedLengthPreset === 'custom') {
-                return `\n\n★ [분량 지침: 사용자 지정 ${customSceneCount}씬 모드] ★\n전체 분량을 총 ${customSceneCount}개의 씬으로 균등 배분하여 기획하라.`;
-            } else if (selectedLengthPreset === 'deep_dive') {
-                return "\n\n★ [분량 지침: 대작/심층 탐구 모드 (14~18분 롱폼)] ★\n목표 서사 호흡에 맞춰 각 씬의 묘사와 배경, 인물 내면 심리를 매우 밀도 높게 깊이 작성하라.";
+                text += `3. **80초 쇼츠 모드 제약**: 정확히 8개 씬으로 작성하며 씬당 10초(실 낭독 9초, 70~85자)로 80초 완결 구도를 맞춰라.\n`;
             } else if (selectedLengthPreset === 'auto_flow') {
-                return "\n\n★ [분량 지침: AI 가변 분량 모드] ★\n서사 호흡에 맞춰 씬의 길이와 인텐시티를 유연하게 가변 조정하라.";
+                text += `3. **AI 동적 가변 산출 규칙**: AI는 주제의 서사적 밀도와 복잡성에 따라 9분(~48씬), 13분(~58씬), 15분(~68씬), 18분(~78씬) 중 가장 최적인 씬 수와 호흡을 가변 결정하여 1단계 목차 기획에서 명시하라.\n`;
             } else {
-                return "\n\n★ [분량 지침: 표준 롱폼 모드 (9~13분 롱폼)] ★\n목표 영상 분량 및 서사 가이드라인에 맞춰 최적으로 기획하라.";
+                text += `3. **낭독 호흡 및 영상 타임라인 동기화**: [TYPE: VIDEO] 씬(본문 약 20~30%)은 9초 실 낭독(60~70자, 단문 1문장), [TYPE: IMAGE] 씬(70~80%)은 15초 실 낭독(105~135자, 설명조 2문장)을 철저히 준수하여 목표 분량(${cfg.targetTimeText})을 100% 완벽히 충족시켜라.\n`;
             }
+
+            return text;
         }
 
         async function recommendPresetAi() {
