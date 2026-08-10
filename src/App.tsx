@@ -4079,7 +4079,7 @@ export default function App() {
                         <span>💡 대본 입력 및 AI 문체/역사성/하이브리드 비디오 가이드</span>
                       </div>
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-mono">
-                        30~40% 비디오 (9.5초) & 고정댓글 자동생성
+                        30~40% 비디오 (9초) & 고정댓글 자동생성
                       </span>
                     </div>
                     <div className="text-[11px] text-white/80 space-y-1.5 pl-6 leading-relaxed">
