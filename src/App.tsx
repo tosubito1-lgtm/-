@@ -222,6 +222,7 @@ export default function App() {
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
   const [sceneLtxMotions, setSceneLtxMotions] = useState<Record<number, string>>({});
+  const [generatingLtxSceneId, setGeneratingLtxSceneId] = useState<number | null>(null);
   const [selectedSceneIds, setSelectedSceneIds] = useState<number[]>([]);
   const [applyGrowthPatternsToAnalysis, setApplyGrowthPatternsToAnalysis] = useState(true);
 
@@ -1852,6 +1853,40 @@ export default function App() {
     } finally {
       updated[index].isGenerating = false;
       setScenes([...updated]);
+    }
+  };
+
+  // Step 2-2-B: Generate or refine detailed LTX character & environment motion prompt
+  const handleGenerateLtxPromptForScene = async (sceneItem: SceneItem) => {
+    setGeneratingLtxSceneId(sceneItem.id);
+    try {
+      const res = await fetch("/api/generate-ltx-prompt", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          narrationText: sceneItem.narrationText,
+          visualDescription: sceneItem.visualDescription,
+          refinedImagePrompt: sceneItem.refinedImagePrompt,
+          characterNames: sceneItem.characterNames,
+        }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "모션 프롬프트 생성 실패");
+      }
+      const data = await res.json();
+      if (data.ltxPrompt) {
+        const updated = scenes.map((s) =>
+          s.id === sceneItem.id ? { ...s, ltxPrompt: data.ltxPrompt, ltxRecommended: true } : s
+        );
+        setScenes(updated);
+        setSceneLtxMotions((prev) => ({ ...prev, [sceneItem.id]: data.ltxPrompt }));
+        showFeedback(`Scene #${sceneItem.id}의 캐릭터/환경 모션 프롬프트가 정밀 분석되었습니다!`, "success");
+      }
+    } catch (err: any) {
+      showFeedback(err.message || "모션 프롬프트 생성 도중 오류가 발생했습니다.", "error");
+    } finally {
+      setGeneratingLtxSceneId(null);
     }
   };
 
@@ -5411,52 +5446,6 @@ export default function App() {
                                   ))}
                                 </div>
                               )}
-
-                            {/* LTX 2.3 Camera Motion Quick Presets */}
-                            <div className="pt-2 border-t border-white/5 space-y-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] text-indigo-300 font-mono font-bold flex items-center gap-1">
-                                  <Video className="w-3 h-3 text-indigo-400" />
-                                  LTX 2.3 카메라 모션:
-                                </span>
-                                <span className="text-[8px] font-mono text-white/40">
-                                  {sceneLtxMotions[scene.id] || scene.cameraMotion || "기본 (Auto Zoom)"}
-                                </span>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {[
-                                  { label: "🔍 Zoom In", val: "slow_zoom", prompt: "slow dramatic camera zoom in on main subject face" },
-                                  { label: "🚀 Dolly Push", val: "dolly_in", prompt: "dramatic dolly push in, cinematic shallow depth of field" },
-                                  { label: "🔄 Orbit Pan", val: "orbit", prompt: "smooth 360 degree slow camera orbit around character" },
-                                  { label: "🌬️ Wind Motion", val: "pan_left", prompt: "subtle pan left with gentle wind blowing robes and hair" }
-                                ].map((p) => {
-                                  const isSelected = (sceneLtxMotions[scene.id] === p.val || scene.cameraMotion === p.val);
-                                  return (
-                                    <button
-                                      key={p.val}
-                                      type="button"
-                                      onClick={() => {
-                                        setSceneLtxMotions((prev) => ({ ...prev, [scene.id]: p.val }));
-                                        const updated = scenes.map((s) =>
-                                          s.id === scene.id
-                                            ? { ...s, cameraMotion: p.val, ltxPrompt: p.prompt, ltxRecommended: true }
-                                            : s
-                                        );
-                                        setScenes(updated);
-                                        showFeedback(`Scene #${scene.id}에 [${p.label}] 모션 프리셋이 지정되었습니다.`, "success");
-                                      }}
-                                      className={`px-1.5 py-0.5 rounded text-[8px] font-mono border transition-all ${
-                                        isSelected
-                                          ? "bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold"
-                                          : "bg-[#1a1a24] text-white/40 border-white/5 hover:text-white/80"
-                                      }`}
-                                    >
-                                      {p.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
                           </div>
 
                           {/* Structured prompt and action logs */}
@@ -5544,85 +5533,61 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* LTX 2.3 Motion Prompt Generator */}
-                          <div className="mt-2 bg-[#121218] border border-indigo-500/10 rounded p-1.5 flex flex-wrap gap-2 items-center justify-between">
-                            <div className="flex items-center gap-1 text-[11px] text-indigo-300 font-semibold select-none">
-                              <Video className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                              <span>LTX 2.3 비디오 모션 방향:</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <select
-                                value={sceneLtxMotions[scene.id] || "dolly_in"}
-                                onChange={(e) => setSceneLtxMotions(prev => ({ ...prev, [scene.id]: e.target.value }))}
-                                className="bg-[#1b1b26] border border-white/10 text-white/80 rounded px-1.5 py-0.5 text-[10px] focus:outline-none focus:border-indigo-500 font-sans"
-                              >
-                                <option value="none">정체 (No Motion)</option>
-                                <option value="dolly_in">달리 인 (Dolly In - 서서히 전진)</option>
-                                <option value="dolly_out">달리 아웃 (Dolly Out - 서서히 후진)</option>
-                                <option value="pan_left">패닝 좌 (Pan Left - 카메라스윕 좌)</option>
-                                <option value="pan_right">패닝 우 (Pan Right - 카메라스윕 우)</option>
-                                <option value="tilt_up">틸트 업 (Tilt Up - 하강각에서 상승)</option>
-                                <option value="tilt_down">틸트 다운 (Tilt Down - 상승각에서 하강)</option>
-                                <option value="orbit">오빗 공전 (Slow 360 Rotation)</option>
-                                <option value="slow_zoom">스테디 줌인 (Constant Slow Zoom-in)</option>
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const motionMap: Record<string, string> = {
-                                    none: "",
-                                    dolly_in: "slow cinematic dolly in, focusing closely on internal details, dramatic traditional atmosphere, masterpiece, 24fps",
-                                    dolly_out: "slow cinematic dolly out, revealing more of the traditional Joseon background, deep space, masterpiece, 24fps",
-                                    pan_left: "slow smooth camera pan left, sweeping traditional scenery perspective, cinematic depth, masterpiece, 24fps",
-                                    pan_right: "slow smooth camera pan right, sweeping landscape perspective, cinematic depth, masterpiece, 24fps",
-                                    tilt_up: "slow vertical camera tilt up, majestic revealing shot of traditional structure, dramatic lighting, masterpiece, 24fps",
-                                    tilt_down: "slow vertical camera tilt down, focusing down onto character facial expressions, intense look, masterpiece, 24fps",
-                                    orbit: "majestic 360-degree slow rotational orbit panning, cinematic 3D parallax depth, masterpiece, 24fps",
-                                    slow_zoom: "steady constant slow camera zoom-in, amplifying the emotional tension, dramatic look, masterpiece, 24fps"
-                                  };
-                                  const selectedMotionKey = sceneLtxMotions[scene.id] || "dolly_in";
-                                  const motionPrompt = motionMap[selectedMotionKey] || "";
-                                  
-                                  const processCompactLtx = (base: string, motion: string) => {
-                                    let cleaned = base.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ");
-                                    cleaned = cleaned.replace(/[\s,]+/g, ", ").trim();
-                                    const words = (cleaned + ", " + motion).split(",").map(w => w.trim()).filter(Boolean);
-                                    const unique: string[] = [];
-                                    const seen = new Set<string>();
-                                    for (const w of words) {
-                                      const lw = w.toLowerCase();
-                                      if (!seen.has(lw)) {
-                                        seen.add(lw);
-                                        const isCompactTag = 
-                                          lw.includes("masterpiece") || lw.includes("quality") || lw.includes("lighting") || 
-                                          lw.includes("composition") || lw.includes("backdrop") || lw.includes("scenery") || 
-                                          lw.includes("atmosphere") || lw.includes("rendering") || lw.includes("artistic") || 
-                                          lw.includes("cinematic") || lw.includes("traditional") || lw.includes("joseon") || 
-                                          lw.includes("moody") || lw.includes("dramatic") || lw.includes("fps") ||
-                                          lw.includes("dolly") || lw.includes("pan") || lw.includes("tilt") || 
-                                          lw.includes("zoom") || lw.includes("orbit") || lw.includes("parallax") || 
-                                          lw.includes("depth") || lw.includes("shot");
-                                        if (isCompactTag) {
-                                          unique.push(w);
-                                        }
-                                      }
-                                    }
-                                    if (unique.length <= 2) return motion;
-                                    return unique.join(", ");
-                                  };
+                          {/* LTX 2.3 / I2V Character & Environment Motion Prompt Box */}
+                          {(scene.ltxRecommended || (scene as any).mediaType === "video" || actualIndex < 8 || scene.ltxPrompt) && (
+                            <div className="mt-2.5 bg-[#0d0d14] border border-indigo-500/30 rounded-lg p-2.5 space-y-2 text-left">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></span>
+                                  <span className="text-[10px] font-bold text-indigo-300 font-mono flex items-center gap-1">
+                                    <Video className="w-3 h-3 text-indigo-400 shrink-0" />
+                                    🎬 LTX 2.3 / I2V 캐릭터 모션 프롬프트
+                                  </span>
+                                  {scene.ltxReason && (
+                                    <span className="text-[9px] text-white/40 truncate max-w-[180px]" title={scene.ltxReason}>
+                                      ({scene.ltxReason})
+                                    </span>
+                                  )}
+                                </div>
 
-                                  const compactPrompt = processCompactLtx(scene.refinedImagePrompt, motionPrompt);
-                                  copyToClipboard(compactPrompt, `ltx_compact_${scene.id}`);
-                                  showFeedback(`Scene ${scene.id}용 'I2V 모션 전용 콤팩트 프롬프트'가 복사되었습니다! 한글과 피사체 설명이 배제되어 LTX 비디오화에 100% 최적화되었습니다.`, "success");
-                                }}
-                                className="bg-[#052e16]/60 hover:bg-[#064e3b]/80 text-[#6ee7b7] hover:text-white border border-[#10b981]/30 rounded px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95"
-                                title="I2V 비디오 생성용 한글 및 주어 제거형 모션 특화 프롬프트 복사"
-                              >
-                                <Video className="w-3 h-3 text-[#34d399] shrink-0" />
-                                {copiedText === `ltx_compact_${scene.id}` ? "I2V 복사 성공!" : "I2V 추천 (모션전용 복사)"}
-                              </button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGenerateLtxPromptForScene(scene)}
+                                    disabled={generatingLtxSceneId === scene.id}
+                                    className="px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 border border-indigo-500/40 rounded text-[9px] font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    title="장면 나레이션과 이미지를 분석하여 인물 움직임/표정/바람/의복 정밀 모션 프롬프트를 AI로 생성합니다"
+                                  >
+                                    <RefreshCw className={`w-2.5 h-2.5 ${generatingLtxSceneId === scene.id ? "animate-spin" : ""}`} />
+                                    {generatingLtxSceneId === scene.id ? "모션 분석 중..." : "✨ AI 캐릭터 모션 상세 생성"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const promptToCopy = scene.ltxPrompt || sceneLtxMotions[scene.id] || `cinematic image-to-video motion, Joseon character turning head with intense facial reaction, silk hanbok robes fluttering in ambient breeze, subtle camera tracking, ${scene.visualDescription}, 24fps, cinematic fluid motion`;
+                                      copyToClipboard(promptToCopy, `ltx_prompt_${scene.id}`);
+                                      showFeedback(`Scene #${scene.id} 캐릭터 모션 프롬프트가 복사되었습니다! LTX / Wan / Runway에 바로 붙여넣으세요.`, "success");
+                                    }}
+                                    className="px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 border border-emerald-500/40 rounded text-[9px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                    title="LTX 2.3 / Wan / Runway 등 I2V 도구 입력용 모션 프롬프트 복사"
+                                  >
+                                    <Copy className="w-2.5 h-2.5 text-emerald-400" />
+                                    {copiedText === `ltx_prompt_${scene.id}` ? "복사 성공!" : "📋 LTX 프롬프트 복사"}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Motion Prompt Box */}
+                              <div className="bg-[#13131d] border border-white/5 rounded p-2 text-[10px] text-white/80 font-mono leading-relaxed break-words select-all">
+                                {scene.ltxPrompt || sceneLtxMotions[scene.id] || (
+                                  <span className="text-white/40 italic">
+                                    "cinematic image-to-video motion, character turning head with facial expression shift, silk hanbok fluttering, subtle tracking shot, 24fps, cinematic fluid motion"
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* LTX 2.3 Sound Design & SFX Cues Guidance */}
                           {(actualIndex < 8 || actualIndex === scenes.length - 1) && (
@@ -5784,7 +5749,7 @@ export default function App() {
                 </div>
                 <h4 className="text-white text-sm font-bold tracking-tight mb-2">썸네일 기획 데이터가 존재하지 않습니다</h4>
                 <p className="text-white/40 text-[11px] max-w-lg mx-auto leading-relaxed mb-5">
-                  씬별 이미지 생성이 완료되면 자동으로 썸네일 분석이 시작됩니다. 혹은 아래의 버튼을 누르시면 AI 디렉터가 즉시 동작하여 시청자를 홀릴 극적 클라이맥스를 가려내고 맞춤 썸네일 분석 기획서를 도출합니다.
+                  씬별 이미지 생성이 완료되면 자동으로 썸네일 분석이 시작됩니다. 혹은 아래 버튼을 누르시면 AI 디렉터가 시청자를 홀릴 극적 클라이맥스를 가려내고 <strong>YouTube Studio A/B 테스트용 3종 멀티 시안(시안 A/B/C)</strong>과 CTR 최적화 분석서를 즉시 생성합니다.
                 </p>
                 <button
                   onClick={() => handleGenerateThumbnail(false)}
@@ -6690,6 +6655,122 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* YouTube Studio A/B Test 3-Variant Multi-Concept Generator */}
+                  {thumbnailData && (
+                    <div className="space-y-4 pt-4 border-t border-purple-500/20 bg-[#121218] p-4 rounded-xl border border-purple-500/20 shadow-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded text-[10px] font-mono font-extrabold">
+                              YouTube Studio A/B Test
+                            </span>
+                            🎯 A/B 테스트용 3종 멀티 시안 (Test & Compare 전용)
+                          </h4>
+                          <p className="text-[10px] text-white/50 mt-0.5 leading-relaxed">
+                            유튜브 스튜디오 '썸네일 비교 및 테스트(3종)' 기능을 위한 서로 다른 3가지 시각 연출 및 카피 시안입니다.
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-purple-300 font-mono shrink-0 bg-purple-950/40 border border-purple-500/30 px-2.5 py-1 rounded-md">
+                          CTR 최고화 알고리즘 3차원 최적화
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {(thumbnailData.abTestVariants && thumbnailData.abTestVariants.length === 3
+                          ? thumbnailData.abTestVariants
+                          : [
+                              {
+                                variantId: "A" as const,
+                                variantTitle: "시안 A: 인물 감정 절정형 (Character Focus)",
+                                compositionStyle: thumbnailData.compositionStyle || "Extreme Dutch-Angle Close-Up",
+                                colorMood: thumbnailData.colorMood || "Eerie Ghostly Pale & Moonlit Indigo",
+                                visualPrompt: thumbnailData.visualPrompt,
+                                recommendedText: thumbnailData.recommendedText || thumbnailData.textCandidates?.[0] || "왕도 속았다",
+                                tacticalReason: "메인 인물의 극적인 표정과 충격 반응에 집중하여 시청자의 클릭 욕구를 자극합니다.",
+                              },
+                              {
+                                variantId: "B" as const,
+                                variantTitle: "시안 B: 대립 & 비밀 사건형 (Conflict & Event)",
+                                compositionStyle: "Duo Confrontation Profile",
+                                colorMood: "Ominous Emerald & Shadow Black",
+                                visualPrompt: thumbnailData.visualPrompt,
+                                recommendedText: thumbnailData.textCandidates?.[1] || thumbnailData.textCandidates?.[0] || "숨겨진 진실",
+                                tacticalReason: "두 인물의 팽팽한 대립 관계와 야사 속 숨겨진 사건의 긴장감을 극대화합니다.",
+                              },
+                              {
+                                variantId: "C" as const,
+                                variantTitle: "시안 C: 상징적 오브제 & 아우라형 (Symbolic & Aura)",
+                                compositionStyle: "Symbolic Silhouette Metaphor",
+                                colorMood: "Warm Sunset Amber & Clay",
+                                visualPrompt: thumbnailData.visualPrompt,
+                                recommendedText: thumbnailData.textCandidates?.[2] || thumbnailData.textCandidates?.[0] || "모두가 거짓이었다",
+                                tacticalReason: "은유적인 실루엣과 상징적인 미스터리 오브제로 웅장한 아우라와 호기심을 유발합니다.",
+                              },
+                            ]
+                        ).map((v) => (
+                          <div
+                            key={v.variantId}
+                            className="bg-[#171722] border border-purple-500/20 hover:border-purple-500/50 rounded-lg p-3.5 space-y-3 transition-all flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 font-mono font-bold text-[10px] rounded border border-purple-500/30">
+                                  VARIANT {v.variantId}
+                                </span>
+                                <span className="text-[10px] text-white/40 font-mono truncate max-w-[120px]" title={v.compositionStyle}>
+                                  {v.compositionStyle}
+                                </span>
+                              </div>
+
+                              <h5 className="text-[11px] font-bold text-white tracking-tight">
+                                {v.variantTitle}
+                              </h5>
+
+                              <div className="bg-[#0e0e14] p-2.5 rounded border border-white/5 space-y-1">
+                                <span className="text-[9px] text-purple-400 font-mono block uppercase">추천 자막 문구</span>
+                                <div className="text-xs font-bold text-amber-300 font-serif">
+                                  "{v.recommendedText}"
+                                </div>
+                              </div>
+
+                              <p className="text-[10px] text-white/60 leading-relaxed font-serif line-clamp-3">
+                                {v.tacticalReason}
+                              </p>
+                            </div>
+
+                            <div className="space-y-1.5 pt-2 border-t border-white/5">
+                              <button
+                                onClick={() => {
+                                  setSelectedComposition(v.compositionStyle);
+                                  setSelectedColorMood(v.colorMood);
+                                  setOverlayText(v.recommendedText);
+                                  handleGenerateThumbnail(true, undefined, undefined, v.compositionStyle, v.colorMood);
+                                  showFeedback(`시안 ${v.variantId} (${v.variantTitle}) 설정으로 썸네일 재빌드를 시작합니다.`, "info");
+                                }}
+                                disabled={isGeneratingThumbnail}
+                                className="w-full py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/30 rounded text-[10px] font-bold text-white transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${isGeneratingThumbnail ? "animate-spin" : ""}`} />
+                                시안 {v.variantId} 이미지 재빌드
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setOverlayText(v.recommendedText);
+                                  copyToClipboard(v.recommendedText, `ab_variant_text_${v.variantId}`);
+                                  showFeedback(`시안 ${v.variantId} 자막 ("${v.recommendedText}")이 캘리그래피 오버레이에 적용되었습니다!`, "success");
+                                }}
+                                className="w-full py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-medium text-white/80 hover:text-white transition-all text-center cursor-pointer"
+                              >
+                                ✏️ 자막 오버레이에 즉시 장착
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 4. 클릭유도 썸네일 카피 5대 카테고리 후보 */}
                   {thumbnailData?.thumbnailCopyCandidates && thumbnailData.thumbnailCopyCandidates.length > 0 && (

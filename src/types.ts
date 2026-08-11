@@ -84,6 +84,16 @@ export interface ThumbnailDirectorCandidateCategory {
   copies: string[];
 }
 
+export interface ThumbnailABVariant {
+  variantId: "A" | "B" | "C";
+  variantTitle: string;
+  compositionStyle: string;
+  colorMood: string;
+  visualPrompt: string;
+  recommendedText: string;
+  tacticalReason: string;
+}
+
 export interface ThumbnailDirectorData {
   chosenSceneId: number;
   sceneTitle: string;
@@ -103,6 +113,7 @@ export interface ThumbnailDirectorData {
   hashtags?: string[];
   pinnedComment?: string;
   thumbnailCopyCandidates?: ThumbnailDirectorCandidateCategory[];
+  abTestVariants?: ThumbnailABVariant[];
 }
 
 export interface YadamSafetyReport {

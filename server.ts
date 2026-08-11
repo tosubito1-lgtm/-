@@ -120,8 +120,15 @@ Incorporate the following proven success formulas learned from past channel perf
   3. TOTAL VIDEO SCENE RATIO: Combined with Intro, total video scenes should account for approx. 30% ~ 40% of the entire storyboard.
 - Set 'mediaType': 'video' for [TYPE: VIDEO] scenes (ltxRecommended: true, durationSeconds: 10) and 'image' for [TYPE: IMAGE] scenes (ltxRecommended: false, durationSeconds: 15).
 
-=== LTX VIDEO RECOMMENDATION ENGINE ===
+=== LTX VIDEO RECOMMENDATION ENGINE (HIGH-INTEGRITY CHARACTER MOTION PROMPTS) ===
 - For [TYPE: VIDEO] scenes, set 'ltxRecommended': true, 'mediaType': 'video', 'durationSeconds': 10, provide a concise Korean reason in 'ltxReason', and an English motion prompt in 'ltxPrompt'.
+- FRAME RATE & CADENCE: Enforce 24FPS cinematic motion cadence calibrated for smooth, fluid 10-second shot pacing (no abrupt jumps or hyper-speed glitches). Always append ", 24fps, cinematic fluid motion" to the end of the motion prompt. Do NOT insert literal "10 seconds" text into the prompt.
+- DO NOT write simple generic camera zoom prompts like "slow camera zoom in".
+- Write detailed, vivid character & environment motion prompts:
+  * CHARACTER ACTIONS: e.g., "Joseon scholar turns head slowly in shock, eyes widening in disbelief, breath rising sharply, hand trembling as he grips a bamboo scroll".
+  * FACIAL MICRO-EXPRESSIONS: e.g., "Character facial expression shifts from calm tension to horror, subtle lip movement, eyes blinking slowly".
+  * CLOTH & ENVIRONMENT PHYSICS: e.g., "Hanbok silk robes fluttering in cold night breeze, long black hair swaying, flickering torchlight casting dynamic shifting shadows, subtle dust motes floating".
+  * SUBTLE CAMERA TRACKING: e.g., "Subtle slow tracking shot following character movement with shallow depth of field".
 - Select scenes where motion creates maximum visual tension and emotional impact.
 
 === ARCHITECTURAL GUIDELINES ===
@@ -282,7 +289,7 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats accordin
           if (!sc.ltxRecommended && sc.durationSeconds <= 12) {
             sc.ltxRecommended = true;
             sc.ltxReason = "12초 이하 짧은 호흡의 주요 인물 반응 및 움직임 강조 장면";
-            sc.ltxPrompt = `cinematic image-to-video motion, subtle dynamic camera movement, ${sc.visualDescription || "character reacting with intense emotion"}`;
+            sc.ltxPrompt = `cinematic image-to-video motion, Joseon character turning head with intense emotional expression shift, silk hanbok robes fluttering in ambient wind breeze, subtle camera tracking, ${sc.visualDescription || "dramatic historical character movement"}`;
             currentLtxCount++;
           }
         }
@@ -909,6 +916,76 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
 });
 
 /**
+ * Endpoint for generating high-integrity LTX 2.3 / Wan Video / I2V motion prompts
+ * analyzing narration, visual description, character names and image prompt.
+ */
+app.post("/api/generate-ltx-prompt", async (req, res): Promise<void> => {
+  try {
+    const { narrationText, visualDescription, refinedImagePrompt, characterNames } = req.body;
+
+    const userPrompt = `
+You are an expert Image-to-Video (I2V) Motion Director specializing in LTX Video 2.3, Wan 2.1, Runway Gen-3, and Luma Dream Machine prompts for Korean historical narrative (사극/야담) videos.
+
+Your goal is to transform a static image description and scene narration into an ultra-detailed, cinematic I2V motion prompt that focuses on CHARACTER ACTIONS, FACIAL EXPRESSION DYNAMICS, CLOTHING/HAIR PHYSICS, and ATMOSPHERIC ENVIRONMENT MOVEMENT.
+
+--- SCENE DATA ---
+Narration: "${narrationText || ''}"
+Visual Scene Description: "${visualDescription || ''}"
+Image Prompt: "${refinedImagePrompt || ''}"
+Characters Involved: ${(characterNames || []).join(', ') || 'Korean historical characters'}
+
+--- REQUIRED INSTRUCTIONS ---
+1. FRAME RATE & CADENCE: Enforce 24FPS cinematic motion cadence calibrated for smooth, fluid 10-second shot pacing (no abrupt jumps or hyper-speed glitches). Always append ", 24fps, cinematic fluid motion" at the end of the prompt. Do NOT insert literal "10 seconds" text into the prompt.
+2. DO NOT write simple generic camera zoom prompts like "slow camera zoom in".
+3. Focus on CHARACTER ACTIONS & FACIAL EXPRESSIONS:
+   - e.g., "The Joseon scholar slowly turns his head in shock, eyes widening in disbelief, breath rising sharply, lips trembling, gripping his brush tightly".
+4. Describe CLOTH & ATMOSPHERIC PHYSICS:
+   - e.g., "Hanbok silk robes flutter in the chilly night breeze, dark long hair swaying gently, flickering candle flame casting dynamic shifting shadows, subtle dust motes floating in ambient light".
+5. Add SUBTLE CINEMATIC CAMERA MOVEMENT:
+   - e.g., "smooth slow dolly push-in maintaining focus on the character's emotional breakdown".
+6. Keep the English motion prompt focused, vivid, and highly descriptive (40 to 80 words), ending with ", 24fps, cinematic fluid motion".
+
+Output a JSON object with:
+- ltxPrompt: The final complete English I2V motion prompt.
+- motionSummary: A short 1-line Korean summary of the key motions (e.g. "인물의 경악 표정 변화, 바람에 흩날리는 도포 자락, 촛불 흔들림 감정 동기화").
+`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        ltxPrompt: { type: Type.STRING, description: "Detailed English I2V motion prompt for LTX Studio / Wan 2.1" },
+        motionSummary: { type: Type.STRING, description: "Short 1-line Korean description of motion highlights" }
+      },
+      required: ["ltxPrompt", "motionSummary"]
+    };
+
+    const ai = getGenAI(req);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: userPrompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.7,
+      }
+    });
+
+    const text = response.text || "{}";
+    const parsed = JSON.parse(text);
+
+    res.json({
+      ltxPrompt: parsed.ltxPrompt || `Cinematic I2V motion: ${visualDescription || narrationText}, subtle character facial expression shift and wind swaying hanbok robes`,
+      motionSummary: parsed.motionSummary || "인물 표정 변화 및 의복 바람 흔들림 연출"
+    });
+
+  } catch (error: any) {
+    console.error("Error generating LTX motion prompt:", error);
+    res.status(500).json({ error: error.message || "Failed to generate LTX motion prompt." });
+  }
+});
+
+/**
  * Endpoint for YouTube Thumbnail Director Analysis & Planning
  */
 app.post("/api/analyze-thumbnail-director", async (req, res): Promise<void> => {
@@ -1004,12 +1081,18 @@ Generate comprehensive publishing materials in Korean to maximize video search r
 1. Video Description (영상 설명란 문구): Write a 6~10 line engaging Korean YouTube description. Include a dramatic story synopsis without major endgame spoilers, key emotional highlights, structured timeline/timestamp breakdown hints, and subscription/like encouragement.
 2. SEO Hashtags (SEO 최적화 해시태그): Provide 8 to 12 popular, highly relevant search hashtags starting with '#' (e.g. #야담 #조선비사 #역사미스터리 #한국야담 #궁중비사 #조선시대 #옛날이야기 #역사스토리텔링).
 3. Pinned Comment (고정 댓글 제안): Write an interactive Korean pinned comment that prompts viewers to leave comments sharing their thoughts and reminds them to subscribe and enable notifications.
-4. 5 Copy Candidate Categories (클릭유도 썸네일 카피 5대 카테고리 후보): Create 5 distinct marketing copy categories, each containing 3 short, punchy, high-CTR Korean thumbnail text phrases (max 12 characters per phrase):
+5. 5 Copy Candidate Categories (클릭유도 썸네일 카피 5대 카테고리 후보): Create 5 distinct marketing copy categories, each containing 3 short, punchy, high-CTR Korean thumbnail text phrases (max 12 characters per phrase):
    - Category 1: "호기심 유발형" (Curiosity-driven)
    - Category 2: "비극/비사 강조형" (Tragedy & Secret History)
    - Category 3: "반전/음모 강조형" (Twist & Conspiracy)
    - Category 4: "도발적 질문형" (Provocative Question)
    - Category 5: "임팩트 단문형" (Short Impact)
+
+=== YOUTUBE STUDIO A/B TEST 3-VARIANT GENERATION (TEST & COMPARE) ===
+Provide exactly 3 distinct A/B test thumbnail draft concepts to allow YouTube's native 'Test & Compare' feature to test different visual angles:
+- Variant A ("시안 A: 인물 감정 절정형"): Focuses on extreme character emotion close-up or shock, high-curiosity phrase.
+- Variant B ("시안 B: 대립 & 비밀 사건형"): Focuses on two figures in profile or tense confrontation scene, secret history phrase.
+- Variant C ("시안 C: 상징적 오브제 & 아우라형"): Focuses on a dramatic symbolic item or wide atmospheric silhouette, short mystery phrase.
 `;
 
     const responseSchema = {
@@ -1050,6 +1133,23 @@ Generate comprehensive publishing materials in Korean to maximize video search r
             },
             required: ["categoryName", "copies"]
           }
+        },
+        abTestVariants: {
+          type: Type.ARRAY,
+          description: "Exactly 3 distinct thumbnail variants for YouTube Studio A/B Test & Compare.",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              variantId: { type: Type.STRING, description: "A, B, or C" },
+              variantTitle: { type: Type.STRING, description: "Variant title in Korean" },
+              compositionStyle: { type: Type.STRING, description: "Composition style" },
+              colorMood: { type: Type.STRING, description: "Color mood" },
+              visualPrompt: { type: Type.STRING, description: "English image prompt for this variant" },
+              recommendedText: { type: Type.STRING, description: "Short Korean clickbait text overlay" },
+              tacticalReason: { type: Type.STRING, description: "Korean explanation of why this variant appeals to viewers" }
+            },
+            required: ["variantId", "variantTitle", "compositionStyle", "colorMood", "visualPrompt", "recommendedText", "tacticalReason"]
+          }
         }
       },
       required: [
@@ -1065,7 +1165,8 @@ Generate comprehensive publishing materials in Korean to maximize video search r
         "videoDescription",
         "hashtags",
         "pinnedComment",
-        "thumbnailCopyCandidates"
+        "thumbnailCopyCandidates",
+        "abTestVariants"
       ]
     };
 
