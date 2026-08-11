@@ -422,18 +422,18 @@
                         <option value="" disabled selected>이전 기획 단계 복원/이동...</option>
                         <option value="0단계">0단계: 주제생성</option>
                         <option value="1단계">1단계: 목차기획</option>
-                        <option value="인트로">인트로 (S1-8)</option>
-                        <option value="사건발생">사건 발생 (S9-18)</option>
-                        <option value="의혹">의혹/갈등 (S19-28)</option>
-                        <option value="추적">진실 추적 (S29-38)</option>
-                        <option value="반전">반전 기획 (S39-48)</option>
-                        <option value="결말">결말 피날레 (S49-62)</option>
-                        <option value="대본1">통합 대본 1부 (S1-31)</option>
-                        <option value="대본2">통합 대본 2부 (S32-62)</option>
-                        <option value="TTS1">TTS 원고 1부 (S1-31)</option>
-                        <option value="TTS2">TTS 원고 2부 (S32-62)</option>
-                        <option value="대본">통합 대본 전체 (S1-62)</option>
-                        <option value="TTS">TTS 전용 극본 전체 (S1-62)</option>
+                        <option value="인트로">인트로</option>
+                        <option value="사건발생">사건 발생</option>
+                        <option value="의혹">의혹/갈등</option>
+                        <option value="추적">진실 추적</option>
+                        <option value="반전">반전 기획</option>
+                        <option value="결말">결말 피날레</option>
+                        <option value="대본1">통합 대본 1부</option>
+                        <option value="대본2">통합 대본 2부</option>
+                        <option value="TTS1">TTS 원고 1부</option>
+                        <option value="TTS2">TTS 원고 2부</option>
+                        <option value="대본">통합 대본 전체</option>
+                        <option value="TTS">TTS 전용 극본 전체</option>
                         <option value="LTX추출">LTX 2.3 영어 프롬프트</option>
                         <option value="쇼츠">유튜브 쇼츠 독립스토리 (8씬/80초)</option>
                         <option value="커뮤니티">커뮤니티 홍보 게시글</option>
@@ -502,7 +502,7 @@
             <div class="section-card" style="border-color: rgba(59, 130, 246, 0.4); background-color: #0d1117;">
                 <div class="section-title" style="color: #60a5fa; display: flex; justify-content: space-between; align-items: center;">
                     <span>3. 서사 구조 템플릿 & 목표 분량 기획</span>
-                    <button id="btn-ai-recommend" class="btn" style="background:#d97706; color:#fff; border:none; padding:3px 8px; font-size:0.72rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" onclick="recommendPresetAi()">
+                    <button id="btn-ai-recommend" class="btn" style="background:#d97706; color:#fff; border:none; padding:3px 8px; font-size:0.72rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" onclick="recommendPresetAi()" title="현재 주제/키워드의 서사적 깊이와 복잡도를 AI가 분석하여 최적의 서사 구조 템플릿과 목표 분량을 자동 설정합니다">
                         💡 AI 맞춤 추천
                     </button>
                 </div>
@@ -609,7 +609,7 @@
 
     <!-- 야담 전용 시스템 지시문 탑재 (V1.5.5 PRO) -->
     <script>
-        const systemInstructionText = `
+        var systemInstructionText = `
 ### 📋 [야담 프롬프트 - 최종 완성본 V1.5.5 PRO LEVEL]
 
 [역할 정의]
@@ -652,15 +652,33 @@
 2. **씬(Scene) 블록 표기 형식**:
    인트로부터 결말까지의 모든 씬 상세 구성안은 반드시 줄바꿈 없이 아래 한 줄의 헤더와 프롬프트 한 줄로만 구성해 주어야 하며, 괄호와 따옴표, 대괄호 위치를 정확히 고수해야 한다.
    
-   [S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] "한국어 내레이션 텍스트" (한글 카메라 연출 지시어 및 배경 속 미세모션 묘사)
+   ★ [CRITICAL: 내레이션 큰따옴표(" ") 내부 캐릭터 코드 및 한자(漢字) 절대 금지 규칙] ★
+   큰따옴표(" ") 안의 한국어 성우 내레이션 텍스트에는 'Ch_A', 'Ch_B', 'Ch_C' 등의 캐릭터 코드 문자열 및 괄호 한자(예: 무지(無知) ❌ -> 무지 ⭕) 또는 한자 단어를 절대로 넣지 마라!
+   (잘못된 예: "세종 Ch_A은 무지(無知)의 고통 속에서..." ❌ -> 올바른 예: "세종은 무지의 고통 속에서..." ⭕)
+   캐릭터 코드(Ch_A, Ch_B 등)는 오직 대괄호 헤더 [장소, 시간대 / Ch_A] 및 괄호 안 연출 지시어 (세종 Ch_A이...) 와 [IMAGE GENERATION PROMPT] 내에서만 사용하여 인물을 지정해야 한다. 성우가 낭독하는 내레이션 본문에는 오직 한자 없는 깨끗한 순한글명과 한글만 작성하라.
+
+   [S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO 또는 TYPE: IMAGE] "한국어 내레이션 텍스트" (한글 카메라 연출 지시어 및 배경 속 미세모션 묘사)
    [IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, micro environmental motion (e.g., candles flickering, dust floating inside the room, leaves falling in background), lighting, Joseon dynasty style, slow dynamic camera zoom-in/panning, hyper-realistic style.
    
    (예:
-   [S1.] [어둡고 고요한 침소 안, 밤 / Ch_A, Ch_D] "어둡고 고요한 경종의 침소, 그의 머리맡에 놓인 약상자에는 이미 죽음의 그림자가 짙게 드리워져 있었습니다." (수척한 경종 Ch_A이 누워 숨을 몰아쉬고 궁녀 조씨 Ch_D가 떨리는 손으로 이를 바라보는 슬로우 줌인 연출, Close-up)
+   [S1.] [어둡고 고요한 침소 안, 밤 / Ch_A, Ch_D] [TYPE: IMAGE] "어둡고 고요한 경종의 침소, 그의 머리맡에 놓인 약상자에는 이미 죽음의 그림자가 짙게 드리워져 있었습니다. 수척해진 왕은 거친 숨을 내쉬며 가만히 창밖을 바라보았고, 이를 시중들던 궁녀는 두려움에 떨며 묵묵히 자리를 지켰습니다." (수척한 경종 Ch_A이 누워 숨을 몰아쉬고 궁녀 조씨 Ch_D가 떨리는 손으로 이를 바라보는 슬로우 줌인 연출, Close-up)
    [IMAGE GENERATION PROMPT]: A masterpiece cinematic widescreen shot of pale Joseon king Ch_A lying sick on a dark bed, a trembling young court lady Ch_D watching him in fear, dimly lit traditional bedroom backdrop, candle flame flickering quietly, ambient moody lighting, slow dynamic zoom-in, Joseon dynasty style.
    )
 
-★ [정통 역사 고증 및 기록 미등재 공백의 개연성 있는 재구성 규칙] ★
+★ [정통 역사 고증 & 사료 중심의 신뢰성 검증 4대 원칙 (야사 채널 이미지 탈피)] ★
+1. **정사 사료(Fact) 중심의 든든한 서사 뼈대**: 조선왕조실록, 승정원일기, 고려사, 삼국사기 등 공식 1차 사료의 실제 기록을 서사의 가장 단단한 주축으로 삼는다. 허무맹랑한 픽션이나 근거 없는 자극적 카더라식 야사에 휩쓸리지 않고 정통 역사의 품격을 유지한다.
+2. **정사(Fact) vs 야사/민간설화(Legend) 명확한 교차 검증**: 야사나 사가의 문집 기록을 소개할 때는 나레이션에서 "실록 공식 기록에는 ~라 전해지나, 당대 사가의 문집/야사에서는..." 처럼 정사와 야사의 경계를 엄격하게 명시하여 시청자에게 신뢰 높은 고품격 지적 교차 검증을 제공한다.
+3. **사료 구절 인용 및 역사적 맥락 심층 해석**: 단순 미스터리 음모론이 아닌, 당대의 권력 구도, 정쟁, 유교적/정치적 명분, 인물의 인간적 딜레마, 시대적 법제도의 한계를 조명하여 시청자가 "깊이 있는 정통 역사 다큐 스토리"로 받아들이게 만든다.
+4. **사료 검증 씬 (Evidence Anchoring) 배치**: 본문 추적 파트나 결말 직전에 실제 사관의 서평(史官 曰), 왕의 교지, 승정원일기 구절 등 1차 사료 기록을 인용/해설하는 씬을 수록하여 채널의 전문성을 확고히 한다.
+
+★ [AI 동적 가변 (auto_flow) 서사 밀도 진단 평가표 Matrix] ★
+주제의 서사적 복잡도와 사료적 깊이에 따라 AI가 임의로 짧은 분량을 단축 선택하지 못하도록 아래의 서사 밀도 평가표(1~5점)를 기준으로 최적 씬 수를 주도적으로 판단하고 1단계 목차 기획 초두에 명시하라:
+- **서사 밀도 1~2점 (단순 사건 / 단일 비화 / 1~2인 명확한 구도)**: 48~52개 씬 (~9~10분 분량)
+- **서사 밀도 3~4점 (파벌 대립 / 사건의 은폐와 진실 추적 / 3~4인 복합 구도)**: 58~64개 씬 (~12~14분 분량)
+- **서사 밀도 5점 (대작 / 국가적 대변란 / 십수 년의 정쟁 / 사료 교차검증 / 다수 주역)**: 68~78개 씬 (~15~18분 대작 분량)
+* 1단계 목차 기획 출력 시 상단에 반드시 '[서사 밀도 진단: X점 - 사유]' 및 '[최종 선택 목표 분량: Y개 씬 (Z분)]'을 명시하고, 그에 맞는 동적 씬 번호 범위를 배정하라.
+
+★ [대상 역사적 시대 자동 감지 및 고증 적용] ★
 1. **대상 역사적 시대 자동 감지 및 고증 적용**: 본 기획기는 사용자의 입력 키워드나 역사적 맥락에 따라 해당 시대(삼국시대 - 고구려/백제/신라, 고려시대, 조선시대 등)를 자동으로 판별하여 맞춤 고증을 적용한다.
    - **삼국시대 (신라, 고구려, 백제, 가야)**:
      * 문헌 인용: 삼국사기, 삼국유사 등
@@ -699,10 +717,15 @@
   - 가이드라인 글자수: N6 성우 낭독 호흡과 0.3초 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 35자 ~ 45자 범위**로 정확하게 글자수를 채워준다.
   - **[LTX 모션 비디오 최적화 (Cinematic Dynamics)]**: 인트로의 영문 이미지 프롬프트('[IMAGE GENERATION PROMPT]')는 비디오 변환 시 단순한 정적 슬라이드쇼가 아닌, **생동감 넘치고 시각적으로 차별화된 영화적 무브먼트(Cinematic Motion)**를 일으킬 수 있도록 기획해야 한다. 비디오 생성에 생명력을 불어넣는 액티브한 연출 장치(예: 바람에 격렬히 흩날리는 옷자락과 머리칼, 어둠 속에서 흔들리며 흩어지는 붉은 횃불 불꽃과 불씨들, 흩날리는 눈발이나 빗방울, 공기 중에 부유하는 은은한 등잔 연기와 자욱한 먼지 입자, 조용히 소용돌이치는 안개 등)를 구체적인 영문 묘사로 가미한다. 또한 단조로운 앵글을 탈피해 인물(Ch_A)의 깊이 있는 감정 변화와 함께 극적인 시네마틱 움직임(예: Slow cinematic tracking zoom-in, dynamic camera sliding, rotating camera shot)을 명시적으로 지시하여 영상 특유의 몰입감을 극대화한다.
   - **[CTR 극대화 및 호기심 유지]**: 인트로 나레이션은 본편 전체 씬의 핵심 인물 및 미스터리를 흥미진진하게 축소하여 제시하되, **최종 결말이나 반전을 절대로 노출하거나 누설하지 않는다**. 이야기의 가장 강력하고 위험천만한 대립 구조나 수수께끼만을 압축 제시하여, 시청자가 결말을 보기 위해 끝까지 시청하게 만들 파괴적인 궁금증(Hook)을 오프닝 인트로 마지막 씬에서 자아내며 마무리하도록 설계한다.
-- **서사 본론 파트 (사건발생/의혹/추적/반전/결말) [재생시간: 15초 기준]**
-  - 사건의 발생, 의혹과 갈등, 추적, 극적 반전, 깊이 있는 결말 장치 구성에 맞춰 씬당 **15초의 충분한 씬 재생 시간**을 일괄 부여한다.
-  - 가이드라인 글자수: N6 성우 낭독 호흡과 무음 여백을 고려하여 각 씬당 **한글 공백 포함 약 55자 ~ 65자 범위**로 촘촘하고 호소력 짙게 작성하며, 미장센 공간 여운을 더해 15초를 채운다.
-  - **대본 분량 일관성 유지**: 후반부 및 결말 피날레 장치에서도 절대 대본이나 텍스트를 급하게 정리하거나 글자수를 대폭 축소하여 짧게 끝나지 않도록, 모든 씬에 대해 예외 없이 일관된 글자수(55자~65자 범위)를 끝까지 듬직하게 유지해야 한다.
+- **[TYPE: VIDEO] 비디오 모션 씬 [재생시간: 10~11초]**:
+  - 빠른 인트로, 호기심 유도, 상황 및 액션 묘사 씬에 적용한다.
+  - 가이드라인 글자수: N6 성우 낭독 호흡 기준 **한글 공백 포함 약 70자 ~ 85자 범위 (단문 1문장 위주)**로 타이트하고 속도감 있게 작성한다.
+- **[TYPE: IMAGE] 정적 이미지 슬라이드 씬 [재생시간: 14~18초]**:
+  - 배경 설명, 사료 고증, 상황 및 역사적 맥락 심층 해석 씬에 적용한다.
+  - 가이드라인 글자수: N6 성우 낭독 호흡 기준 **한글 공백 포함 약 110자 ~ 137자 범위 (상세 설명조 2~3문장)**로 깊이 있고 조리 있게 서사를 충분히 설명하도록 분량을 넉넉하게 채워 작성한다.
+- **대본 분량 및 내레이션 정결성 필수 준수**:
+  - 내레이션 큰따옴표(" ") 내부에는 Ch_A, Ch_B 등의 인물 코드를 절대로 넣지 말고 오직 깨끗한 한글명만 사용하며, 괄호 한자나 한자어(예: 무지(無知) ❌ -> 무지 ⭕) 표기를 완전 금지한다.
+  - 후반부 및 결말 피날레 장치에서도 절대 대본을 줄이지 말고 가이드라인 글자수를 끝까지 유지한다.
 - 모든 씬의 구조적 포맷을 완벽하게 통일해야 한다.
 - 최후의 씬(마지막 피날레 씬)은 시스템 고정 규칙을 필히 따른다.
 
@@ -726,6 +749,7 @@
 
 
 `;
+        window.systemInstructionText = systemInstructionText;
     </script>
 
     <!-- 실무 제어용 프론트엔드 엔진 스크립트 -->
@@ -917,7 +941,7 @@
             let text = `\n\n★ [분량 지침 & 동적 씬 산출 규격: ${cfg.targetTimeText}] ★\n`;
             text += `1. **목표 영상 총 분량**: ${cfg.targetTimeText} (계산된 총 ${cfg.totalScenes}개 씬 가이드라인)\n`;
             text += `2. **서사 단계별 동적 씬 계산 및 낭독 배분**:\n`;
-            text += `   - 인트로 파트: Scene ${r['인트로'][0]} ~ Scene ${r['인트로'][1]} (총 ${r['인트로'][1]-r['인트로'][0]+1}개 씬, 100% [TYPE: VIDEO] 약 60~70자/9초)\n`;
+            text += `   - 인트로 파트: Scene ${r['인트로'][0]} ~ Scene ${r['인트로'][1]} (총 ${r['인트로'][1]-r['인트로'][0]+1}개 씬, 100% [TYPE: VIDEO] 약 70~85자/10~11초)\n`;
             text += `   - 사건발생 파트: Scene ${r['사건발생'][0]} ~ Scene ${r['사건발생'][1]} (총 ${r['사건발생'][1]-r['사건발생'][0]+1}개 씬)\n`;
             text += `   - 의혹/갈등 파트: Scene ${r['의혹'][0]} ~ Scene ${r['의혹'][1]} (총 ${r['의혹'][1]-r['의혹'][0]+1}개 씬)\n`;
             text += `   - 진실추적 파트: Scene ${r['추적'][0]} ~ Scene ${r['추적'][1]} (총 ${r['추적'][1]-r['추적'][0]+1}개 씬)\n`;
@@ -927,9 +951,13 @@
             if (selectedLengthPreset === 'shorts') {
                 text += `3. **80초 쇼츠 모드 제약**: 정확히 8개 씬으로 작성하며 씬당 10초(실 낭독 9초, 70~85자)로 80초 완결 구도를 맞춰라.\n`;
             } else if (selectedLengthPreset === 'auto_flow') {
-                text += `3. **AI 동적 가변 산출 규칙**: AI는 주제의 서사적 밀도와 복잡성에 따라 9분(~48씬), 13분(~58씬), 15분(~68씬), 18분(~78씬) 중 가장 최적인 씬 수와 호흡을 가변 결정하여 1단계 목차 기획에서 명시하라.\n`;
+                text += `3. **AI 동적 가변 산출 평가 지침**: 임의로 가장 짧은 분량을 선택하지 마라. 주제의 서사적 복잡도 및 사료적 깊이에 따라 밀도 점수(1~5점)를 측정하고 이에 맞추어 동적 씬 수를 결정하라:\n`;
+                text += `   - 서사 밀도 1~2점 (단순 사건 / 단일 비화): 48~52개 씬 (~9~10분)\n`;
+                text += `   - 서사 밀도 3~4점 (파벌 대립 / 사건의 은폐와 추적): 58~64개 씬 (~12~14분)\n`;
+                text += `   - 서사 밀도 5점 (대작 / 국가적 대변란 / 십수년 정쟁 / 사료 교차검증): 68~78개 씬 (~15~18분 대작)\n`;
+                text += `   1단계 목차 기획에서 [서사 밀도 진단: X점]과 [최종 선택 분량: Y개 씬]을 명시하여 그 배분표를 제시하라.\n`;
             } else {
-                text += `3. **낭독 호흡 및 영상 타임라인 동기화**: [TYPE: VIDEO] 씬(본문 약 20~30%)은 9초 실 낭독(60~70자, 단문 1문장), [TYPE: IMAGE] 씬(70~80%)은 15초 실 낭독(105~135자, 설명조 2문장)을 철저히 준수하여 목표 분량(${cfg.targetTimeText})을 100% 완벽히 충족시켜라.\n`;
+                text += `3. **낭독 호흡 및 영상 타임라인 동기화**: [TYPE: VIDEO] 씬(본문 약 20~30%)은 10~11초 실 낭독(70~85자, 단문 1문장), [TYPE: IMAGE] 씬(70~80%)은 14~18초 실 낭독(한글 공백 포함 110~137자, 설명조 2~3문장)을 철저히 준수하고 내레이션 큰따옴표(" ") 내부에는 Ch_A, Ch_B 등의 인물 식별자 코드 및 괄호 한자를 절대로 넣지 마라.\n`;
             }
 
             return text;
@@ -964,7 +992,7 @@ Return JSON strictly with this schema:
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
 
             try {
-                const response = await fetch(apiUrl, {
+                const resData = await fetchGeminiWithRetry(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -977,9 +1005,7 @@ Return JSON strictly with this schema:
                     })
                 });
 
-                if (!response.ok) throw new Error(`API HTTP ${response.status}`);
-                const data = await response.json();
-                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                const jsonText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
                 const parsed = JSON.parse(jsonText);
 
                 if (parsed.recommendedFormat && parsed.recommendedLength) {
@@ -1029,23 +1055,26 @@ Return JSON strictly with this schema:
             const savedMd = localStorage.getItem('gemini_stage_markdown_' + projectTitle + '_' + stageKey);
             
             if (!savedMd) {
+                const cfg = getPresetSceneConfig();
+                const r = cfg.ranges;
+                const mid = Math.floor(cfg.totalScenes / 2);
                 const names = {
                     '0단계': '0단계: 주제생성',
                     '1단계': '1단계: 목차기획',
-                    '인트로': '인트로 (S1-8)',
-                    '사건발생': '사건 발생 (S9-18)',
-                    '의혹': '의혹/갈등 (S19-28)',
-                    '추적': '진실 추적 (S29-38)',
-                    '반전': '반전 기획 (S39-48)',
-                    '결말': '결말 피날레 (S49-62)',
-                    '대본': '통합 대본 전체 (S1-62)',
-                    '대본1': '통합 대본 1부 (S1-31)',
-                    '대본2': '통합 대본 2부 (S32-62)',
-                    'TTS': 'TTS 전용 극본 전체 (S1-62)',
-                    'TTS1': 'TTS 원고 1부 (S1-31)',
-                    'TTS2': 'TTS 원고 2부 (S32-62)',
+                    '인트로': `인트로 (S${r['인트로'][0]}-${r['인트로'][1]})`,
+                    '사건발생': `사건 발생 (S${r['사건발생'][0]}-${r['사건발생'][1]})`,
+                    '의혹': `의혹/갈등 (S${r['의혹'][0]}-${r['의혹'][1]})`,
+                    '추적': `진실 추적 (S${r['추적'][0]}-${r['추적'][1]})`,
+                    '반전': `반전 기획 (S${r['반전'][0]}-${r['반전'][1]})`,
+                    '결말': `결말 피날레 (S${r['결말'][0]}-${r['결말'][1]})`,
+                    '대본': `통합 대본 전체 (S1-${cfg.totalScenes})`,
+                    '대본1': `통합 대본 1부 (S1-${mid})`,
+                    '대본2': `통합 대본 2부 (S${mid+1}-${cfg.totalScenes})`,
+                    'TTS': `TTS 전용 극본 전체 (S1-${cfg.totalScenes})`,
+                    'TTS1': `TTS 원고 1부 (S1-${mid})`,
+                    'TTS2': `TTS 원고 2부 (S${mid+1}-${cfg.totalScenes})`,
                     'LTX추출': 'LTX 2.3 영어 프롬프트',
-                    '쇼츠': '유튜브 쇼츠 (60초)',
+                    '쇼츠': '유튜브 쇼츠 (80초)',
                     '커뮤니티': '커뮤니티 홍보 게시글'
                 };
                 const readableName = names[stageKey] || stageKey;
@@ -1076,6 +1105,7 @@ Return JSON strictly with this schema:
             } else {
                 document.getElementById('output-view').innerText = savedMd;
             }
+            enhanceTopicClickables();
             document.getElementById('output-view').scrollTop = 0;
             currentActiveStage = stageKey;
             
@@ -1118,8 +1148,10 @@ Return JSON strictly with this schema:
                     chatHistory = [];
                 }
             }
-            if (savedOutputHtml) document.getElementById('output-view').innerHTML = savedOutputHtml;
-            else renderDefaultGuide();
+            if (savedOutputHtml) {
+                document.getElementById('output-view').innerHTML = savedOutputHtml;
+                enhanceTopicClickables();
+            } else renderDefaultGuide();
             if (savedStepIndicator) document.getElementById('step-indicator').innerText = savedStepIndicator;
 
             const savedHighlight = localStorage.getItem('gemini_next_highlight_stage');
@@ -1301,6 +1333,73 @@ Return JSON strictly with this schema:
             } catch (error) { return { success: false, errorDetail: error.message }; }
         }
 
+        async function fetchGeminiWithRetry(apiUrl, options, maxRetries = 2) {
+            const loadingTextEl = document.getElementById('loading-text');
+            const defaultText = '제미나이 서버 분석 중... 잠시만 기다려주세요.';
+
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                const response = await fetch(apiUrl, options);
+                let resData;
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    resData = await response.json();
+                } else {
+                    const textResponse = await response.text();
+                    throw new Error(`API 응답 형식 오류 (HTTP ${response.status}): ${textResponse.substring(0, 150)}`);
+                }
+
+                if (response.ok && resData.candidates && resData.candidates.length > 0) {
+                    if (loadingTextEl) loadingTextEl.innerText = defaultText;
+                    return resData;
+                }
+
+                const errMsg = resData.error ? resData.error.message : 'API 비정상 응답 발생';
+                const isQuotaError = response.status === 429 || 
+                    errMsg.includes('Quota exceeded') || 
+                    errMsg.includes('RESOURCE_EXHAUSTED') || 
+                    errMsg.includes('limit: 20');
+
+                if (isQuotaError && attempt < maxRetries) {
+                    let waitSec = 25;
+                    const match = errMsg.match(/retry in ([0-9\.]+)s/i);
+                    if (match && match[1]) {
+                        waitSec = Math.ceil(parseFloat(match[1])) + 2;
+                    }
+
+                    logDiagnostic(`⚠️ Free Tier API 호출 한도(RPM) 초과. ${waitSec}초 후 자동 재시도합니다... (${attempt + 1}/${maxRetries})`);
+
+                    for (let s = waitSec; s > 0; s--) {
+                        if (loadingTextEl) {
+                            loadingTextEl.innerHTML = `⏳ API 무료 호출 한도(RPM) 초과로 <strong style="color:#fde047;">${s}초 후 자동 재시도</strong>합니다... (${attempt + 1}/${maxRetries})`;
+                        }
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+
+                    if (loadingTextEl) loadingTextEl.innerText = '재시도 중... 제미나이 서버 응답 대기 중';
+                    continue;
+                }
+
+                if (isQuotaError) {
+                    throw new Error(`[API 무료 호출 한도(RPM) 초과]\n\n• 원인: 사용 중이신 Google Gemini Free Tier API 키는 1분당 최대 15~20회(RPM) 호출 제한이 있습니다.\n• 대처방법: 20~30초 후 버튼을 다시 누르시거나, Google AI Studio에서 Pay-as-you-go(유료 결제 계정) API 키를 사용하시면 대기 없이 즉시 생성됩니다.\n\n(구글 메시지: ${errMsg})`);
+                }
+
+                throw new Error(errMsg);
+            }
+        }
+
+        function sanitizeScriptNarration(text) {
+            if (!text) return text;
+            return text.replace(/(["“][^"”]+["”])/g, function(match) {
+                let cleaned = match
+                    .replace(/\s*\([\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+\)/g, '')
+                    .replace(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+/g, '')
+                    .replace(/\s*Ch_[A-Za-z0-9_]+/gi, '')
+                    .replace(/세종가\b/g, '세종이')
+                    .replace(/[ \t]+/g, ' ');
+                return cleaned;
+            });
+        }
+
         async function sendPrompt(customText = null) {
             const promptInput = document.getElementById('prompt-input');
             const userText = customText ? customText.trim() : promptInput.value.trim();
@@ -1313,37 +1412,26 @@ Return JSON strictly with this schema:
                 return;
             }
 
+            const loadingTextEl = document.getElementById('loading-text');
+            if (loadingTextEl) loadingTextEl.innerText = '제미나이 서버 분석 중... 잠시만 기다려주세요.';
             document.getElementById('loading').style.display = 'flex';
             chatHistory.push({ role: 'user', parts: [{ text: userText }] });
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
 
             try {
-                const response = await fetch(apiUrl, {
+                const resData = await fetchGeminiWithRetry(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: chatHistory,
-                        systemInstruction: { parts: [{ text: systemInstructionText }] },
+                        systemInstruction: { parts: [{ text: (typeof systemInstructionText !== 'undefined' ? systemInstructionText : (window.systemInstructionText || '')) }] },
                         generationConfig: { temperature: 0.72, topK: 40, topP: 0.95 }
                     })
                 });
-                
-                let resData;
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                    resData = await response.json();
-                } else {
-                    const textResponse = await response.text();
-                    throw new Error(`API 응답 형식 오류 (HTTP ${response.status}): ${textResponse.substring(0, 150)}`);
-                }
-                
-                if (!response.ok || !resData.candidates || resData.candidates.length === 0) {
-                    const errMsg = resData.error ? resData.error.message : 'API 비정상 응답 발생';
-                    throw new Error(errMsg);
-                }
 
-                const responseText = resData.candidates[0].content.parts[0].text;
+                let responseText = resData.candidates[0].content.parts[0].text;
+                responseText = sanitizeScriptNarration(responseText);
 
                 chatHistory.push({ role: 'model', parts: [{ text: responseText }] });
                 
@@ -1364,32 +1452,37 @@ Return JSON strictly with this schema:
                 triggerAutoSave();
             } catch (error) {
                 logDiagnostic('오류: ' + error.message);
-                alert('API 호출에 실패했습니다: ' + error.message);
+                alert(error.message);
                 chatHistory.pop();
             } finally {
                 document.getElementById('loading').style.display = 'none';
+                if (loadingTextEl) loadingTextEl.innerText = '제미나이 서버 분석 중... 잠시만 기다려주세요.';
             }
         }
 
         function triggerStage(stage) {
             let cmd = "";
             lastTriggeredStage = stage;
+            const cfg = getPresetSceneConfig();
+            const r = cfg.ranges;
             const extraRules = getFormatInstructionText() + getLengthInstructionText();
             switch (stage) {
                 case '0단계': 
-                    cmd = "0단계: 조회수와 몰입도가 극대화된 역사 미스터리/야담 전용 신선한 주제 5개를 추천해줘. 각 주제는 역사적 실마리와 숨겨진 미스터리 음모 요소를 결합해 설명해줘." + extraRules; 
+                    cmd = "0단계: 정통 사료(조선왕조실록, 승정원일기, 고려사, 삼국사기 등)의 실제 기록을 기반으로 하되, 몰입감과 지적 탐구심을 극대화하는 신선한 고품격 역사 주제 5개를 추천해줘. 단순 흥미 위주의 카더라식 야사가 아닌, 실제 사료 출처(예: 실록 O년 기록)와 역사적 정황, 그리고 사료 속에 숨겨진 서사적 관점을 명확히 함께 설명해줘." + extraRules; 
                     break;
                 case '1단계': 
-                    cmd = "1단계: 추천된 주제 중 하나를 선택하거나, 사용자가 원하는 핵심 설정에 따라 조선 정통 야담풍의 어울리는 강렬한 영상 대본 제목 5종을 제안하고, 각 제목마다 [CTR 썸네일 카피 2~3종]과 [초반 15초 Hook 제안]을 CTR 패키지로 짝지어 작성해줘. 또한, 선택한 서사 구조 템플릿과 목표 영상 길이에 맞춘 목차 기획 개요를 작성하고, 주요 핵심 인물들을 '야담 표준 캐릭터 식별자 코드(Ch_A: 주역, Ch_B: 상대왕/임금, Ch_D: 조력녀, Ch_F: 악역/대감 등)'에 100% 매칭하여 등장인물 스펙글을 적어줘." + extraRules; 
+                    const stageRangesText = `선택된 분량 모드 [${cfg.targetTimeText}]에 따른 정확한 목표 씬 수: 총 ${cfg.totalScenes}개 씬 (★ 인트로: S${r['인트로'][0]}~S${r['인트로'][1]} / 사건발생: S${r['사건발생'][0]}~S${r['사건발생'][1]} / 의혹: S${r['의혹'][0]}~S${r['의혹'][1]} / 추적: S${r['추적'][0]}~S${r['추적'][1]} / 반전: S${r['반전'][0]}~S${r['반전'][1]} / 결말: S${r['결말'][0]}~S${r['결말'][1]})`;
+                    cmd = `1단계: 추천된 주제 중 하나를 선택하거나 사용자의 핵심 설정에 따라 정통 사료 고증에 기반한 품격 있는 영상 대본 제목 5종을 제안하고, 각 제목마다 [CTR 썸네일 카피 2~3종]과 [초반 15초 Hook 제안]을 CTR 패키지로 작성해줘. 또한, ${stageRangesText}에 맞춰 각 단계별 씬 번호 배분표와 목차 기획 개요를 구체적으로 작성한 뒤, 주요 핵심 인물들을 야담 표준 캐릭터 식별자 코드(Ch_A: 주역, Ch_B: 상대왕/임금, Ch_D: 조력녀, Ch_F: 악역/대감 등)에 100% 매칭하여 등장인물 스펙글을 적어줘.` + extraRules; 
                     break;
                 case '인트로': 
-                    cmd = "2단계 [인트로 파트 상세기획]: 오프닝 인트로 씬들을 상세 구성해줘. 인트로는 100% 비디오 모드 [TYPE: VIDEO]로 각 씬은 '9초의 실 낭독'에 최적화되게 글자수 약 60자~70자 내외로 씬당 나레이션을 구성해줘.\n\n" +
+                    const introCount = r['인트로'][1] - r['인트로'][0] + 1;
+                    cmd = `2단계 [오프닝 인트로 파트 상세기획 - 목표: Scene ${r['인트로'][0]} ~ Scene ${r['인트로'][1]} (총 ${introCount}개 씬)]: 오프닝 인트로 씬들을 Scene ${r['인트로'][0]}부터 Scene ${r['인트로'][1]}까지 단 하나도 누락하거나 축소하지 말고 **정확히 총 ${introCount}개 씬**으로 전부 상세 구성해줘. 인트로는 100% 비디오 모드 [TYPE: VIDEO]로 각 씬은 '10~11초의 실 낭독'에 최적화되게 글자수 약 70자~85자 내외로 씬당 나레이션을 구성해줘.\n\n` +
                           "★ [인트로 기획 핵심 규칙: LTX 모션 최적화 & CTR/정보공개 제어] ★\n" +
                           "1. **시네마틱 LTX 비디오 무브먼트 생성**: 인트로의 영문 이미지 프롬프트는 비디오 변환(LTX) 시 역동적이고 차별화된 시네마틱 모션이 일어나도록 연출 요소를 가미한다.\n" +
                           "2. **정보 공개 제어 (INFORMATION REVEAL CONTROL)**: 결말이나 핵심 반전을 절대 미리 스포일러하지 말고, 시청자의 호기심만 극대화하는 서사적 훅을 유지해줘.\n" +
                           "3. **AI 정형 문체 금지 [CLICHE_PATTERN_FILTER]**: '하지만 이것은 단순한 ~가 아니었습니다', '모든 것이 달라졌습니다', '과연 무슨 일이 벌어졌을까요?' 등 AI 정형 클리셰 표현 및 어휘만 바꾼 유사 문장을 완전 배제해줘.\n\n" +
-                          "모든 씬은 반드시 스토리보드 제어 엔진 및 TTS 파서와 호환되도록 [TYPE: VIDEO] 태그를 붙여 정확히 출력해줘:\n\n" +
-                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO] \"한국어 내레이션 (60~70자)\" (카메라 지시어)\n" +
+                          `반드시 Scene ${r['인트로'][0]}부터 Scene ${r['인트로'][1]}까지 총 ${introCount}개의 씬을 [TYPE: VIDEO] 태그를 붙여 정확히 출력해줘:\n\n` +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO] \"한국어 내레이션 (70~85자)\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
                           "Ch_ID는 반드시 1단계에서 선언한 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해." + extraRules;
                     break;
@@ -1397,24 +1490,31 @@ Return JSON strictly with this schema:
                 case '의혹': 
                 case '추적': 
                 case '반전': 
-                    cmd = `[${stage} 파트 상세기획]: ${stage} 파트 씬들의 상세 대본과 연출을 짜줘.\n\n` +
+                    const range = r[stage];
+                    const stageCount = range[1] - range[0] + 1;
+                    cmd = `[${stage} 파트 상세기획 - 목표: Scene ${range[0]} ~ Scene ${range[1]} (총 ${stageCount}개 씬)]: ${stage} 파트 씬들을 Scene ${range[0]}부터 Scene ${range[1]}까지 단 하나도 빠짐없이 **정확히 총 ${stageCount}개 씬**으로 상세 대본과 연출을 작성해줘.\n\n` +
                           "★ [본문 하이브리드 비디오 추천 & 낭독 호흡 규격] ★\n" +
-                          "1. **시각적 비디오 추천 씬 ([TYPE: VIDEO])**: 연출감이 강한 씬(본문 씬의 약 20~30%)은 [TYPE: VIDEO] 태그를 붙이고, **'9초 실 낭독' 규격인 글자수 약 60자~70자 (단문 1문장)**로 작성해줘.\n" +
-                          "2. **일반 풍경/설명 씬 ([TYPE: IMAGE])**: 사료 검증, 배경 설명 씬은 [TYPE: IMAGE] 태그를 붙이고, **'15초(13~18초) 실 낭독' 규격인 글자수 약 105자~135자 (설명조 2문장 내외)**로 작성해줘.\n" +
-                          "3. **단계적 단서 공개 & AI 클리셰 완전 금지**: 단서를 단계적으로 공개하여 이탈을 방지하고, AI 특유의 정형화된 패턴 문장을 엄격히 억제해줘.\n\n" +
-                          "모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 준수하여 생성해줘:\n\n" +
-                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO 또는 TYPE: IMAGE] \"한국어 내레이션\" (카메라 지시어)\n" +
+                          "1. **시각적 비디오 추천 씬 ([TYPE: VIDEO])**: 연출감이 강한 씬(본문 씬의 약 20~30%)은 [TYPE: VIDEO] 태그를 붙이고, **'10~11초 실 낭독' 규격인 글자수 약 70자~85자 (단문 1문장)**로 작성해줘.\n" +
+                          "2. **일반 풍경/설명 씬 ([TYPE: IMAGE])**: 사료 검증, 배경 설명 씬은 [TYPE: IMAGE] 태그를 붙이고, **'14~18초 실 낭독' 규격인 글자수 약 110자~137자 (상세 설명조 2~3문장)**로 넉넉하게 작성해줘.\n" +
+                          "3. **내레이션 성우 정결성 [CRITICAL]**: 내레이션 큰따옴표(\" \") 안에는 Ch_A, Ch_B 등 캐릭터 코드 및 괄호 한자(예: 무지(無知) ❌ -> 무지 ⭕)를 절대로 넣지 말고 오직 한자 없는 깨끗한 순한글만 적어줘. (예: \"세종 Ch_A은\" ❌ -> \"세종은\" ⭕)\n" +
+                          "4. **단계적 단서 공개 & AI 클리셰 완전 금지**: 단서를 단계적으로 공개하여 이탈을 방지하고, AI 특유의 정형화된 패턴 문장을 엄격히 억제해줘.\n\n" +
+                          `Scene ${range[0]}부터 Scene ${range[1]}까지 총 ${stageCount}개 씬을 다음 포맷 규칙을 준수하여 생성해줘:\n\n` +
+                          "★ [포맷 및 글자수 엄수 가이드 예시] ★\n" +
+                          "[S11.] [동래현 관아 공방, 낮 / Ch_E] [TYPE: IMAGE] \"조선 팔도 곳곳에는 숨겨진 재능을 지닌 인재들이 무수히 많았습니다. 동래현의 관노였던 장영실은 어릴 적부터 남다른 손재주와 기계 제작 능력을 보이며 마을 사람들을 놀라게 했습니다. 그의 비범한 지혜는 훗날 역사를 바꿀 소중한 불씨가 되었습니다.\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 prompt including character pose, expression, lighting, and camera work.\n\n" +
+                          "★ [CRITICAL] [TYPE: IMAGE] 씬의 내레이션은 절대로 100자 이하(예: 70~80자)로 단문 작성하지 말고, 위 예시처럼 한글 공백 포함 110자~137자 범위 (상세 설명조 2~3문장)를 무조건 충족해야 합니다.\n" +
                           "Ch_ID는 반드시 앞서 정의된 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해줘." + extraRules; 
                     break;
                 case '결말': 
-                    cmd = "[결말 파트 상세기획]: 피날레 결말 파트 씬들의 상세 대본과 연출을 짜줘.\n\n" +
+                    const endRange = r['결말'];
+                    const endCount = endRange[1] - endRange[0] + 1;
+                    cmd = `[결말 파트 상세기획 - 목표: Scene ${endRange[0]} ~ Scene ${endRange[1]} (총 ${endCount}개 씬)]: 피날레 결말 파트 씬들을 Scene ${endRange[0]}부터 Scene ${endRange[1]}까지 단 하나도 생략하지 말고 **정확히 총 ${endCount}개 씬**으로 상세 대본과 연출을 작성해줘.\n\n` +
                           "★ [결말 기획 핵심 규칙: 완결 & 고정댓글 딜레마 질문] ★\n" +
                           "1. **결말 직전 씬에서 서사 완결**: 본편 스토리는 결말 직전 씬에서 웅장하고 깊은 여운이 가득하게 완전히 완결지어줘.\n" +
-                          "2. **최후의 씬 시네마틱 브릿지**: 마지막 피날레 씬은 차분히 여운을 전하며 댓글 유도 및 인사 (9초용 [TYPE: VIDEO] 글자수 약 60자~70자 내외).\n" +
+                          "2. **최후의 씬 시네마틱 브릿지**: 마지막 피날레 씬은 차분히 여운을 전하며 댓글 유도 및 인사 (10~11초용 [TYPE: VIDEO] 글자수 약 70자~85자 내외).\n" +
                           "3. **5단계 역사 검수 요약 & 📌 고정댓글 작성**: 대본 완료 후 [2. 역사 검수 요약 (FACT, INFERRED, TRADITION, RECONSTRUCTION, FICTION 5단계 분리)]과 시청자가 입장을 선택하도록 유도하는 서사적 딜레마 질문이 포함된 [3. 📌 유튜브 고정댓글]을 함께 작성해줘.\n\n" +
-                          "모든 씬은 반드시 다음과 같은 스토리보드 엔진 호환 포맷 규칙을 100% 철저히 준수하여 순서대로 생성해줘:\n\n" +
-                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO] \"한국어 내레이션 (60~70자)\" (카메라 지시어)\n" +
+                          `Scene ${endRange[0]}부터 Scene ${endRange[1]}까지 총 ${endCount}개 씬을 다음 스토리보드 호환 포맷 규칙으로 생성해줘:\n\n` +
+                          "[S씬번호.] [장소이름, 시간대 / Ch_ID_리스트] [TYPE: VIDEO] \"한국어 내레이션 (70~85자)\" (카메라 지시어)\n" +
                           "[IMAGE GENERATION PROMPT]: English LTX 2.3 video generation prompt including character pose, expression, lighting, and camera work.\n\n" +
                           "Ch_ID는 반드시 야담 표준 코드(Ch_A, Ch_B, Ch_D, Ch_F 등)를 사용해야 해." + extraRules; 
                     break;
@@ -1541,8 +1641,10 @@ Return JSON strictly with this schema:
 
         function extractScriptPart1() {
             currentActiveStage = "대본1";
-            sendPrompt("■ 5단계 [통합 대본 1부 (장소 정보 및 이미지 프롬프트 포함 - 전반부)]:\n" +
-                       "전체 씬 중 전반부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+            const cfg = getPresetSceneConfig();
+            const mid = Math.floor(cfg.totalScenes / 2);
+            sendPrompt(`■ 5단계 [통합 대본 1부 (S1 ~ S${mid} 전반부)]:\n` +
+                       `S1부터 S${mid}까지 전반부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 단 한 씬도 빠짐없이 모아서 출력해줘.\n` +
                        "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
                        "포맷 규격:\n" +
                        "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
@@ -1550,21 +1652,23 @@ Return JSON strictly with this schema:
                        "예시:\n" +
                        "[S1.] [산속 깊은 숲, 밤 / Ch_A] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[IMAGE GENERATION PROMPT]: A direct dramatic scene, a Joseon period scholar holding a paper lantern walking through a dark spooky forest, dense low fog, night atmosphere, highly detailed, realistic, LTX style.\n\n" +
-                       "오프닝 인트로는 10.5초(실 낭독 9.5초 전후, 글자수 약 75자~90자 내외), 일반 서사는 16초(실 낭독 15초 전후, 글자수 약 110자~130자 내외) 분량에 완전히 최적화되게 글자수를 기획된 그대로 가이드라인 맞춰 전반부 첫 씬부터 순서대로 한 씬도 빠뜨리지 말고 출력해줘.");
+                       `오프닝 인트로는 10.5초(실 낭독 9.5초 전후, 글자수 약 75자~90자 내외), 일반 서사는 16초(실 낭독 15초 전후, 글자수 약 110자~137자 내외) 분량에 완전히 최적화되게 글자수를 기획된 그대로 가이드라인 맞춰 S1부터 S${mid}까지 순서대로 한 씬도 빠뜨리지 말고 출력해줘.`);
         }
 
         function extractScriptPart2() {
             currentActiveStage = "대본2";
-            sendPrompt("■ 5단계 [통합 대본 2부 (장소 정보 및 이미지 프롬프트 포함 - 후반부 ~ 결말)]:\n" +
-                       "전체 씬 중 후반부 및 결말부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 모아서 출력해줘.\n" +
+            const cfg = getPresetSceneConfig();
+            const mid = Math.floor(cfg.totalScenes / 2);
+            sendPrompt(`■ 5단계 [통합 대본 2부 (S${mid+1} ~ S${cfg.totalScenes} 후반부 ~ 결말)]:\n` +
+                       `S${mid+1}부터 S${cfg.totalScenes}까지 후반부 및 결말부 씬들에 대하여, 기획된 세부 내용을 상세히 순서대로 단 한 씬도 빠짐없이 모아서 출력해줘.\n` +
                        "어떠한 내용도 요약하거나 줄이지 말고, 반드시 다음의 완벽한 드라마 스토리보드 전체 포맷 규격을 정확히 준수하여 출력해 줘:\n\n" +
                        "포맷 규격:\n" +
                        "[S씬번호.] [장소이름, 시간대 / 등장인물_Ch_ID_리스트] \"한국어 내레이션\" (카메라 지시어)\n" +
                        "[IMAGE GENERATION PROMPT]: 영문 이미지 생성 프롬프트\n\n" +
                        "예시:\n" +
-                       "[S31.] [조정 대전, 낮 / Ch_B_Yeongjo] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
+                       `[S${mid+1}.] [조정 대전, 낮 / Ch_B_Yeongjo] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n` +
                        "[IMAGE GENERATION PROMPT]: Joseon Dynasty king speaking in deep distress in the royal throne hall, serious, highly detailed, realistic, LTX style.\n\n" +
-                       "후반부 서사는 씬당 16초(실 낭독 15초 전후, 한글 공백 포함 110자 ~ 130자 내외) 분량, 마지막 피날레 씬은 10.5초(실 낭독 9.5초 전후, 마무리 멘트 위주 글자수 약 75자~90자 내외) 분량에 완전히 최적화되게 글자수를 기획된 가이드라인 맞춰, 후반부 첫 씬부터 최후의 피날레 씬까지 한 씬도 빠뜨리지 말고 출력해줘.");
+                       `후반부 서사는 씬당 16초(실 낭독 15초 전후, 한글 공백 포함 110자 ~ 137자 내외), 마지막 피날레 씬은 10.5초(실 낭독 9.5초 전후, 마무리 멘트 위주 글자수 약 75자~90자 내외) 분량에 완전히 최적화되게 글자수를 기획된 가이드라인 맞춰, S${mid+1}부터 S${cfg.totalScenes} 최후의 피날레 씬까지 한 씬도 빠뜨리지 말고 출력해줘.`);
         }
 
         function extractTTSOutput() {
@@ -1582,26 +1686,30 @@ Return JSON strictly with this schema:
 
         function extractTTSOutputPart1() {
             currentActiveStage = "TTS1";
-            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 1부 (전반부)]:\n" +
-                       "전체 씬 중 전반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+            const cfg = getPresetSceneConfig();
+            const mid = Math.floor(cfg.totalScenes / 2);
+            sendPrompt(`■ 6단계 [TTS 대본 1부 (S1 ~ S${mid} 전반부)]:\n` +
+                       `S1부터 S${mid}까지 전반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n` +
                        "엄격한 미니멀 포맷 규격:\n" +
                        "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
                        "예시:\n" +
                        "[S1.] \"어느 깊은 밤, 조선 시대 최고의 선비 이현은 산속에서 길을 잃었다.\" (음산한 숲속, 무거운 연무가 자욱한 곳을 등불을 든 채 걷는 이현, Bust shot)\n" +
                        "[S2.] \"마침내 저 멀리 희미한 등불이 켜진 오막살이가 보였다.\" (오막살이 앞에 서서 굳어버린 이현, Med shot)\n\n" +
-                       "중간 생략 없이 기획된 나레이션 글자수 분량 그대로, 전반부 첫 씬부터 순서대로 가득 채워 포맷에 맞춰 빈틈없이 출력해줘.");
+                       `중간 생략 없이 기획된 나레이션 글자수 분량 그대로, S1부터 S${mid}까지 순서대로 가득 채워 포맷에 맞춰 빈틈없이 출력해줘.`);
         }
 
         function extractTTSOutputPart2() {
             currentActiveStage = "TTS2";
-            sendPrompt("■ 6단계 [유튜브 최적화 및 스토리보드 컨트롤러 다이렉트 전용 TTS 대본 2부 (후반부 ~ 결말)]:\n" +
-                       "전체 씬 중 후반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n" +
+            const cfg = getPresetSceneConfig();
+            const mid = Math.floor(cfg.totalScenes / 2);
+            sendPrompt(`■ 6단계 [TTS 대본 2부 (S${mid+1} ~ S${cfg.totalScenes} 후반부 ~ 결말)]:\n` +
+                       `S${mid+1}부터 S${cfg.totalScenes}까지 후반부 씬들에 대하여, 영어 프롬프트 및 복잡한 대괄호 장소 정보를 수반하지 않고 오직 성우 내레이션과 괄호 안의 한국어 비주얼 연출 지시어 형태로만 출력하여 연산 한계를 해결해 줘.\n\n` +
                        "엄격한 미니멀 포맷 규격:\n" +
                        "[S씬번호.] \"내레이션 한국어 내용\" (해당 씬에 필요한 한국어 비주얼 연출 지시어)\n\n" +
                        "예시:\n" +
-                       "[S31.] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n" +
-                       "[S32.] \"백성들과 신하들은 모두 긴장감 서린 눈으로 처분을 기다리고 있었다.\" (잔뜩 굳어 경직된 신하들의 모습, Wide shot)\n\n" +
-                       "중간 생략이나 끝부분 요약 축소 없이 기획된 후반부 나레이션 분량(후반부 일반 씬은 공백포함 110자 ~ 130자 내외, 마지막 피날레 씬은 공백포함 75자 ~ 90자 내외)을 가이드라인에 맞게 기획된 그대로 후반부 첫 씬부터 최후의 피날레 씬까지 완벽하게 출력해줘.");
+                       `[S${mid+1}.] \"마침내 왕은 무거운 결단을 내리며 입을 열었다.\" (엄숙한 대전, 임금의 격앙되고 깊은 번뇌가 서린 클로즈업)\n` +
+                       `[S${mid+2}.] \"백성들과 신하들은 모두 긴장감 서린 눈으로 처분을 기다리고 있었다.\" (잔뜩 굳어 경직된 신하들의 모습, Wide shot)\n\n` +
+                       `중간 생략이나 끝부분 요약 축소 없이 기획된 후반부 나레이션 분량(후반부 일반 씬은 공백포함 110자 ~ 137자 내외, 마지막 피날레 씬은 공백포함 75자 ~ 90자 내외)을 가이드라인에 맞게 기획된 그대로 S${mid+1}부터 S${cfg.totalScenes} 최후의 피날레 씬까지 완벽하게 출력해줘.`);
         }
 
         function getVersionMap() { 
@@ -1654,12 +1762,155 @@ Return JSON strictly with this schema:
             }
         }
 
+        function setProjectTitleFromTopic(rawTopic) {
+            if (!rawTopic) return;
+            const oldTitle = getProjectTitle();
+            let clean = rawTopic.trim()
+                .replace(/^[\d\.\-\*\s]+/, '')
+                .replace(/^\[?\s*(?:주제|제목|선택|추천|Option)\s*\d*\s*\]?\s*[\.:\)\-]?\s*/i, '')
+                .replace(/^(?:주제|제목|선택|추천|Option)\s*\d*[\.:\)\-]\s*/i, '')
+                .replace(/^\[?CTR\s*썸네일[^\]]*\]?\s*/i, '')
+                .replace(/\s*\([^)]*CTR[^)]*\)/gi, '')
+                .replace(/^["'“‘]|["'”’]$/g, '')
+                .trim();
+
+            if (clean.length > 50) {
+                clean = clean.substring(0, 50).trim();
+            }
+
+            if (clean) {
+                const titleInput = document.getElementById('project-title');
+                if (titleInput) {
+                    titleInput.value = clean;
+                    handleTitleInput(clean);
+
+                    // 1. Migrate all stage markdown keys from oldTitle to clean in localStorage
+                    if (oldTitle && oldTitle !== clean) {
+                        try {
+                            const oldPrefix = 'gemini_stage_markdown_' + oldTitle + '_';
+                            const newPrefix = 'gemini_stage_markdown_' + clean + '_';
+                            const keysToCopy = [];
+                            for (let i = 0; i < localStorage.length; i++) {
+                                const k = localStorage.key(i);
+                                if (k && k.startsWith(oldPrefix)) {
+                                    keysToCopy.push(k);
+                                }
+                            }
+                            keysToCopy.forEach(k => {
+                                const stagePart = k.substring(oldPrefix.length);
+                                const val = localStorage.getItem(k);
+                                if (val) {
+                                    localStorage.setItem(newPrefix + stagePart, val);
+                                }
+                            });
+                        } catch (e) {
+                            console.warn('제목 변경 후 히스토리 복사 실패:', e);
+                        }
+                    }
+
+                    // 2. Ensure current active stage markdown exists for the new title
+                    try {
+                        const currentOutputText = document.getElementById('output-view').innerText;
+                        if (currentActiveStage && currentOutputText && currentOutputText.trim().length > 5) {
+                            localStorage.setItem('gemini_stage_markdown_' + clean + '_' + currentActiveStage, currentOutputText);
+                        }
+                    } catch (e) {}
+
+                    // 3. Persist HTML and stage indicators immediately
+                    triggerAutoSave();
+                    updateSaveButtonState();
+                    renderStageTabs();
+                    enhanceTopicClickables();
+                    showTitleChangeToast(clean);
+                }
+            }
+        }
+
+        function showTitleChangeToast(titleText) {
+            let toast = document.getElementById('title-change-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'title-change-toast';
+                toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#059669; color:#fff; padding:10px 16px; border-radius:6px; font-weight:bold; font-size:0.85rem; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:opacity 0.3s; pointer-events:none; border:1px solid #10b981;';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `📌 프로젝트 제목 자동 변경 및 저장: <span style="color:#fef08a;">${titleText}</span>`;
+            toast.style.opacity = '1';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => { toast.style.display = 'none'; }, 300);
+            }, 2200);
+        }
+
+        function autoExtractProjectTitle(markdownText) {
+            if (!markdownText) return;
+            const patterns = [
+                /(?:\[(?:선택\s*주제|메인\s*제목|확정\s*제목|프로젝트\s*제목|최종\s*제목)\]|선택된\s*주제|메인\s*제목|확정\s*제목)\s*[\.:]?\s*([^\n\r]+)/i,
+                /(?:제목|주제)\s*1\s*[\.:]\s*([^\n\r]+)/i,
+                /^\s*1\.\s*\[?([^\n\r\]]+)\]?/m
+            ];
+
+            for (const pat of patterns) {
+                const m = markdownText.match(pat);
+                if (m && m[1]) {
+                    let extracted = m[1].replace(/[\*\#\`\(\)]/g, '').trim();
+                    if (extracted.length > 2) {
+                        const currentTitle = getProjectTitle();
+                        if (!currentTitle || currentTitle === fallbackDefaultTitle || currentActiveStage === '0단계' || currentActiveStage === '1단계') {
+                            setProjectTitleFromTopic(extracted);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        function enhanceTopicClickables() {
+            const container = document.getElementById('output-view');
+            if (!container) return;
+            
+            const elements = container.querySelectorAll('li, h2, h3, h4, p, dt');
+            elements.forEach(item => {
+                // Skip if element contains child block tags
+                if (item.querySelector('li, p, h2, h3, h4')) return;
+                if (item.querySelector('.btn-set-topic')) return;
+
+                const rawText = item.innerText || '';
+                const trimmed = rawText.trim();
+
+                const isTopicCandidate = 
+                    /^\[?\s*(?:주제|제목|선택|추천|Option)\s*\d*\s*\]?\s*[\.:\)\-]?\s*/i.test(trimmed) ||
+                    /^\d+[\.\)\-]\s*/.test(trimmed) ||
+                    /^\[(?:주제|제목|선택)\s*\d*\]/i.test(trimmed);
+
+                if (isTopicCandidate && trimmed.length > 2 && trimmed.length < 150) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-set-topic';
+                    btn.style.cssText = 'margin-left:8px; background:#1e293b; color:#38bdf8; border:1px solid #0284c7; padding:2px 8px; font-size:0.72rem; border-radius:4px; cursor:pointer; font-weight:bold; display:inline-block; vertical-align:middle; transition:all 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.3);';
+                    btn.innerHTML = '📌 이 주제로 제목 설정';
+                    btn.onmouseover = function() { btn.style.background = '#0284c7'; btn.style.color = '#fff'; };
+                    btn.onmouseout = function() { btn.style.background = '#1e293b'; btn.style.color = '#38bdf8'; };
+                    btn.onclick = function(e) {
+                        e.stopPropagation();
+                        let cleanText = item.innerText.replace('📌 이 주제로 제목 설정', '').trim();
+                        setProjectTitleFromTopic(cleanText);
+                    };
+                    item.appendChild(btn);
+                }
+            });
+        }
+
         function renderResult(markdownText) { 
+            markdownText = sanitizeScriptNarration(markdownText);
             if (typeof marked !== 'undefined' && marked.parse) {
                 document.getElementById('output-view').innerHTML = marked.parse(markdownText); 
             } else {
                 document.getElementById('output-view').innerText = markdownText;
             }
+            
+            autoExtractProjectTitle(markdownText);
+            enhanceTopicClickables();
             
             // Auto-save the raw markdown for the active stage tab history
             try {

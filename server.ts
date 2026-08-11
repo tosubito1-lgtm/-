@@ -110,12 +110,13 @@ Incorporate the following proven success formulas learned from past channel perf
   5. 'classic' (기본 기승전결형):
      - Traditional chronological flow.
 
-=== DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (9s VIDEO vs 15s IMAGE) ===
+=== DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (10s VIDEO vs 15s IMAGE) ===
 - Apply exact pacing and narration character constraints based on measured human reading speed (~8.5 chars/sec):
-  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 60 ~ 70 Korean characters (1 short impactful sentence, 9s pure TTS narration).
+  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 70 ~ 85 Korean characters (1 short impactful sentence, 10~11s pure TTS narration).
   2. MAIN BODY SCENES (Scene 9 onwards):
-     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 60 ~ 70 Korean characters (1 short sentence, 9s pure TTS duration).
-     - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 105 ~ 135 Korean characters (2 descriptive sentences, 15s (13~18s) pure TTS duration).
+     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 70 ~ 85 Korean characters (1 short sentence, 10~11s pure TTS duration).
+     - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 110 ~ 137 Korean characters (2~3 descriptive sentences, 15s pure TTS duration). NEVER write under 100 characters for [TYPE: IMAGE] scenes.
+     - STRICT HANJA PROHIBITION: Never include parenthesized Hanja (e.g., 무지(無知) ❌ -> 무지 ⭕) or raw Chinese characters in narration quotes. Narration MUST be 100% pure Korean Hangul.
   3. TOTAL VIDEO SCENE RATIO: Combined with Intro, total video scenes should account for approx. 30% ~ 40% of the entire storyboard.
 - Set 'mediaType': 'video' for [TYPE: VIDEO] scenes (ltxRecommended: true, durationSeconds: 10) and 'image' for [TYPE: IMAGE] scenes (ltxRecommended: false, durationSeconds: 15).
 
@@ -382,10 +383,11 @@ Write a rich, natural, authentic Korean historical script and pinned comment bas
 
 === HYBRID VIDEO & NARRATION DURATION RULES ===
 - Mark scenes with media tags: [TYPE: VIDEO] or [TYPE: IMAGE].
-- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be 1 short sentence, 60 ~ 70 Korean chars (9s pure TTS duration).
+- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be 1 short sentence, 70 ~ 85 Korean chars (10~11s pure TTS duration).
 - MAIN BODY SCENES:
-  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 1 short sentence, 60 ~ 70 Korean chars (9s pure TTS duration).
-  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 2 descriptive sentences, 105 ~ 135 Korean chars (15s / 13~18s pure TTS duration).
+  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 1 short sentence, 70 ~ 85 Korean chars (10~11s pure TTS duration).
+  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 2 descriptive sentences, 110 ~ 137 Korean chars (15s / 13~18s pure TTS duration).
+- STRICT HANJA PROHIBITION: Never include parenthesized Hanja (e.g., 무지(無知) ❌ -> 무지 ⭕) or raw Chinese characters in narration quotes. Narration MUST be 100% pure Korean Hangul.
 - TOTAL VIDEO SCENES: Approx. 30% ~ 40% of the entire storyboard.
 
 === REQUIRED OUTPUT STRUCTURE ===
@@ -393,8 +395,8 @@ You MUST structure the generated output into 3 distinct sections:
 
 [1. 최종 대본]
 (Write main script using standard scene blocks with media tags:
- [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (60~70자)" (연출 지시어)
- [S9.] [장소이름 / 캐릭터ID] [TYPE: IMAGE] "나래이션 텍스트 (105~135자)" (연출 지시어)
+ [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (70~85자)" (연출 지시어)
+ [S9.] [장소이름 / 캐릭터ID] [TYPE: IMAGE] "나래이션 텍스트 (110~137자)" (연출 지시어)
  [IMAGE GENERATION PROMPT]: English descriptive visual prompt)
 
 [2. 역사적 사실 / 야담 / 재구성 검수 요약]
@@ -771,7 +773,7 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
     
     // Stitch modifiers together
-    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "yadam");
+    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "claymation");
     const activeModel = modelName || "gemini-3.1-flash-image";
 
     console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
@@ -846,13 +848,13 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
     
     let basePrompt = translatedPrompt;
     if (isWanIntro) {
-      basePrompt = `${translatedPrompt}, high-integrity WAN dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
+      basePrompt = `${translatedPrompt}, high-integrity LTX video dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready static tension pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
     }
     
-    const finalPrompt = injectArtStyle(basePrompt, artStyle || "yadam");
+    const finalPrompt = injectArtStyle(basePrompt, artStyle || "claymation");
     const activeModel = modelName || "gemini-3.1-flash-image";
 
-    console.log(`Generating scene image. Model: ${activeModel}, WAN-Intro: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
+    console.log(`Generating scene image. Model: ${activeModel}, LTX-Video-Motion: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
 
     const targetRatio = aspectRatio || "16:9";
     let resolvedImageSize: string | undefined = undefined;
@@ -1683,6 +1685,17 @@ function parseStructuredScript(script: string) {
           continue; // 유의미한 콘텐츠가 없어 스킵
         }
       }
+    }
+
+    // 내레이션 내부에 불필요하게 섞인 캐릭터 식별자 코드(Ch_A, Ch_B 등) 및 괄호 한자/한자 자동 정제
+    if (narrationText) {
+      narrationText = narrationText
+        .replace(/\s*\([\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+\)/g, '')
+        .replace(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+/g, '')
+        .replace(/([가-힣]+)\s*Ch_[A-Za-z0-9_]+/gi, '$1')
+        .replace(/\s*Ch_[A-Za-z0-9_]+/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     }
 
     // 위치 라벨 가공

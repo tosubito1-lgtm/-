@@ -217,7 +217,7 @@ export default function App() {
   >("16:9");
   const [artStyle, setArtStyle] = useState<
     "realistic" | "3d" | "anime" | "yadam" | "claymation"
-  >("yadam");
+  >("claymation");
   const [quantityOverride, setQuantityOverride] = useState(false);
   const [quantityValue, setQuantityValue] = useState(5);
   const [appendMode, setAppendMode] = useState(false);
@@ -832,9 +832,12 @@ export default function App() {
           if (parsed.lengthPreset) setLengthPreset(parsed.lengthPreset);
           if (parsed.modelName) setModelName(parsed.modelName);
           if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
-          if (parsed.artStyle) setArtStyle(parsed.artStyle);
-          if (parsed.quantityOverride !== undefined)
-            setQuantityOverride(parsed.quantityOverride);
+          if (parsed.artStyle) {
+            setArtStyle(parsed.artStyle === "yadam" ? "claymation" : parsed.artStyle);
+          } else {
+            setArtStyle("claymation");
+          }
+          setQuantityOverride(false);
           if (parsed.quantityValue !== undefined)
             setQuantityValue(parsed.quantityValue);
           if (parsed.appendMode !== undefined) setAppendMode(parsed.appendMode);
@@ -1109,6 +1112,8 @@ export default function App() {
       setScenes([]);
       setScriptText("");
       setScriptTopic("");
+      setQuantityOverride(false);
+      setArtStyle("claymation");
       setThumbnailData(undefined);
       setSceneLtxMotions({});
       setSafetyReport(null);
@@ -1770,7 +1775,7 @@ export default function App() {
       setScenes([...updatedScenes]);
 
       try {
-        const isIntroScene = updatedScenes[i].id <= 8;
+        const isVideoScene = updatedScenes[i].ltxRecommended || (updatedScenes[i] as any).mediaType === "video" || updatedScenes[i].id <= 8;
         const response = await fetch("/api/generate-scene-image", {
           method: "POST",
           headers: getHeaders(),
@@ -1779,7 +1784,7 @@ export default function App() {
             artStyle,
             modelName,
             aspectRatio,
-            isWanIntro: wanIntroOptimized && isIntroScene,
+            isWanIntro: wanIntroOptimized && isVideoScene,
           }),
         });
 
@@ -1820,7 +1825,7 @@ export default function App() {
     setScenes([...updated]);
 
     try {
-      const isIntroScene = updated[index].id <= 8;
+      const isVideoScene = updated[index].ltxRecommended || (updated[index] as any).mediaType === "video" || updated[index].id <= 8;
       const response = await fetch("/api/generate-scene-image", {
         method: "POST",
         headers: getHeaders(),
@@ -1829,7 +1834,7 @@ export default function App() {
           artStyle,
           modelName,
           aspectRatio,
-          isWanIntro: wanIntroOptimized && isIntroScene,
+          isWanIntro: wanIntroOptimized && isVideoScene,
         }),
       });
 
@@ -1877,7 +1882,7 @@ export default function App() {
       setScenes([...updatedScenes]);
 
       try {
-        const isIntroScene = updatedScenes[i].id <= 8;
+        const isVideoScene = updatedScenes[i].ltxRecommended || (updatedScenes[i] as any).mediaType === "video" || updatedScenes[i].id <= 8;
         const response = await fetch("/api/generate-scene-image", {
           method: "POST",
           headers: getHeaders(),
@@ -1886,7 +1891,7 @@ export default function App() {
             artStyle,
             modelName,
             aspectRatio,
-            isWanIntro: wanIntroOptimized && isIntroScene,
+            isWanIntro: wanIntroOptimized && isVideoScene,
           }),
         });
 
@@ -1974,7 +1979,7 @@ export default function App() {
       setScenes([...updatedScenes]);
 
       try {
-        const isIntroScene = updatedScenes[i].id <= 8;
+        const isVideoScene = updatedScenes[i].ltxRecommended || (updatedScenes[i] as any).mediaType === "video" || updatedScenes[i].id <= 8;
         const response = await fetch("/api/generate-scene-image", {
           method: "POST",
           headers: getHeaders(),
@@ -1983,7 +1988,7 @@ export default function App() {
             artStyle,
             modelName,
             aspectRatio,
-            isWanIntro: wanIntroOptimized && isIntroScene,
+            isWanIntro: wanIntroOptimized && isVideoScene,
           }),
         });
 
@@ -2141,9 +2146,9 @@ export default function App() {
       updatedScenes[i].error = undefined;
       setScenes([...updatedScenes]);
 
-      const isIntroScene = updatedScenes[i].id <= 8;
+      const isVideoScene = updatedScenes[i].ltxRecommended || (updatedScenes[i] as any).mediaType === "video" || updatedScenes[i].id <= 8;
       addLog(
-        `[QUEUED] 장면 #${updatedScenes[i].id} 배치 분배 기동... ${isIntroScene && wanIntroOptimized ? "(🎬 WAN 인트로 비디오 최적화 스펙 적용)" : ""}`,
+        `[QUEUED] 장면 #${updatedScenes[i].id} 배치 분배 기동... ${isVideoScene && wanIntroOptimized ? "(🎬 LTX 비디오 모션 최적화 스펙 적용)" : ""}`,
       );
       addLog(
         `[BATCH-PROMPT] "${updatedScenes[i].refinedImagePrompt.substring(0, 45)}..."`,
@@ -2160,7 +2165,7 @@ export default function App() {
             modelName,
             aspectRatio,
             isBatch: true,
-            isWanIntro: wanIntroOptimized && isIntroScene,
+            isWanIntro: wanIntroOptimized && isVideoScene,
           }),
         });
 
@@ -3239,7 +3244,14 @@ export default function App() {
       // 6. Strip IMAGE GENERATION PROMPT lines if accidentally present
       cleaned = cleaned.replace(/\[?IMAGE GENERATION PROMPT\]?:?.*$/gmi, '');
       
-      // 7. Normalize whitespace
+      // 7. Strip character ID codes like Ch_A, Ch_B, Ch_A_Sado if present in narration text
+      cleaned = cleaned
+        .replace(/\s*\([\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+\)/g, '')
+        .replace(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+/g, '')
+        .replace(/([가-힣]+)\s*Ch_[A-Za-z0-9_]+/gi, '$1')
+        .replace(/\s*Ch_[A-Za-z0-9_]+/gi, '');
+
+      // 8. Normalize whitespace
       return cleaned.replace(/\s+/g, ' ').trim();
     };
 
@@ -3589,9 +3601,12 @@ export default function App() {
             if (parsed.lengthPreset) setLengthPreset(parsed.lengthPreset);
             if (parsed.modelName) setModelName(parsed.modelName);
             if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
-            if (parsed.artStyle) setArtStyle(parsed.artStyle);
-            if (parsed.quantityOverride !== undefined)
-              setQuantityOverride(parsed.quantityOverride);
+            if (parsed.artStyle) {
+              setArtStyle(parsed.artStyle === "yadam" ? "claymation" : parsed.artStyle);
+            } else {
+              setArtStyle("claymation");
+            }
+            setQuantityOverride(false);
             if (parsed.quantityValue !== undefined)
               setQuantityValue(parsed.quantityValue);
 
@@ -4079,7 +4094,7 @@ export default function App() {
                         <span>💡 대본 입력 및 AI 문체/역사성/하이브리드 비디오 가이드</span>
                       </div>
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-mono">
-                        30~40% 비디오 (9초) & 고정댓글 자동생성
+                        30~40% 비디오 (10~11초) & 고정댓글 자동생성
                       </span>
                     </div>
                     <div className="text-[11px] text-white/80 space-y-1.5 pl-6 leading-relaxed">
@@ -4087,7 +4102,7 @@ export default function App() {
                         • <strong className="text-amber-300">권장 입력 원고</strong>: 나레이션/대사뿐만 아니라 <strong className="text-white">상황, 지문, 인물 행동, 배경 묘사</strong>가 포함된 <strong>전체 이야기 스토리 원고</strong>를 입력해 주세요. (인물/장소/씬 자동 파싱)
                       </p>
                       <p>
-                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 60~70자 / 9초)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 105~135자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
+                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 70~85자 / 10~11초)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 110~137자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
                       </p>
                       <p>
                         • <strong className="text-emerald-300">AI 문체 및 고정댓글 지침 내장</strong>: 상단 <strong className="text-amber-300">[대본 플래너]</strong>의 AI 집필 도구는 <strong>"하지만 이것은 단순한 ~가 아니었습니다"</strong> 같은 AI 정형 클리셰를 배제하고, <strong className="text-cyan-300">[1. 최종 대본], [2. 역사성 검수 요약], [3. 📌 유튜브 고정댓글]</strong>까지 한번에 집필합니다. (출처 날조 엄금)
@@ -5958,8 +5973,8 @@ export default function App() {
                           onChange={(e) => setArtStyle(e.target.value as any)}
                           className="w-full bg-[#1b1b26] border border-purple-500/30 rounded px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-purple-500 cursor-pointer font-sans font-semibold"
                         >
-                          <option value="yadam">야담 한포 일러스트 (Traditional Joseon Illust)</option>
                           <option value="claymation">클레이 점토 인형 (Claymation Stop-Motion)</option>
+                          <option value="yadam">야담 한포 일러스트 (Traditional Joseon Illust)</option>
                           <option value="realistic">역사 극사실주의 (Cinematic Realistic)</option>
                           <option value="3d">3D 애니 캐릭터 (Pixar Toy Character)</option>
                           <option value="anime">레트로 수채화 애니 (Hand-drawn Watercolor)</option>
@@ -7915,14 +7930,14 @@ export default function App() {
                 >
                   {[
                     {
-                      key: "yadam",
-                      label: "야담 한포 일러스트",
-                      desc: "Traditional Joseon Illust",
-                    },
-                    {
                       key: "claymation",
                       label: "클레이 점토 인형",
                       desc: "Claymation Stop-Motion",
+                    },
+                    {
+                      key: "yadam",
+                      label: "야담 한포 일러스트",
+                      desc: "Traditional Joseon Illust",
                     },
                     {
                       key: "realistic",
@@ -8089,16 +8104,15 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Option 6: WAN Video Motion Starter Optimization */}
+              {/* Option 6: LTX Video Motion Starter Optimization */}
               <div className="space-y-3 pt-3 border-t border-white/5">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <label className="text-[11px] text-white/80 font-medium">
-                      WAN 비디오 인트로 모션 최적화
+                      LTX 비디오 모션 최적화
                     </label>
                     <span className="text-[9px] text-white/30 block leading-tight">
-                      인트로용 장면(기초 1~6장)을 고포텐셜 정적 긴장 자세로
-                      튜닝해 WAN 영상 전환율을 높입니다.
+                      비디오씬용 장면을 고포텐셜 정적 긴장 자세로 튜닝해 LTX 영상 전환율을 높입니다.
                     </span>
                   </div>
                   <button
@@ -8112,8 +8126,8 @@ export default function App() {
                       );
                       showFeedback(
                         nextVal
-                          ? "WAN 인트로 모션 비디오 최적화가 상시 활성화되었습니다."
-                          : "WAN 인트로 최적화 모션이 종료되었습니다.",
+                          ? "LTX 비디오 모션 최적화가 상시 활성화되었습니다."
+                          : "LTX 비디오 최적화 모션이 종료되었습니다.",
                         "info",
                       );
                     }}
@@ -8361,7 +8375,7 @@ export default function App() {
                       🎬 하이브리드 비디오 & 호흡별 낭독 규격
                     </span>
                     <p className="text-white/70 font-sans text-[10.5px]">
-                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (9초/60~70자) 및 [TYPE: IMAGE] (15초(13~18초)/105~135자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
+                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (10~11초/70~85자) 및 [TYPE: IMAGE] (15초(13~18초)/110~137자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
                     </p>
                   </div>
                   <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">
