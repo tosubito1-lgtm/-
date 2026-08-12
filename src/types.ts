@@ -119,6 +119,17 @@ export interface ThumbnailDirectorData {
 export interface YadamSafetyReport {
   overallScore: number;
   overallRisk: "SAFE" | "ATTENTION" | "CRITICAL";
+  
+  // 분리 진단 1: 원고 유사율 진단 (Script Text Similarity)
+  scriptSimilarityRisk?: "LOW" | "MEDIUM" | "HIGH";
+  scriptSimilarityScore?: number;
+  scriptSimilarityFlags?: string[];
+
+  // 분리 진단 2: 연출 유사율 진단 (Visual & Direction Similarity)
+  directionSimilarityRisk?: "LOW" | "MEDIUM" | "HIGH";
+  directionSimilarityScore?: number;
+  directionSimilarityFlags?: string[];
+
   reusedRisk: "LOW" | "MEDIUM" | "HIGH";
   reusedScore: number;
   reusedFlags: string[];

@@ -4011,7 +4011,7 @@ export default function App() {
                         AI Chronicle Blueprint Analyzer Active
                       </span>
                       <span className="text-xs font-mono text-white/40">
-                        경과 시간: {analysisSeconds}초 (최대 제한: 180초)
+                        경과 시간: {analysisSeconds}초 (최대 제한: 210초)
                       </span>
                     </div>
 
@@ -4192,7 +4192,7 @@ export default function App() {
                         • <strong className="text-amber-300">권장 입력 원고</strong>: 나레이션/대사뿐만 아니라 <strong className="text-white">상황, 지문, 인물 행동, 배경 묘사</strong>가 포함된 <strong>전체 이야기 스토리 원고</strong>를 입력해 주세요. (인물/장소/씬 자동 파싱)
                       </p>
                       <p>
-                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 70~85자 / 10~11초)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 110~137자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
+                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 60~75자 / 7~9초 2문장 규격)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 110~137자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
                       </p>
                       <p>
                         • <strong className="text-emerald-300">AI 문체 및 고정댓글 지침 내장</strong>: 상단 <strong className="text-amber-300">[대본 플래너]</strong>의 AI 집필 도구는 <strong>"하지만 이것은 단순한 ~가 아니었습니다"</strong> 같은 AI 정형 클리셰를 배제하고, <strong className="text-cyan-300">[1. 최종 대본], [2. 역사성 검수 요약], [3. 📌 유튜브 고정댓글]</strong>까지 한번에 집필합니다. (출처 날조 엄금)
@@ -7096,9 +7096,9 @@ export default function App() {
               /* If safetyReport data is successfully loaded */
               <div className="space-y-6">
                 {/* Summary Scorecard Board */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                   {/* Total Compliance Score card */}
-                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3 relative overflow-hidden">
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-lg flex flex-col justify-between space-y-3 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                       <Percent className="w-24 h-24 text-white" />
                     </div>
@@ -7127,27 +7127,50 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Reused assessment card */}
-                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                  {/* Script Text Similarity Card */}
+                  <div className="bg-[#121216] border border-cyan-500/20 p-4 rounded-lg flex flex-col justify-between space-y-3">
                     <div>
-                      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">REUSED CONTENT LIMIT</span>
-                      <h4 className="text-white text-xs font-bold mt-0.5">재사용 콘텐츠 탈피도</h4>
+                      <span className="text-[9px] text-cyan-400 uppercase tracking-widest font-mono block">SCRIPT TEXT SIMILARITY</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">원고 유사율 진단</h4>
                     </div>
                     <div className="space-y-1">
                       <span className={`text-2xl font-bold font-mono ${
-                        safetyReport.reusedRisk === "LOW" ? "text-emerald-400" : safetyReport.reusedRisk === "MEDIUM" ? "text-amber-400" : "text-rose-400"
+                        (safetyReport.scriptSimilarityRisk || safetyReport.reusedRisk) === "LOW" ? "text-emerald-400" : (safetyReport.scriptSimilarityRisk || safetyReport.reusedRisk) === "MEDIUM" ? "text-amber-400" : "text-rose-400"
                       }`}>
-                        {safetyReport.reusedScore}% ({safetyReport.reusedRisk})
+                        {safetyReport.scriptSimilarityScore ?? safetyReport.reusedScore}% ({safetyReport.scriptSimilarityRisk || safetyReport.reusedRisk})
                       </span>
-                      <p className="text-white/40 text-[10px]">타 채널과의 원고 및 연출 유사율 진단</p>
+                      <p className="text-white/40 text-[10px]">타 채널과의 원고/어휘 유사율</p>
                     </div>
                     <div className="text-[10px] text-white/50 truncate">
-                      {safetyReport.reusedFlags && safetyReport.reusedFlags.length > 0 ? `검출: ${safetyReport.reusedFlags[0]}` : "특이 복제 위험 검출 안 됨"}
+                      {safetyReport.scriptSimilarityFlags && safetyReport.scriptSimilarityFlags.length > 0
+                        ? `검출: ${safetyReport.scriptSimilarityFlags[0]}`
+                        : (safetyReport.reusedFlags && safetyReport.reusedFlags.length > 0 ? `검출: ${safetyReport.reusedFlags[0]}` : "독창적 원고 구성")}
+                    </div>
+                  </div>
+
+                  {/* Direction & Visual Similarity Card */}
+                  <div className="bg-[#121216] border border-purple-500/20 p-4 rounded-lg flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[9px] text-purple-400 uppercase tracking-widest font-mono block">VISUAL DIRECTION SIMILARITY</span>
+                      <h4 className="text-white text-xs font-bold mt-0.5">연출 유사율 진단</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <span className={`text-2xl font-bold font-mono ${
+                        (safetyReport.directionSimilarityRisk || safetyReport.reusedRisk) === "LOW" ? "text-emerald-400" : (safetyReport.directionSimilarityRisk || safetyReport.reusedRisk) === "MEDIUM" ? "text-amber-400" : "text-rose-400"
+                      }`}>
+                        {safetyReport.directionSimilarityScore ?? safetyReport.reusedScore}% ({safetyReport.directionSimilarityRisk || safetyReport.reusedRisk})
+                      </span>
+                      <p className="text-white/40 text-[10px]">타 채널과의 구도/연출 유사율</p>
+                    </div>
+                    <div className="text-[10px] text-white/50 truncate">
+                      {safetyReport.directionSimilarityFlags && safetyReport.directionSimilarityFlags.length > 0
+                        ? `검출: ${safetyReport.directionSimilarityFlags[0]}`
+                        : "차별화된 Visual 연출"}
                     </div>
                   </div>
 
                   {/* Sensual check card */}
-                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-lg flex flex-col justify-between space-y-3">
                     <div>
                       <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">SENSUAL SUGGESTIVENESS</span>
                       <h4 className="text-white text-xs font-bold mt-0.5">선정성 정책 안전성</h4>
@@ -7166,7 +7189,7 @@ export default function App() {
                   </div>
 
                   {/* Gore / Violent check card */}
-                  <div className="bg-[#121216] border border-white/10 p-5 rounded-lg flex flex-col justify-between space-y-3">
+                  <div className="bg-[#121216] border border-white/10 p-4 rounded-lg flex flex-col justify-between space-y-3">
                     <div>
                       <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono block">VIOLENT GORE DEPICTION</span>
                       <h4 className="text-white text-xs font-bold mt-0.5">그로테스크/잔혹성 회피율</h4>
@@ -7195,6 +7218,62 @@ export default function App() {
                       </span>
 
                       <div className="space-y-3.5">
+                        {/* Violations category: Script Similarity */}
+                        <div className="p-3 bg-[#1a1a22] border border-cyan-500/20 rounded-md space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                              원고 유사성 요소 (대본 및 어휘)
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${
+                              (safetyReport.scriptSimilarityRisk || safetyReport.reusedRisk) === "LOW" ? "text-emerald-400" : "text-amber-400"
+                            }`}>
+                              경보레벨: {safetyReport.scriptSimilarityRisk || safetyReport.reusedRisk} (안심도 {safetyReport.scriptSimilarityScore ?? safetyReport.reusedScore}%)
+                            </span>
+                          </div>
+                          <div>
+                            {((safetyReport.scriptSimilarityFlags && safetyReport.scriptSimilarityFlags.length > 0) || (safetyReport.reusedFlags && safetyReport.reusedFlags.length > 0)) ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {(safetyReport.scriptSimilarityFlags && safetyReport.scriptSimilarityFlags.length > 0 ? safetyReport.scriptSimilarityFlags : safetyReport.reusedFlags).map((val, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-cyan-950/40 text-cyan-300 rounded text-[10px] border border-cyan-900/40">
+                                    "{val}" 검출됨
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-white/40 text-[10px]">타 채널 대본과의 유사성 또는 무분별한 AI 정형 표현이 검출되지 않은 독창적 원고입니다.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Violations category: Direction Similarity */}
+                        <div className="p-3 bg-[#1a1a22] border border-purple-500/20 rounded-md space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-purple-300 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                              연출/구도 유사성 요소 (시각 및 씬)
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${
+                              (safetyReport.directionSimilarityRisk || safetyReport.reusedRisk) === "LOW" ? "text-emerald-400" : "text-amber-400"
+                            }`}>
+                              경보레벨: {safetyReport.directionSimilarityRisk || safetyReport.reusedRisk} (안심도 {safetyReport.directionSimilarityScore ?? safetyReport.reusedScore}%)
+                            </span>
+                          </div>
+                          <div>
+                            {safetyReport.directionSimilarityFlags && safetyReport.directionSimilarityFlags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {safetyReport.directionSimilarityFlags.map((val, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-purple-950/40 text-purple-300 rounded text-[10px] border border-purple-900/40">
+                                    "{val}" 검출됨
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-white/40 text-[10px]">정적 슬라이드쇼나 타 채널 양산형 비주얼 템플릿과 차별화된 시각 연출 구도입니다.</p>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Violations category 1 */}
                         <div className="p-3 bg-[#1a1a22] border border-white/5 rounded-md space-y-2">
                           <div className="flex justify-between items-center">
@@ -8595,7 +8674,7 @@ export default function App() {
                       🎬 하이브리드 비디오 & 호흡별 낭독 규격
                     </span>
                     <p className="text-white/70 font-sans text-[10.5px]">
-                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (10~11초/70~85자) 및 [TYPE: IMAGE] (15초(13~18초)/110~137자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
+                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (7~9초/60~75자 2문장 규격) 및 [TYPE: IMAGE] (15초(13~18초)/110~137자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
                     </p>
                   </div>
                   <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">

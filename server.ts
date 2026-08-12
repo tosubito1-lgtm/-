@@ -47,7 +47,7 @@ function getGenAI(req: express.Request): GoogleGenAI {
   return new GoogleGenAI({
     apiKey: apiKey,
     httpOptions: {
-      timeout: 180000, // Configure 3 minutes timeout for heavy JSON script analysis payloads
+      timeout: 210000, // Configure 3.5 minutes (210 seconds) timeout for heavy JSON script analysis payloads
       headers: {
         "User-Agent": "aistudio-build",
       },
@@ -112,9 +112,9 @@ Incorporate the following proven success formulas learned from past channel perf
 
 === DYNAMIC SCENE PACING, DURATION & HYBRID VIDEO ENGINE (10s VIDEO vs 15s IMAGE) ===
 - Apply exact pacing and narration character constraints based on measured human reading speed (~8.5 chars/sec):
-  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be exactly 70 ~ 85 Korean characters (1 short impactful sentence, 10~11s pure TTS narration).
+  1. INTRO SCENES (Scenes 1 ~ 8): 100% Video Optimized ([TYPE: VIDEO]). Narration MUST be strictly 2 short impactful sentences, 60 ~ 75 Korean characters (7~9s pure TTS narration).
   2. MAIN BODY SCENES (Scene 9 onwards):
-     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be 70 ~ 85 Korean characters (1 short sentence, 10~11s pure TTS duration).
+     - Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes where motion creates maximum impact (dramatic face reactions, sword draws, flickering candles, wind blowing robes, falling rain). Narration MUST be strictly 2 short impactful sentences, 60 ~ 75 Korean characters (7~9s pure TTS duration). NEVER exceed 2 sentences or 75 characters for [TYPE: VIDEO] scenes so the video clip matches the speech perfectly.
      - Assign [TYPE: IMAGE] for standard narrative, establishing, and historical explanation scenes. Narration MUST be 110 ~ 137 Korean characters (2~3 descriptive sentences, 15s pure TTS duration). NEVER write under 100 characters for [TYPE: IMAGE] scenes.
      - STRICT HANJA PROHIBITION: Never include parenthesized Hanja (e.g., 무지(無知) ❌ -> 무지 ⭕) or raw Chinese characters in narration quotes. Narration MUST be 100% pure Korean Hangul.
   3. TOTAL VIDEO SCENE RATIO: Combined with Intro, total video scenes should account for approx. 30% ~ 40% of the entire storyboard.
@@ -226,20 +226,21 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats accordin
 
     const response = await callGoogleGenWithRetry(
       () => ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: userPrompt,
         config: {
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema,
           temperature: 0.25,
+          maxOutputTokens: 16384,
         },
       }),
-      3,
-      2000
+      4,
+      2500
     );
 
-    const parsedJson = JSON.parse(response.text?.trim() || "{}");
+    const parsedJson = cleanAndParseJSON(response.text || "{}");
 
     // Post-process durationSeconds, LTX ratios (enforce <=12s & 10-15% ratio), and SRT timecodes
     if (parsedJson.scenes && Array.isArray(parsedJson.scenes)) {
@@ -390,10 +391,8 @@ Write a rich, natural, authentic Korean historical script and pinned comment bas
 
 === HYBRID VIDEO & NARRATION DURATION RULES ===
 - Mark scenes with media tags: [TYPE: VIDEO] or [TYPE: IMAGE].
-- INTRO SCENES (Scenes 1 ~ 8): 100% Video Mode ([TYPE: VIDEO]). Narration MUST be 1 short sentence, 70 ~ 85 Korean chars (10~11s pure TTS duration).
-- MAIN BODY SCENES:
-  * Recommend [TYPE: VIDEO] for 20% ~ 30% of main scenes with dynamic action/emotion beats. Narration MUST be 1 short sentence, 70 ~ 85 Korean chars (10~11s pure TTS duration).
-  * Assign [TYPE: IMAGE] for static narrative/explanation scenes. Narration MUST be 2 descriptive sentences, 110 ~ 137 Korean chars (15s / 13~18s pure TTS duration).
+- ALL [TYPE: VIDEO] SCENES (Both Intro Scenes 1 ~ 8 & Main Body Video Scenes): Narration MUST be strictly 2 short sentences of 60 ~ 75 Korean chars total (7~9s pure TTS duration). NEVER write long narration or exceed 2 sentences for [TYPE: VIDEO] scenes so the video clip matches speech duration perfectly.
+- [TYPE: IMAGE] SCENES: Assign for static narrative/explanation scenes. Narration MUST be 2 descriptive sentences, 110 ~ 137 Korean chars (15s / 13~18s pure TTS duration).
 - STRICT HANJA PROHIBITION: Never include parenthesized Hanja (e.g., 무지(無知) ❌ -> 무지 ⭕) or raw Chinese characters in narration quotes. Narration MUST be 100% pure Korean Hangul.
 - TOTAL VIDEO SCENES: Approx. 30% ~ 40% of the entire storyboard.
 
@@ -402,8 +401,8 @@ You MUST structure the generated output into 3 distinct sections:
 
 [1. 최종 대본]
 (Write main script using standard scene blocks with media tags:
- [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (70~85자)" (연출 지시어)
- [S9.] [장소이름 / 캐릭터ID] [TYPE: IMAGE] "나래이션 텍스트 (110~137자)" (연출 지시어)
+ [S1.] [장소이름 / 캐릭터ID] [TYPE: VIDEO] "나래이션 텍스트 (60~75자 2문장 규격)" (연출 지시어)
+ [S9.] [장소이름 / 캐릭터ID] [TYPE: IMAGE] "나래이션 텍스트 (110~137자 서사적인 2문장)" (연출 지시어)
  [IMAGE GENERATION PROMPT]: English descriptive visual prompt)
 
 [2. 역사적 사실 / 야담 / 재구성 검수 요약]
@@ -433,14 +432,19 @@ You MUST structure the generated output into 3 distinct sections:
 4. Ensure zero anachronism and high YouTube policy compliance (no gore, safe visual metaphors).
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: `주제/키워드: "${topic}"\n서사 포맷: ${storyFormat}\n목표 길이: ${lengthPreset}\n위 조건에 맞는 최고 품질의 야담 유튜브 대본 원고를 완성해서 작성해 주세요.`,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
+    const response = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `주제/키워드: "${topic}"\n서사 포맷: ${storyFormat}\n목표 길이: ${lengthPreset}\n위 조건에 맞는 최고 품질의 야담 유튜브 대본 원고를 완성해서 작성해 주세요.`,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+          maxOutputTokens: 16384,
+        },
+      }),
+      4,
+      2500
+    );
 
     const generatedScript = response.text || "";
     res.json({ script: generatedScript });
@@ -503,18 +507,23 @@ Output strictly in JSON matching the schema with concise Korean reasoning.
       required: ["recommendedFormat", "recommendedLength", "recommendationReason"]
     };
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: `주제/키워드: "${topic}"\n이 주제에 가장 적합한 서사 포맷과 목표 영상 길이를 분석하여 추천해 주세요.`,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.2,
-      },
-    });
+    const response = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `주제/키워드: "${topic}"\n이 주제에 가장 적합한 서사 포맷과 목표 영상 길이를 분석하여 추천해 주세요.`,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.2,
+          maxOutputTokens: 8192,
+        },
+      }),
+      3,
+      2000
+    );
 
-    const parsed = JSON.parse(response.text || "{}");
+    const parsed = cleanAndParseJSON(response.text || "{}");
     res.json(parsed);
 
   } catch (error: any) {
@@ -625,6 +634,106 @@ async function callGoogleGenWithRetry<T>(
     }
   }
   throw lastError;
+}
+
+/**
+ * Repairs incomplete/truncated JSON strings caused by output token limits or stream cutoffs.
+ */
+function repairTruncatedJSON(jsonStr: string): string {
+  let s = jsonStr.trim();
+  
+  let inString = false;
+  let escape = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < s.length; i++) {
+    const char = s[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{') stack.push('}');
+      else if (char === '[') stack.push(']');
+      else if (char === '}' || char === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === char) {
+          stack.pop();
+        }
+      }
+    }
+  }
+
+  // If ended inside an unclosed string, close it
+  if (inString) {
+    s += '"';
+  }
+
+  // Trim trailing unclosed key-value colon or dangling comma
+  s = s.replace(/,\s*$/, '').replace(/:\s*$/, '');
+
+  // Close any unclosed braces/brackets in reverse order
+  while (stack.length > 0) {
+    const closeChar = stack.pop();
+    s = s.replace(/,\s*$/, '') + closeChar;
+  }
+
+  return s;
+}
+
+/**
+ * Safely parses JSON returned from LLMs, stripping markdown fences, extracting valid JSON bounds,
+ * fixing trailing commas/control characters, and repairing truncated JSON arrays/objects if cut off.
+ */
+function cleanAndParseJSON(rawText: string): any {
+  if (!rawText || typeof rawText !== "string") return {};
+  
+  let cleaned = rawText.trim();
+
+  // 1. Strip markdown codeblock enclosures if present
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  }
+
+  // 2. Extract JSON payload between first '{' or '[' and last '}' or ']'
+  const firstBrace = cleaned.search(/[\{\[]/);
+  if (firstBrace !== -1) {
+    const isArray = cleaned[firstBrace] === '[';
+    const lastBrace = isArray ? cleaned.lastIndexOf(']') : cleaned.lastIndexOf('}');
+    if (lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    } else {
+      // Truncated JSON without matching closing brace/bracket
+      cleaned = cleaned.substring(firstBrace);
+    }
+  }
+
+  // 3. Try standard parse
+  try {
+    return JSON.parse(cleaned);
+  } catch (firstErr) {
+    // 4. Try removing trailing commas or invalid trailing characters
+    try {
+      const fixedCommas = cleaned.replace(/,\s*([\}\]])/g, '$1');
+      return JSON.parse(fixedCommas);
+    } catch (secondErr) {
+      // 5. Repair truncated JSON if output was cut off mid-stream
+      try {
+        const repaired = repairTruncatedJSON(cleaned);
+        return JSON.parse(repaired);
+      } catch (thirdErr) {
+        console.error("[JSON PARSE FAILED] Raw text preview:", rawText.slice(0, 300));
+        throw new Error("서버 응답 JSON 구조를 해석할 수 없습니다. (대본이 너무 길거나 AI 생성에 잘림이 발생했습니다)");
+      }
+    }
+  }
 }
 
 /**
@@ -961,18 +1070,22 @@ Output a JSON object with:
 
     const ai = getGenAI(req);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: userPrompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.7,
-      }
-    });
+    const response = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: userPrompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        }
+      }),
+      3,
+      2000
+    );
 
-    const text = response.text || "{}";
-    const parsed = JSON.parse(text);
+    const parsed = cleanAndParseJSON(response.text || "{}");
 
     res.json({
       ltxPrompt: parsed.ltxPrompt || `Cinematic I2V motion: ${visualDescription || narrationText}, subtle character facial expression shift and wind swaying hanbok robes`,
@@ -1213,14 +1326,14 @@ Analyze carefully and output the final choice as highly-structured JSON matching
           responseMimeType: "application/json",
           responseSchema,
           temperature: 0.3,
+          maxOutputTokens: 8192,
         },
       }),
       3,
       2000
     );
 
-    const text = modelResponse.text || "";
-    const parsed = JSON.parse(text);
+    const parsed = cleanAndParseJSON(modelResponse.text || "{}");
     res.json(parsed);
 
   } catch (error: any) {
@@ -1247,28 +1360,37 @@ You are an expert YouTube Monetization Compliance Officer and Video Policy Audit
 Your target is to perform a rigorous, comprehensive policy risk assessment for a Yadam video script and metadata against June 2026 YouTube Policies (Reused Content, Repetitive Content, Advertiser-Friendly Guidelines regarding violence, murder, decapitation, and sexual scandals/sensual triggers).
 
 === POLICIES & COMPLIANCE SPECIFICATIONS ===
-1. Reused Content Risk (재사용된 콘텐츠 위험):
-   - Flag if the generator template or plot structure is too generic, or copied word-for-word from widely published public folklore resources.
-   - Suggest detailed production advice (e.g., custom voice recording rather than standard mechanical TTS, adding original historical context, embedding educational commentary, unique dynamic zooms and transitions vs. static image slideshows).
-2. Repetitive Content Risk (반복성 위험):
-   - Assess if the visual/composition template shows zero variance. Give clear directions on varying camera angles, incorporating sound effects.
-3. Sensual, Sensational or Scandalous Triggers (선정성 및 자극성 자극요소):
+1. Script Text Similarity Risk (원고 유사율 진단 - 대본 및 어휘 독창성):
+   - Evaluate whether the script text, sentence patterns, vocabulary, or narrative flow closely mirror existing public folklore, common Yadam scripts, or AI-generated cliché phrases across competitor channels.
+   - Output scriptSimilarityScore (0-100, where 100 means highly original/minimal text similarity), scriptSimilarityRisk ('LOW' | 'MEDIUM' | 'HIGH'), and scriptSimilarityFlags (specific text duplication vectors or repetitive phrasing in Korean).
+2. Direction & Visual Similarity Risk (연출 유사율 진단 - 시각 구도 및 연출 독창성):
+   - Evaluate whether visual prompts, camera directions, scene transitions, and visual compositions mirror static repetitive templates, generic slideshow styles, or copycat visual direction seen in other channels.
+   - Output directionSimilarityScore (0-100, where 100 means highly unique visual direction/low similarity risk), directionSimilarityRisk ('LOW' | 'MEDIUM' | 'HIGH'), and directionSimilarityFlags (specific visual layout or direction duplication vectors in Korean).
+3. Combined Reused Content Risk (재사용된 콘텐츠 종합 위험):
+   - Summary rating combining both text script similarity and visual direction similarity into reusedScore, reusedRisk, reusedFlags for general compliance checks.
+4. Sensual, Sensational or Scandalous Triggers (선정성 및 자극성 자극요소):
    - Korean Folk/Yadam stories often feature adultery, concubine affair drama, or intimate scenes (e.g., 동침 - sleeping together, 합방 - marital/bed union, 방사 - sexual act, 욕정 - worldly lust, 간통 - adultery, 기생 - courtesan/gisaeng element, 옷을 벗 - stripping garments).
    - Rate the risk of these terms. Advise rewriting them under safer, subtle literary expressions (e.g., "마음을 나누다", "깊은 밤 대화를 이어가다") to avoid automatic flagging.
-4. Violent, Brutal, or Horrific Gore Depiction (잔혹성, 묘사, 폭력성 고증):
+5. Violent, Brutal, or Horrific Gore Depiction (잔혹성, 묘사, 폭력성 고증):
    - Yadam stories often deal with historical executions, ghosts, decapitations (e.g., 참수, 목을 벤다, 피범벅, 시체, 고문, 능지처참).
    - YouTube's Advertiser-Friendly policy as of June 2026 immediately flags these for yellow cards (노란딱지) or full demonetization if written literally.
    - Scan for these and recommend translating them into safe, high-contrast, atmospheric visual metaphors (e.g., "붉은 장막이 하늘을 물들였다", "사무치게 시린 빗소리", "부서진 목검").
-5. Metadata & clickbait CTR text level (메타데이터 오도 위험):
+6. Metadata & clickbait CTR text level (메타데이터 오도 위험):
    - Flag clickbait keywords in titles such as incest, explicit violence, or highly taboo topics ("친딸", "목을 잘라...", "합방의 진실") that cause instant monetization suspention.
 
 === RESPONSE FORMAT ===
 Output a strictly valid, structured JSON object containing:
 - overallScore: rating from 0 to 100 (where 100 is completely safe, 0 is full risk)
 - overallRisk: 'SAFE' (score >= 80) | 'ATTENTION' (score 50-79) | 'CRITICAL' (score < 50)
+- scriptSimilarityRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- scriptSimilarityScore: rating from 0 to 100 (원고 독창성 / 유사율 탈피 점수)
+- scriptSimilarityFlags: array of strings naming specific script text similarity vectors in Korean (e.g., "타 채널 야담 상용 문구 및 진부한 표현 검출")
+- directionSimilarityRisk: 'LOW' | 'MEDIUM' | 'HIGH'
+- directionSimilarityScore: rating from 0 to 100 (연출 독창성 / 유사율 탈피 점수)
+- directionSimilarityFlags: array of strings naming specific visual/direction similarity vectors in Korean (e.g., "정적 슬라이드쇼 및 고정 줌인 구도 템플릿 검출")
 - reusedRisk: 'LOW' | 'MEDIUM' | 'HIGH'
 - reusedScore: rating from 0 to 100
-- reusedFlags: array of strings naming specific reuse vectors in Korean (e.g., "사도세자/영조 대본의 대역 자구 변수 중복", "일반 자동 생성형 템플릿 비조정 노출")
+- reusedFlags: array of strings naming specific reuse vectors in Korean
 - sensualRisk: 'LOW' | 'MEDIUM' | 'HIGH'
 - sensualScore: rating from 0 to 100
 - sensualFlags: array of strings identifying sensual/suggestive words or sections flagged
@@ -1289,6 +1411,12 @@ Avoid any explanatory markdown outside the JSON.
       properties: {
         overallScore: { type: Type.INTEGER },
         overallRisk: { type: Type.STRING, enum: ["SAFE", "ATTENTION", "CRITICAL"] },
+        scriptSimilarityRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        scriptSimilarityScore: { type: Type.INTEGER },
+        scriptSimilarityFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        directionSimilarityRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+        directionSimilarityScore: { type: Type.INTEGER },
+        directionSimilarityFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
         reusedRisk: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
         reusedScore: { type: Type.INTEGER },
         reusedFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -1317,7 +1445,10 @@ Avoid any explanatory markdown outside the JSON.
         }
       },
       required: [
-        "overallScore", "overallRisk", "reusedRisk", "reusedScore", "reusedFlags",
+        "overallScore", "overallRisk",
+        "scriptSimilarityRisk", "scriptSimilarityScore", "scriptSimilarityFlags",
+        "directionSimilarityRisk", "directionSimilarityScore", "directionSimilarityFlags",
+        "reusedRisk", "reusedScore", "reusedFlags",
         "sensualRisk", "sensualScore", "sensualFlags", "violentRisk", "violentScore",
         "violentFlags", "metadataRisk", "metadataScore", "metadataFlags", "recommendations",
         "antiPatternAnalysis"
@@ -1505,9 +1636,9 @@ Topic / Category: "${topic || "조선 야담"}"
   });
 
   // Set explicit timeouts on the node server to prevent premature connection terminations during long generation tasks
-  server.timeout = 180000; // 3 minutes
-  server.headersTimeout = 185000; // 3 minutes 5 seconds
-  server.requestTimeout = 180000; // 3 minutes
+  server.timeout = 210000; // 3.5 minutes (210 seconds)
+  server.headersTimeout = 215000; // 3.5 minutes 5 seconds
+  server.requestTimeout = 210000; // 3.5 minutes (210 seconds)
 }
 
 /**
