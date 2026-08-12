@@ -1487,8 +1487,8 @@ export default function App() {
         updatedCharacters[i].isGenerating = false;
         setCharacters([...updatedCharacters]);
         saveSession(analysis, updatedCharacters, locations, scenes, batchSavedTokens, batchConsoleLogs);
-        // Safety delay
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Safety delay between batch character image calls to prevent QPM spikes
+        await new Promise((resolve) => setTimeout(resolve, 4000));
       }
     }
 

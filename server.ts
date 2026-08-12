@@ -564,9 +564,11 @@ async function translateKoreanToEnglishIfNeeded(prompt: string, ai: any): Promis
   if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(trimmed)) {
     try {
       console.log(`[PROMPT TRANSLATION] Korean characters detected. Translating prompt to English: "${trimmed}"`);
-      const transResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `You are an expert translation engine for AI image generators (like Imagen 3).
+      const transResponse = await callGoogleGenWithRetry(
+        () =>
+          ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are an expert translation engine for AI image generators (like Imagen 3).
 Translate the following mixed Korean and English prompt into a clean, beautiful, descriptive English-only image prompt.
 Keep all character traits, historic structures, clothing, postures, moods, and camera angles intact but fully expressed in English.
 IMPORTANT: Do NOT include any Korean letters (Hangul/한글) in the translated version.
@@ -576,11 +578,14 @@ Translate "사도세자" to "Crown Prince Sado", "영조" to "King Yeongjo", "�
 Input Prompt: ${trimmed}
 
 Output ONLY the translated English prompt itself:`,
-        config: {
-          temperature: 0.1,
-        }
-      });
-      const translated = transResponse.text?.trim() || trimmed;
+            config: {
+              temperature: 0.1,
+            },
+          }),
+        3,
+        2000
+      );
+      const translated = (transResponse as any).text?.trim() || trimmed;
       // Safeguard: Strip any remaining Hangul text just in case the translator yielded raw letters
       const englishOnly = translated.replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]+/g, " ").replace(/\s+/g, " ").trim();
       console.log(`[PROMPT TRANSLATION] Success: "${englishOnly}"`);
@@ -595,8 +600,8 @@ Output ONLY the translated English prompt itself:`,
 }
 
 /**
- * Helper to retry Gemini API calls prone to transient deadline exceptions or internal hiccups.
- * Supports exponential backoff and randomized jitter to safely absorb temporal service load spikes.
+ * Helper to retry Gemini API calls prone to transient deadline exceptions, rate limits, or internal hiccups.
+ * Supports exponential backoff, retry-delay parsing for 429 quota limits, and randomized jitter.
  */
 async function callGoogleGenWithRetry<T>(
   fn: () => Promise<T>,
@@ -609,8 +614,16 @@ async function callGoogleGenWithRetry<T>(
       return await fn();
     } catch (error: any) {
       lastError = error;
-      const errorStr = String(error.message || error.status || JSON.stringify(error) || "").toUpperCase();
+      const errorMsg = String(error.message || error.status || JSON.stringify(error) || "");
+      const errorStr = errorMsg.toUpperCase();
+      const isQuotaError =
+        errorStr.includes("RESOURCE_EXHAUSTED") ||
+        errorStr.includes("429") ||
+        errorStr.includes("QUOTA") ||
+        errorStr.includes("RATE_LIMIT");
+
       const isRetryable =
+        isQuotaError ||
         errorStr.includes("DEADLINE") ||
         errorStr.includes("EXPIRED") ||
         errorStr.includes("504") ||
@@ -624,9 +637,21 @@ async function callGoogleGenWithRetry<T>(
         errorStr.includes("CONGESTED");
 
       if (isRetryable && attempt < retries) {
+        let currentDelay = delayMs * Math.pow(1.8, attempt - 1);
+
+        if (isQuotaError) {
+          let retryInSec = 12;
+          const match = errorMsg.match(/retry in ([0-9]+(?:\.[0-9]+)?)s/i);
+          if (match && match[1]) {
+            retryInSec = Math.ceil(parseFloat(match[1])) + 1;
+          }
+          currentDelay = Math.max(currentDelay, retryInSec * 1000);
+        }
+
         const jitter = Math.floor(Math.random() * 1000);
-        const currentDelay = delayMs * Math.pow(1.8, attempt - 1) + jitter;
-        console.warn(`[GEMINI RETRY] Attempt ${attempt}/${retries} failed with transient error: ${error.message || error}. Retrying in ${Math.round(currentDelay)}ms...`);
+        currentDelay += jitter;
+
+        console.warn(`[GEMINI RETRY] Attempt ${attempt}/${retries} failed (${isQuotaError ? "Quota/429" : "Transient"}: ${error.message || error}). Retrying in ${Math.round(currentDelay)}ms...`);
         await new Promise((resolve) => setTimeout(resolve, currentDelay));
       } else {
         throw error;
