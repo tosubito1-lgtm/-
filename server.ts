@@ -77,7 +77,7 @@ Your goals are:
 3. Generate a modular sequence of storyboard scene blocks matching the timeline with dynamic scene pacing and LTX Video recommendations.
 
 === NARRATION-TO-IMAGE PERFECT COMPATIBILITY & SENSORY PROMPT RULES ===
-- 100% VISUAL ALIGNMENT: Every key character, emotion, object, action, and location mentioned in 'narrationText' MUST be explicitly mirrored in 'visualDescription' and 'refinedImagePrompt'.
+- ACCURATE VISUAL FOCUS & SUBJECT ALIGNMENT: 'visualDescription' and 'refinedImagePrompt' MUST focus on the actual physical subjects on screen. If the narration mentions a King's policy or decree (e.g., "세종은 백성들의 목소리를 듣고자..."), but the scene visually depicts lower-ranking officials or farmers in the marketplace ("관리가 저잣거리에서 받아 적는 모습"), focus the image and characterNames strictly on the officials/farmers on screen. Do NOT force the King into characterNames or image prompts unless he is physically present in the scene action.
 - NO AI PROMPT BUZZWORDS: Strictly BAN vague filler words like "masterpiece", "hyperrealistic", "cinematic lighting", "photorealistic", "AI art", "high resolution".
 - SPECIFIC SENSORY ANCHORS: Replace buzzwords with concrete physical cues:
   * Exact Light Source: "single flickering oil lamp casting dark charcoal shadows on hanji paper", "cold pale moonlight shining through wooden window shutters".
@@ -1819,15 +1819,27 @@ function parseStructuredScript(script: string) {
     for (const [charId, charObj] of charactersMap.entries()) {
       if (!sceneCharacters.includes(charObj.name)) {
         const simpleName = charObj.name.split(" ")[0];
-        if (
+        const isMatchedInVisual =
           blockText.includes(charId) ||
-          narrationText.includes(charObj.name) ||
-          narrationText.includes(simpleName) ||
           visualDescription.includes(charId) ||
           visualDescription.includes(charObj.name) ||
-          visualDescription.includes(simpleName)
-        ) {
+          visualDescription.includes(simpleName);
+
+        const isMatchedInNarration =
+          narrationText.includes(charObj.name) ||
+          narrationText.includes(simpleName);
+
+        if (isMatchedInVisual) {
           sceneCharacters.push(charObj.name);
+        } else if (isMatchedInNarration) {
+          // Check if visual description explicitly focuses on secondary roles without mentioning king/main character
+          const visualFocusesOnOthers =
+            /관리|관원|포교|신하|백성|농민|아낙|아이/i.test(visualDescription) &&
+            !/임금|세종|왕|군주|상감/i.test(visualDescription);
+
+          if (!visualFocusesOnOthers) {
+            sceneCharacters.push(charObj.name);
+          }
         }
       }
     }

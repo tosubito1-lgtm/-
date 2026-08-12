@@ -8,6 +8,7 @@ import {
   Sparkles,
   Play,
   CheckCircle,
+  Check,
   AlertCircle,
   RefreshCw,
   Download,
@@ -440,6 +441,7 @@ export default function App() {
   const [editSceneVisDesc, setEditSceneVisDesc] = useState("");
   const [editScenePrompt, setEditScenePrompt] = useState("");
   const [editSceneCharacterNames, setEditSceneCharacterNames] = useState<string[]>([]);
+  const [involvedMenuSceneId, setInvolvedMenuSceneId] = useState<number | null>(null);
   const [isTranslatingPrompt, setIsTranslatingPrompt] = useState(false);
 
   // File upload ref helpers
@@ -482,6 +484,33 @@ export default function App() {
 
   const stopRequestedRef = useRef<boolean>(false);
 
+  // Safe & Smart Character Match Helper (handles full names with parens like "세종대왕 (이도)", aliases like "세종", "이도")
+  const findMatchingCharacter = (charName: string, charList: CharacterItem[]): CharacterItem | null => {
+    if (!charName || !charName.trim()) return null;
+    const rawTarget = charName.trim().toLowerCase();
+    const stripParens = (s: string) => s.replace(/\([^)]*\)/g, "").trim().toLowerCase();
+    const cleanTarget = stripParens(rawTarget);
+
+    // 1. Exact full match
+    let match = charList.find((c) => c.name.trim().toLowerCase() === rawTarget);
+    if (match) return match;
+
+    // 2. Base name match without parentheses (e.g. "세종대왕 (이도)" <-> "세종대왕")
+    match = charList.find((c) => stripParens(c.name) === cleanTarget);
+    if (match) return match;
+
+    // 3. Smart historical alias / substring match (min length 2)
+    if (cleanTarget.length >= 2) {
+      match = charList.find((c) => {
+        const cleanCName = stripParens(c.name);
+        return cleanCName.includes(cleanTarget) || cleanTarget.includes(cleanCName);
+      });
+      if (match) return match;
+    }
+
+    return null;
+  };
+
   // Helper definition to inject character clothing & appearance with Smart Compact Lock (Zero token bloat)
   const getConsistentlyInjectedPrompt = (scene: SceneItem): string => {
     let finalPrompt = scene.refinedImagePrompt;
@@ -494,14 +523,16 @@ export default function App() {
     if (scene.characterNames && scene.characterNames.length > 0) {
       const compactCharTags = scene.characterNames
         .map((charName) => {
-          const found = characters.find(
-            (c) =>
-              c.name.trim().toLowerCase() === charName.trim().toLowerCase(),
-          );
+          const found = findMatchingCharacter(charName, characters);
           if (found) {
             // Short, precise English visual tags to maximize Imagen 3 compliance without prompt bloat
-            const detail = found.clothingEnglish || found.appearanceEnglish || `${found.gender} ${found.age}, ${found.clothing}`;
-            return `${found.name} (${detail})`;
+            const detail =
+              found.clothingEnglish ||
+              found.appearanceEnglish ||
+              `${found.gender} ${found.age}, ${found.clothing}`;
+            const conciseDetail = detail.length > 90 ? detail.substring(0, 90) + "..." : detail;
+            const baseName = found.name.replace(/\([^)]*\)/g, "").trim() || found.name;
+            return `${baseName} (${conciseDetail})`;
           }
           return null;
         })
@@ -516,8 +547,8 @@ export default function App() {
     if (scene.locationName) {
       const locFound = locations.find(
         (l) =>
-          l.name.trim().toLowerCase() ===
-          scene.locationName.trim().toLowerCase(),
+          l.name.trim().toLowerCase() === scene.locationName.trim().toLowerCase() ||
+          scene.locationName.trim().toLowerCase().includes(l.name.trim().toLowerCase())
       );
       if (locFound) {
         const locDetail = locFound.descriptionEnglish || locFound.description;
@@ -1655,6 +1686,30 @@ export default function App() {
     saveSession(analysis, characters, locations, updated);
     startEditingScene(updated[updated.length - 1]); // Highlight edit panel instantly!
     showFeedback("새 스토리보드 장면이 타임라인 끝자락에 추가되었습니다. 세부 연출을 즉시 구성해 보세요.", "success");
+  };
+
+  const handleToggleCharacterInScene = (sceneId: number, charName: string) => {
+    const updatedSc = scenes.map((s) => {
+      if (s.id === sceneId) {
+        const currentNames = s.characterNames || [];
+        const exists = currentNames.some((n) => {
+          if (n.trim().toLowerCase() === charName.trim().toLowerCase()) return true;
+          const matched = findMatchingCharacter(n, characters);
+          return matched && matched.name.trim().toLowerCase() === charName.trim().toLowerCase();
+        });
+        const updatedNames = exists
+          ? currentNames.filter((n) => {
+              if (n.trim().toLowerCase() === charName.trim().toLowerCase()) return false;
+              const matched = findMatchingCharacter(n, characters);
+              return !matched || matched.name.trim().toLowerCase() !== charName.trim().toLowerCase();
+            })
+          : [...currentNames, charName];
+        return { ...s, characterNames: updatedNames };
+      }
+      return s;
+    });
+    setScenes(updatedSc);
+    saveSession(analysis, characters, locations, updatedSc);
   };
 
   const handleMoveSceneUp = (actualIndex: number) => {
@@ -5430,22 +5485,106 @@ export default function App() {
                             </div>
 
                             {/* Involved characters database chips */}
-                            {scene.characterNames &&
-                              scene.characterNames.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                                  <span className="text-[8px] text-white/30 uppercase tracking-widest font-mono">
-                                    Involved:
-                                  </span>
-                                  {scene.characterNames.map((cName) => (
-                                    <span
-                                      key={cName}
-                                      className="text-[9px] bg-blue-600/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-sm font-mono"
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1 relative">
+                              <span className="text-[8px] text-white/30 uppercase tracking-widest font-mono">
+                                Involved:
+                              </span>
+                              {scene.characterNames && scene.characterNames.length > 0 ? (
+                                scene.characterNames.map((cName) => (
+                                  <span
+                                    key={cName}
+                                    className="inline-flex items-center gap-1 text-[9px] bg-blue-600/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded-sm font-mono group"
+                                  >
+                                    <span>{cName}</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleCharacterInScene(scene.id, cName);
+                                      }}
+                                      className="text-blue-400/60 hover:text-red-400 font-bold ml-0.5 transition-colors"
+                                      title={`[${cName}] 인물을 이 씬 출연진에서 제외 (곤룡포/의상 태그 제거)`}
                                     >
-                                      {cName}
-                                    </span>
-                                  ))}
-                                </div>
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[9px] text-white/30 italic font-mono">
+                                  (출연 지정 인물 없음)
+                                </span>
                               )}
+
+                              {/* Quick Add/Manage Character Button */}
+                              <div className="relative inline-block ml-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInvolvedMenuSceneId(
+                                      involvedMenuSceneId === scene.id ? null : scene.id
+                                    );
+                                  }}
+                                  className="text-[9px] bg-[#1a1a24] hover:bg-blue-600/20 text-white/50 hover:text-blue-300 border border-white/10 hover:border-blue-500/30 px-1.5 py-0.5 rounded-sm font-mono flex items-center gap-1 transition-all"
+                                  title="이 씬에 출연시킬 등장인물 추가/제거 관리"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                  <span>인물 관리</span>
+                                </button>
+
+                                {/* Popover menu to toggle characters for this scene */}
+                                {involvedMenuSceneId === scene.id && (
+                                  <div
+                                    className="absolute left-0 top-full mt-1 z-30 w-48 bg-[#12121a] border border-white/15 rounded-md shadow-2xl p-1.5 space-y-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="text-[9px] text-white/40 font-mono font-semibold px-1 py-0.5 border-b border-white/5 flex items-center justify-between">
+                                      <span>등장인물 토글</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setInvolvedMenuSceneId(null)}
+                                        className="text-white/40 hover:text-white"
+                                      >
+                                        <X className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
+                                    {characters.length === 0 ? (
+                                      <div className="text-[9px] text-white/30 p-1 italic">
+                                        등록된 인물이 없습니다.
+                                      </div>
+                                    ) : (
+                                      characters.map((ch) => {
+                                        const isIncluded = (scene.characterNames || []).some(
+                                          (n) =>
+                                            n.trim().toLowerCase() === ch.name.trim().toLowerCase() ||
+                                            ch.name.trim().toLowerCase().includes(n.trim().toLowerCase()) ||
+                                            n.trim().toLowerCase().includes(ch.name.split(" ")[0].toLowerCase())
+                                        );
+                                        return (
+                                          <button
+                                            key={ch.name}
+                                            type="button"
+                                            onClick={() => {
+                                              handleToggleCharacterInScene(scene.id, ch.name);
+                                            }}
+                                            className={`w-full text-left text-[9px] px-1.5 py-1 rounded font-mono flex items-center justify-between transition-colors ${
+                                              isIncluded
+                                                ? "bg-blue-600/20 text-blue-300 font-bold"
+                                                : "text-white/60 hover:bg-white/5 hover:text-white"
+                                            }`}
+                                          >
+                                            <span className="truncate">{ch.name}</span>
+                                            {isIncluded && (
+                                              <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                                            )}
+                                          </button>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
 
                           {/* Structured prompt and action logs */}
