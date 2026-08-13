@@ -301,6 +301,20 @@ Incorporate the following proven success formulas learned from past channel perf
   * SUBTLE CAMERA TRACKING: e.g., "Subtle slow tracking shot following character movement with shallow depth of field".
 - Select scenes where motion creates maximum visual tension and emotional impact.
 
+=== STRICT CLOTHING & HEADWEAR (HAT) CONSISTENCY MANDATE ===
+- ULTRA-SPECIFIC CLOTHING & HEADWEAR SPECIFICATION:
+  * For every character extracted in 'characters', 'clothingEnglish' and 'appearanceEnglish' MUST be highly specific and explicitly mention BOTH the outfit AND the headwear/hat/hairstyle.
+  * Examples:
+    - King: clothingEnglish: "red royal dragon robe with gold embroidered emblems", appearanceEnglish: "black ikseongwan royal crown, neat thin mustache beard"
+    - General/Commander: clothingEnglish: "navy blue Dujeonggap scale armor with brass studs", appearanceEnglish: "golden dragon helmet with red ear flaps, stern gaze"
+    - Scholar: clothingEnglish: "traditional pale green silk hanbok robe", appearanceEnglish: "black woven mesh gat hat, topknot hair"
+    - Minister/Official: clothingEnglish: "dark green administrative uniform robe with rank badge", appearanceEnglish: "black samo official hat, dark grey beard"
+    - Commoner/Plebeian: clothingEnglish: "simple coarse hemp brownish hanbok", appearanceEnglish: "topknot hair without hat, weathered skin"
+  * STRICT BAN ON GENERIC TERMS: Never use vague terms like "traditional hat", "hanbok", or "costume". Always name the exact hat (gat, ikseongwan, samo, helmet, topknot) and garment.
+- PROMPT CONSISTENCY IN ALL SCENE PROMPTS ('refinedImagePrompt'):
+  * In every scene where a character appears, 'refinedImagePrompt' MUST explicitly reuse their exact clothing & headwear keywords defined in 'clothingEnglish' and 'appearanceEnglish'.
+  * Prevent headwear flipping: Never change a character's hat or outfit between scenes unless the script explicitly states they are changing clothes, disrobing, or removing their helmet/hat.
+
 === ARCHITECTURAL GUIDELINES & MILITARY COMMANDER DISTINCTION ===
 - Character Sheets: Create clean portrait prompts for characters.
 - MILITARY COMMANDER vs CIVIL OFFICIAL SEPARATION: When historical figures are Generals/Commanders (e.g. 원균, 이순신, 권율 등) who command troops or fight in naval/land battles, NEVER group them under civil ministers ("대신들/관복"). Create a dedicated character entry for them. Set their clothing explicitly to "Joseon Naval General military armor (Dujeonggap armor), golden dragon helmet, dark blue military uniform".

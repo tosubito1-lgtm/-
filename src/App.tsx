@@ -513,7 +513,7 @@ export default function App() {
     return null;
   };
 
-  // Helper definition to inject character clothing & appearance with Smart Compact Lock (Zero token bloat)
+  // Helper definition to inject character clothing & appearance with Smart Compact Lock (Safe & Balanced)
   const getConsistentlyInjectedPrompt = (scene: SceneItem): string => {
     let finalPrompt = scene.refinedImagePrompt;
 
@@ -521,28 +521,52 @@ export default function App() {
       return finalPrompt;
     }
 
-    // 1. Smart Compact Character Lock Tags
+    // 1. Smart Compact Character Lock Tags (Ultra-Safe Balance to prevent feature bleed)
     if (scene.characterNames && scene.characterNames.length > 0) {
-      const compactCharTags = scene.characterNames
+      // Limit to top 2 main characters in focus to avoid multi-character feature contamination
+      const activeCharNames = scene.characterNames.slice(0, 2);
+
+      const compactCharTags = activeCharNames
         .map((charName) => {
           if (!charName) return null;
           const found = findMatchingCharacter(charName, characters);
           if (found && found.name) {
-            // Short, precise English visual tags to maximize Imagen 3 compliance without prompt bloat
-            const detail =
-              found.clothingEnglish ||
-              found.appearanceEnglish ||
-              `${found.gender || ''} ${found.age || ''}, ${found.clothing || ''}`;
-            const conciseDetail = detail.length > 90 ? detail.substring(0, 90) + "..." : detail;
             const baseName = (found.name || "").replace(/\([^)]*\)/g, "").trim() || found.name;
-            return `${baseName} (${conciseDetail})`;
+
+            // Collect clothing and headwear details
+            const parts: string[] = [];
+            if (found.clothingEnglish) parts.push(found.clothingEnglish);
+            else if (found.clothing) parts.push(found.clothing);
+
+            if (found.appearanceEnglish) parts.push(found.appearanceEnglish);
+            else if (found.appearance) parts.push(found.appearance);
+
+            const rawDetail = parts.length > 0 ? parts.join(", ") : `${found.gender || ''} ${found.age || ''}`;
+
+            // Check if the scene prompt already contains key clothing/headwear words to avoid redundant duplication
+            const promptLower = finalPrompt.toLowerCase();
+            const detailLower = rawDetail.toLowerCase();
+            if (
+              (found.clothingEnglish && promptLower.includes(found.clothingEnglish.toLowerCase().substring(0, 15))) ||
+              (found.appearanceEnglish && promptLower.includes(found.appearanceEnglish.toLowerCase().substring(0, 15)))
+            ) {
+              // Details are already nicely embedded in the main scene prompt!
+              return null;
+            }
+
+            // Compact summary (80 chars max per character to prevent prompt dilution/bleed)
+            const conciseDetail = rawDetail.length > 80 ? rawDetail.substring(0, 80) + "..." : rawDetail;
+            return `${baseName}: ${conciseDetail}`;
           }
           return null;
         })
         .filter(Boolean);
 
       if (compactCharTags.length > 0) {
-        finalPrompt += ` . [Char Lock: ${compactCharTags.join(" | ")}]`;
+        const fullTagBlock = compactCharTags.join(" | ");
+        // Ensure total injected tag length doesn't overwhelm the scene description (Max 160 chars total)
+        const safeBlock = fullTagBlock.length > 160 ? fullTagBlock.substring(0, 160) + "..." : fullTagBlock;
+        finalPrompt += ` . [Char Attire: ${safeBlock}]`;
       }
     }
 
