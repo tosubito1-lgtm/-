@@ -487,21 +487,23 @@ export default function App() {
   // Safe & Smart Character Match Helper (handles full names with parens like "세종대왕 (이도)", aliases like "세종", "이도")
   const findMatchingCharacter = (charName: string, charList: CharacterItem[]): CharacterItem | null => {
     if (!charName || !charName.trim()) return null;
+    if (!charName || typeof charName !== "string" || !charList || !Array.isArray(charList)) return null;
     const rawTarget = charName.trim().toLowerCase();
-    const stripParens = (s: string) => s.replace(/\([^)]*\)/g, "").trim().toLowerCase();
+    const stripParens = (s: string) => (s || "").replace(/\([^)]*\)/g, "").trim().toLowerCase();
     const cleanTarget = stripParens(rawTarget);
 
     // 1. Exact full match
-    let match = charList.find((c) => c.name.trim().toLowerCase() === rawTarget);
+    let match = charList.find((c) => c && c.name && c.name.trim().toLowerCase() === rawTarget);
     if (match) return match;
 
     // 2. Base name match without parentheses (e.g. "세종대왕 (이도)" <-> "세종대왕")
-    match = charList.find((c) => stripParens(c.name) === cleanTarget);
+    match = charList.find((c) => c && c.name && stripParens(c.name) === cleanTarget);
     if (match) return match;
 
     // 3. Smart historical alias / substring match (min length 2)
     if (cleanTarget.length >= 2) {
       match = charList.find((c) => {
+        if (!c || !c.name) return false;
         const cleanCName = stripParens(c.name);
         return cleanCName.includes(cleanTarget) || cleanTarget.includes(cleanCName);
       });
@@ -523,15 +525,16 @@ export default function App() {
     if (scene.characterNames && scene.characterNames.length > 0) {
       const compactCharTags = scene.characterNames
         .map((charName) => {
+          if (!charName) return null;
           const found = findMatchingCharacter(charName, characters);
-          if (found) {
+          if (found && found.name) {
             // Short, precise English visual tags to maximize Imagen 3 compliance without prompt bloat
             const detail =
               found.clothingEnglish ||
               found.appearanceEnglish ||
-              `${found.gender} ${found.age}, ${found.clothing}`;
+              `${found.gender || ''} ${found.age || ''}, ${found.clothing || ''}`;
             const conciseDetail = detail.length > 90 ? detail.substring(0, 90) + "..." : detail;
-            const baseName = found.name.replace(/\([^)]*\)/g, "").trim() || found.name;
+            const baseName = (found.name || "").replace(/\([^)]*\)/g, "").trim() || found.name;
             return `${baseName} (${conciseDetail})`;
           }
           return null;
@@ -545,13 +548,16 @@ export default function App() {
 
     // 2. Smart Compact Location Lock Tag
     if (scene.locationName) {
-      const locFound = locations.find(
+      const targetLoc = scene.locationName.trim().toLowerCase();
+      const locFound = (locations || []).find(
         (l) =>
-          l.name.trim().toLowerCase() === scene.locationName.trim().toLowerCase() ||
-          scene.locationName.trim().toLowerCase().includes(l.name.trim().toLowerCase())
+          l &&
+          l.name &&
+          (l.name.trim().toLowerCase() === targetLoc ||
+            targetLoc.includes(l.name.trim().toLowerCase()))
       );
-      if (locFound) {
-        const locDetail = locFound.descriptionEnglish || locFound.description;
+      if (locFound && locFound.name) {
+        const locDetail = locFound.descriptionEnglish || locFound.description || "";
         const shortLoc = locDetail.length > 60 ? locDetail.substring(0, 60) + "..." : locDetail;
         finalPrompt += ` . [Env: ${locFound.name} (${shortLoc})]`;
       }
@@ -1353,10 +1359,10 @@ export default function App() {
       let finalCharacters = incomingCharacters.slice(0, 4);
       if (appendMode) {
         const existingNames = new Set(
-          characters.map((c) => c.name.trim().toLowerCase()),
+          (characters || []).filter((c) => c && c.name).map((c) => c.name.trim().toLowerCase()),
         );
         const uniqueIncoming = incomingCharacters.filter(
-          (ch) => !existingNames.has(ch.name.trim().toLowerCase()),
+          (ch) => ch && ch.name && !existingNames.has(ch.name.trim().toLowerCase()),
         );
         finalCharacters = [...characters, ...uniqueIncoming];
       }
@@ -1365,10 +1371,10 @@ export default function App() {
       let finalLocations = data.locations || [];
       if (appendMode) {
         const existingLocs = new Set(
-          locations.map((l) => l.name.trim().toLowerCase()),
+          (locations || []).filter((l) => l && l.name).map((l) => l.name.trim().toLowerCase()),
         );
         const uniqueIncomingLocs = (data.locations || []).filter(
-          (l) => !existingLocs.has(l.name.trim().toLowerCase()),
+          (l) => l && l.name && !existingLocs.has(l.name.trim().toLowerCase()),
         );
         finalLocations = [...locations, ...uniqueIncomingLocs];
       }
@@ -1689,19 +1695,23 @@ export default function App() {
   };
 
   const handleToggleCharacterInScene = (sceneId: number, charName: string) => {
+    if (!charName) return;
+    const targetName = charName.trim().toLowerCase();
     const updatedSc = scenes.map((s) => {
       if (s.id === sceneId) {
         const currentNames = s.characterNames || [];
         const exists = currentNames.some((n) => {
-          if (n.trim().toLowerCase() === charName.trim().toLowerCase()) return true;
+          if (!n) return false;
+          if (n.trim().toLowerCase() === targetName) return true;
           const matched = findMatchingCharacter(n, characters);
-          return matched && matched.name.trim().toLowerCase() === charName.trim().toLowerCase();
+          return matched && matched.name && matched.name.trim().toLowerCase() === targetName;
         });
         const updatedNames = exists
           ? currentNames.filter((n) => {
-              if (n.trim().toLowerCase() === charName.trim().toLowerCase()) return false;
+              if (!n) return false;
+              if (n.trim().toLowerCase() === targetName) return false;
               const matched = findMatchingCharacter(n, characters);
-              return !matched || matched.name.trim().toLowerCase() !== charName.trim().toLowerCase();
+              return !matched || !matched.name || matched.name.trim().toLowerCase() !== targetName;
             })
           : [...currentNames, charName];
         return { ...s, characterNames: updatedNames };
@@ -1752,11 +1762,12 @@ export default function App() {
       } else {
         textToTranslate = `나레이션: ${editSceneNarration}. 연출: ${editSceneVisDesc}`;
         // Gather complete metadata of involved characters to guarantee extreme visual consistency
-        const richCharacters = editSceneCharacterNames.map((name) => {
-          const matched = characters.find(
-            (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase()
+        const richCharacters = (editSceneCharacterNames || []).map((name) => {
+          if (!name) return { name: "" };
+          const matched = (characters || []).find(
+            (c) => c && c.name && c.name.trim().toLowerCase() === name.trim().toLowerCase()
           );
-          if (matched) {
+          if (matched && matched.name) {
             return {
               name: matched.name,
               gender: matched.gender,
@@ -1772,9 +1783,10 @@ export default function App() {
         });
         charactersInvolved = richCharacters as any;
 
-        const foundLoc = locations.find(l => l.name.trim().toLowerCase() === editSceneLocation.trim().toLowerCase());
+        const targetLoc = (editSceneLocation || "").trim().toLowerCase();
+        const foundLoc = targetLoc ? (locations || []).find(l => l && l.name && l.name.trim().toLowerCase() === targetLoc) : undefined;
         if (foundLoc) {
-          locationDesc = foundLoc.descriptionEnglish || foundLoc.description;
+          locationDesc = foundLoc.descriptionEnglish || foundLoc.description || "";
         }
       }
 
@@ -5372,6 +5384,7 @@ export default function App() {
                                   <span className="text-white/30 text-[9px] italic">등록된 인물이 없습니다. 먼저 인 데이터베이스에 인물을 추가하세요.</span>
                                 ) : (
                                   characters.map((ch) => {
+                                    if (!ch || !ch.name) return null;
                                     const isChecked = editSceneCharacterNames.includes(ch.name);
                                     return (
                                       <button
@@ -5554,11 +5567,13 @@ export default function App() {
                                       </div>
                                     ) : (
                                       characters.map((ch) => {
+                                        if (!ch || !ch.name) return null;
                                         const isIncluded = (scene.characterNames || []).some(
                                           (n) =>
-                                            n.trim().toLowerCase() === ch.name.trim().toLowerCase() ||
-                                            ch.name.trim().toLowerCase().includes(n.trim().toLowerCase()) ||
-                                            n.trim().toLowerCase().includes(ch.name.split(" ")[0].toLowerCase())
+                                            n &&
+                                            (n.trim().toLowerCase() === ch.name.trim().toLowerCase() ||
+                                              ch.name.trim().toLowerCase().includes(n.trim().toLowerCase()) ||
+                                              n.trim().toLowerCase().includes((ch.name.split(" ")[0] || "").toLowerCase()))
                                         );
                                         return (
                                           <button

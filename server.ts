@@ -56,6 +56,56 @@ function getGenAI(req: express.Request): GoogleGenAI {
 }
 
 /**
+ * Recursively strips base64 data URIs and extremely large binary strings from object payloads
+ * before passing them to LLM text prompt templates to prevent exceeding token context limits (1,048,576 tokens).
+ */
+function stripBase64AndLargeImages(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "string") {
+    if (obj.startsWith("data:image/") || (obj.length > 500 && (/^data:image\//.test(obj) || /^[A-Za-z0-9+/=]+$/.test(obj.substring(0, 100))))) {
+      return "[IMAGE_DATA_OMITTED]";
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(stripBase64AndLargeImages);
+  }
+  if (typeof obj === "object") {
+    const cleaned: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      if (
+        key === "imageUrl" ||
+        key === "portraitUrl" ||
+        key === "base64" ||
+        key === "imageData" ||
+        key === "previewImage"
+      ) {
+        const val = obj[key];
+        if (typeof val === "string" && (val.startsWith("data:image/") || val.length > 300)) {
+          cleaned[key] = "[IMAGE_DATA_OMITTED]";
+        } else {
+          cleaned[key] = val;
+        }
+      } else {
+        cleaned[key] = stripBase64AndLargeImages(obj[key]);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
+ * Safely truncates input text if it exceeds maximum character threshold to prevent prompt overflow.
+ */
+function safeTruncateText(text: string, maxChars = 250000): string {
+  if (!text || typeof text !== "string") return "";
+  if (text.length <= maxChars) return text;
+  console.warn(`[PROMPT TRUNCATION] Input text exceeded ${maxChars} chars (${text.length} chars). Truncating safely.`);
+  return text.substring(0, maxChars) + "\n\n... [TRUNCATED DUE TO INPUT LENGTH LIMIT]";
+}
+
+/**
  * Helper to parse pre-formatted scripts with explicit scene markers (e.g., [S1.], [S2.], ..., [S72.])
  */
 function parseFormattedScript(scriptText: string) {
@@ -337,7 +387,7 @@ Incorporate the following proven success formulas learned from past channel perf
 Analyze the script text and output structured storyboard JSON.
 
 --- SCRIPT TEXT ---
-${script}
+${safeTruncateText(script, 250000)}
 
 --- PARAMETERS ---
 Story Format: ${storyFormat}
@@ -972,14 +1022,18 @@ Maximum 65 words.
 `;
     }
 
-    const modelResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Translate and structure this into a powerful visual prompt in English:\n${text}`,
-      config: {
-        systemInstruction,
-        temperature: 0.3,
-      },
-    });
+    const modelResponse = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Translate and structure this into a powerful visual prompt in English:\n${safeTruncateText(text, 50000)}`,
+        config: {
+          systemInstruction,
+          temperature: 0.3,
+        },
+      }),
+      3,
+      1500
+    );
 
     const reply = modelResponse.text?.trim() || "";
     res.json({ prompt: reply });
@@ -1482,28 +1536,35 @@ Provide exactly 3 distinct A/B test thumbnail draft concepts to allow YouTube's 
       userPromptOverride += `\nCRITICAL OVERRIDE: You MUST use the dramatic color mood "${colorMoodOverride}" for this thumbnail. Do not choose any other color mood. Make sure the visualPrompt heavily aligns with "${colorMoodOverride}".`;
     }
 
+    const sanitizedScript = safeTruncateText(script, 250000);
+    const sanitizedCharacters = stripBase64AndLargeImages(characters);
+    const sanitizedLocations = stripBase64AndLargeImages(locations);
+    const sanitizedScenes = (scenes || []).map((s: any) =>
+      stripBase64AndLargeImages({
+        id: s.id,
+        locationName: s.locationName,
+        characterNames: s.characterNames,
+        narrationText: s.narrationText,
+        visualDescription: s.visualDescription,
+        refinedImagePrompt: s.refinedImagePrompt,
+      })
+    );
+
     const userPrompt = `
 Analyze the provided storyboard material and script to create the ultimate premium CTR YouTube thumbnail.
 ${userPromptOverride}
 
 --- SCRIPT TEXT ---
-${script}
+${sanitizedScript}
 
 --- CHARACTER REGISTER (CHARACTER DB) ---
-${JSON.stringify(characters, null, 2)}
+${JSON.stringify(sanitizedCharacters, null, 2)}
 
 --- STAGE LOCATIONS ---
-${JSON.stringify(locations, null, 2)}
+${JSON.stringify(sanitizedLocations, null, 2)}
 
 --- STORYBOARD SCENES ---
-${JSON.stringify(scenes.map(s => ({
-  id: s.id,
-  locationName: s.locationName,
-  characterNames: s.characterNames,
-  narrationText: s.narrationText,
-  visualDescription: s.visualDescription,
-  refinedImagePrompt: s.refinedImagePrompt
-})), null, 2)}
+${JSON.stringify(sanitizedScenes, null, 2)}
 
 Analyze carefully and output the final choice as highly-structured JSON matching the required schema.
 `;
@@ -1646,14 +1707,17 @@ Avoid any explanatory markdown outside the JSON.
       ]
     };
 
+    const sanitizedScript = safeTruncateText(script, 250000);
+    const sanitizedThumbnailData = thumbnailData ? stripBase64AndLargeImages(thumbnailData) : null;
+
     const userPrompt = `
 Formulate a monetization guidelines compliance report:
 
 --- ACTIVE SCRIPT TO INSPECT ---
-${script}
+${sanitizedScript}
 
 --- CURRENT ACTIVE THUMBNAIL PLAN ---
-${thumbnailData ? JSON.stringify(thumbnailData) : "None (No thumbnail metadata configured yet)"}
+${sanitizedThumbnailData ? JSON.stringify(sanitizedThumbnailData) : "None (No thumbnail metadata configured yet)"}
 `;
 
     const modelResponse = await callGoogleGenWithRetry(
@@ -1786,16 +1850,20 @@ Topic / Category: "${topic || "조선 야담"}"
         required: ["scores", "feedback", "extractedPatterns"],
       };
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: "유튜브 성과 데이터와 후킹 원고를 분석하여 성공/개선 패턴과 점수를 도출해 주세요.",
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.3,
-        },
-      });
+      const response = await callGoogleGenWithRetry(
+        () => ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: "유튜브 성과 데이터와 후킹 원고를 분석하여 성공/개선 패턴과 점수를 도출해 주세요.",
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema,
+            temperature: 0.3,
+          },
+        }),
+        3,
+        2000
+      );
 
       const parsed = JSON.parse(response.text || "{}");
       res.json(parsed);
