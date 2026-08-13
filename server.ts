@@ -56,6 +56,117 @@ function getGenAI(req: express.Request): GoogleGenAI {
 }
 
 /**
+ * Helper to parse pre-formatted scripts with explicit scene markers (e.g., [S1.], [S2.], ..., [S72.])
+ */
+function parseFormattedScript(scriptText: string) {
+  if (!scriptText || typeof scriptText !== "string") return null;
+
+  const chunks = scriptText
+    .split(/(?=\[S\d+[\.\)]?\]|\[Scene\s*\d+[\.\)]?\])/gi)
+    .filter((c) => c.trim().length > 0);
+
+  if (chunks.length < 3) return null;
+
+  const scenes: any[] = [];
+  const charSet = new Set<string>();
+  const locSet = new Set<string>();
+
+  for (const chunk of chunks) {
+    const idMatch = chunk.match(/^\[(?:S|Scene\s*)(\d+)[\.\)]?\]/i);
+    if (!idMatch) continue;
+
+    const id = parseInt(idMatch[1], 10);
+    const body = chunk.replace(/^\[(?:S|Scene\s*)\d+[\.\)]?\]\s*/i, "");
+
+    // Extract [Location / CharacterTags]
+    let locationName = "장면 " + id;
+    let characterNames: string[] = [];
+    const headerMatch = body.match(/^\[([^\]\/]+)(?:\/\s*([^\]]+))?\]/);
+    if (headerMatch) {
+      locationName = headerMatch[1].trim();
+      if (locationName) locSet.add(locationName);
+
+      if (headerMatch[2]) {
+        characterNames = headerMatch[2]
+          .split(",")
+          .map((c) =>
+            c
+              .trim()
+              .replace(/^Ch_[A-Z]_?/, "")
+              .replace(/^Ch_[A-Z]$/, "")
+          )
+          .filter(Boolean)
+          .filter((c) => c !== "없음" && c !== "None");
+        characterNames.forEach((c) => charSet.add(c));
+      }
+    }
+
+    // Extract TYPE (VIDEO vs IMAGE)
+    const isVideo = /\[TYPE:\s*VIDEO\]/i.test(body);
+
+    // Extract Narration text inside "..."
+    const narrationMatch = body.match(/"([^"]+)"/);
+    const narrationText = narrationMatch ? narrationMatch[1].trim() : "";
+
+    // Extract Visual description inside (...)
+    const visualMatch = body.match(/\(([^)]+)\)/);
+    const visualDescription = visualMatch ? visualMatch[1].trim() : "";
+
+    // Extract Image Prompt after [IMAGE GENERATION PROMPT]:
+    let refinedImagePrompt = "";
+    const promptMatch = body.match(
+      /\[IMAGE\s*GENERATION\s*PROMPT\]:?\s*([\s\S]+?)$/i
+    );
+    if (promptMatch) {
+      refinedImagePrompt = promptMatch[1].trim();
+    } else if (visualDescription) {
+      refinedImagePrompt = visualDescription;
+    }
+
+    // Estimate duration based on narration length
+    const narrationLen = narrationText.length;
+    let durationSeconds = isVideo ? 10 : 15;
+    if (narrationLen > 0) {
+      durationSeconds = Math.max(
+        5,
+        Math.min(18, Math.round(narrationLen / 8.5))
+      );
+    }
+
+    const totalCount = chunks.length;
+    let stage: "early" | "middle" | "late" | "final" = "middle";
+    if (id <= Math.max(3, Math.round(totalCount * 0.15))) {
+      stage = "early";
+    } else if (id >= Math.round(totalCount * 0.85)) {
+      stage = "final";
+    } else if (id >= Math.round(totalCount * 0.65)) {
+      stage = "late";
+    }
+
+    scenes.push({
+      id,
+      stage,
+      locationName: locationName || "장면 " + id,
+      characterNames,
+      narrationText: narrationText || body.slice(0, 100),
+      visualDescription: visualDescription || narrationText,
+      refinedImagePrompt:
+        refinedImagePrompt || visualDescription || narrationText,
+      cameraMotion: isVideo ? "slow_zoom" : "none",
+      durationSeconds,
+      pacingType: "normal",
+      mediaType: isVideo ? "video" : "image",
+      ltxRecommended: isVideo,
+      ltxReason: isVideo ? "역동적 감정 및 배경 움직임 연출" : undefined,
+      ltxPrompt: isVideo ? refinedImagePrompt : undefined,
+    });
+  }
+
+  if (scenes.length < 3) return null;
+  return { scenes, charList: Array.from(charSet), locList: Array.from(locSet) };
+}
+
+/**
  * Endpoint for Script Analysis & Storyboard Blueprint Generation
  */
 app.post("/api/analyze-script", async (req, res): Promise<void> => {
@@ -64,6 +175,12 @@ app.post("/api/analyze-script", async (req, res): Promise<void> => {
     if (!script || typeof script !== "string" || script.trim().length === 0) {
       res.status(400).json({ error: "Script text is required and cannot be empty." });
       return;
+    }
+
+    // Check if script is pre-formatted with scene markers (e.g. [S1.] to [S72.])
+    const preParsedFormatted = parseFormattedScript(script);
+    if (preParsedFormatted) {
+      console.log(`[ANALYZE SCRIPT] Detected pre-formatted script with ${preParsedFormatted.scenes.length} explicit scenes.`);
     }
 
     // Always pass script to Gemini AI engine for dynamic character, location, and scene extraction
@@ -75,6 +192,9 @@ Your goals are:
 1. Extract and standardize 1 to 4 main characters (Character DB).
 2. Extract recurring settings/locations (Location DB).
 3. Generate a modular sequence of storyboard scene blocks matching the timeline with dynamic scene pacing and LTX Video recommendations.
+
+=== PRE-NUMBERED SCENE PRESERVATION MANDATE ===
+- IF THE SCRIPT CONTAINS PRE-NUMBERED SCENES (e.g. [S1.] to [S72.] or [Scene 1] to [Scene N]), YOU MUST OUTPUT EVERY SINGLE SCENE (1:1 PARSING). NEVER COMPRESS, SUMMARIZE, SKIP, OR MERGE SCENES. IF THE SCRIPT HAS 72 SCENES, OUTPUT ALL 72 SCENES IN 'scenes'.
 
 === NARRATION-TO-IMAGE PERFECT COMPATIBILITY & SENSORY PROMPT RULES ===
 - ACCURATE VISUAL FOCUS & SUBJECT ALIGNMENT: 'visualDescription' and 'refinedImagePrompt' MUST focus on the actual physical subjects on screen. If the narration mentions a King's policy or decree (e.g., "세종은 백성들의 목소리를 듣고자..."), but the scene visually depicts lower-ranking officials or farmers in the marketplace ("관리가 저잣거리에서 받아 적는 모습"), focus the image and characterNames strictly on the officials/farmers on screen. Do NOT force the King into characterNames or image prompts unless he is physically present in the scene action.
@@ -131,8 +251,10 @@ Incorporate the following proven success formulas learned from past channel perf
   * SUBTLE CAMERA TRACKING: e.g., "Subtle slow tracking shot following character movement with shallow depth of field".
 - Select scenes where motion creates maximum visual tension and emotional impact.
 
-=== ARCHITECTURAL GUIDELINES ===
+=== ARCHITECTURAL GUIDELINES & MILITARY COMMANDER DISTINCTION ===
 - Character Sheets: Create clean portrait prompts for characters.
+- MILITARY COMMANDER vs CIVIL OFFICIAL SEPARATION: When historical figures are Generals/Commanders (e.g. 원균, 이순신, 권율 등) who command troops or fight in naval/land battles, NEVER group them under civil ministers ("대신들/관복"). Create a dedicated character entry for them. Set their clothing explicitly to "Joseon Naval General military armor (Dujeonggap armor), golden dragon helmet, dark blue military uniform".
+- CONTEXTUAL CLOTHING IN SCENES: For scenes involving military deployment, naval command, battles, or military camps (출전, 진영, 해전, 칠천량, 명량, 노량 등), always ensure the general's prompt uses "Joseon Naval General in traditional Dujeonggap military armor and helmet" instead of civil robes ("administrative robe/official attire").
 - Multi-Era Historical Adaptability (Joseon, Goryeo, or Three Kingdoms - Silla/Goguryeo/Baekje).
 - English Compatibility: Extract 'appearanceEnglish', 'clothingEnglish', 'descriptionEnglish'.
 - Style-Agnostic Prompting: Write refinedImagePrompt safely for 2D illustration or Stop-Motion Claymation.
@@ -221,7 +343,7 @@ ${script}
 Story Format: ${storyFormat}
 Length Preset: ${lengthPreset}
 Quantity Override: ${quantityOverride ? "ACTIVE" : "INACTIVE"}
-Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats according to length preset"}
+Target Scene Count: ${preParsedFormatted ? `EXACTLY ${preParsedFormatted.scenes.length} SCENES (Preserve [S1.] through [S${preParsedFormatted.scenes.length}.] 1:1 without merging)` : quantityOverride ? quantityValue : "Natural Beats according to length preset"}
 `;
 
     const response = await callGoogleGenWithRetry(
@@ -240,7 +362,17 @@ Target Scene Count: ${quantityOverride ? quantityValue : "Natural Beats accordin
       2500
     );
 
-    const parsedJson = cleanAndParseJSON(response.text || "{}");
+    let parsedJson = cleanAndParseJSON(response.text || "{}");
+
+    // CRITICAL LOSS-LESS RESTORATION:
+    // If input script had explicit scene tags [S1.] ~ [S72.] and Gemini returned fewer scenes,
+    // enforce 100% complete scene array from preParsedFormatted!
+    if (preParsedFormatted && preParsedFormatted.scenes.length > 0) {
+      if (!parsedJson.scenes || parsedJson.scenes.length < preParsedFormatted.scenes.length) {
+        console.log(`[ANALYZE SCRIPT] Restoring 100% complete scene set (${preParsedFormatted.scenes.length} scenes) from pre-formatted script.`);
+        parsedJson.scenes = preParsedFormatted.scenes;
+      }
+    }
 
     // Post-process durationSeconds, LTX ratios (enforce <=12s & 10-15% ratio), and SRT timecodes
     if (parsedJson.scenes && Array.isArray(parsedJson.scenes)) {
@@ -895,6 +1027,138 @@ app.post("/api/check-engine", async (req, res): Promise<void> => {
 });
 
 /**
+ * Helper to sanitize image generation prompts by replacing terms that trigger Gemini safety blocks
+ */
+function sanitizePromptForSafety(prompt: string): string {
+  let p = prompt;
+  p = p.replace(/\b(torture|tortured|torturing)\b/gi, "interrogation and physical hardship");
+  p = p.replace(/\b(blood|bloody|bleeding)\b/gi, "dramatic red water reflections and battle stain");
+  p = p.replace(/\b(execution|beheaded|decapitated|murder|massacre)\b/gi, "tragic defeat and historical downfall");
+  p = p.replace(/\b(bound by thick iron chains|iron chains|chained)\b/gi, "bound in iron confinement");
+  p = p.replace(/\b(corpse|dead bodies|severely wounded|gory)\b/gi, "fallen battle gear and dramatic aftermath");
+  return p;
+}
+
+/**
+ * Robust Image Generation Helper with Multi-Model Fallback and Safety Filter Sanitization
+ */
+async function generateImageWithFallback(
+  ai: any,
+  rawPrompt: string,
+  options: {
+    modelName?: string;
+    aspectRatio?: string;
+    artStyle?: string;
+    isPortrait?: boolean;
+    isWanIntro?: boolean;
+  }
+): Promise<string> {
+  // 1. Auto-translate any accidental Korean words to English
+  const translatedPrompt = await translateKoreanToEnglishIfNeeded(rawPrompt, ai);
+
+  // 2. Prepare base prompt modifiers
+  let basePrompt = translatedPrompt;
+  if (options.isPortrait) {
+    const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
+    basePrompt = `${translatedPrompt}, ${basePortraitModifiers}`;
+  } else if (options.isWanIntro) {
+    basePrompt = `${translatedPrompt}, high-integrity LTX video dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready static tension pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
+  }
+
+  // 3. Inject Art Style & Sanitize Safety Triggers
+  const fullPrompt = injectArtStyle(basePrompt, (options.artStyle as any) || "claymation");
+  const sanitizedPrompt = sanitizePromptForSafety(fullPrompt);
+
+  // 4. Fallback chain of image models
+  const primaryModel = options.modelName || "gemini-3.1-flash-image";
+  const modelCandidates = Array.from(new Set([
+    primaryModel,
+    "gemini-3.1-flash-image",
+    "gemini-2.5-flash-image",
+    "gemini-3.1-flash-lite-image"
+  ]));
+
+  const targetRatio = options.aspectRatio || (options.isPortrait ? "1:1" : "16:9");
+
+  let lastError: any = null;
+  let wasSafetyBlocked = false;
+
+  for (const model of modelCandidates) {
+    try {
+      let resolvedImageSize: string | undefined = undefined;
+      if (model.includes("gemini-3")) {
+        resolvedImageSize = "1K";
+      }
+
+      console.log(`[IMAGE GEN] Requesting image. Model: ${model}, Ratio: ${targetRatio}, Prompt: "${sanitizedPrompt.substring(0, 80)}..."`);
+
+      const imageResponse: any = await callGoogleGenWithRetry(
+        () => ai.models.generateContent({
+          model: model,
+          contents: {
+            parts: [{ text: sanitizedPrompt }],
+          },
+          config: {
+            imageConfig: {
+              aspectRatio: targetRatio,
+              imageSize: resolvedImageSize,
+            },
+          },
+        }),
+        3,
+        2500
+      );
+
+      let base64Image = "";
+      if (imageResponse.candidates?.[0]?.content?.parts) {
+        for (const part of imageResponse.candidates[0].content.parts) {
+          if (part.inlineData?.data) {
+            base64Image = part.inlineData.data;
+            break;
+          }
+        }
+      }
+
+      if (base64Image) {
+        console.log(`[IMAGE GEN] Successfully generated image with model: ${model}`);
+        return base64Image;
+      }
+
+      const finishReason = imageResponse.candidates?.[0]?.finishReason;
+      if (finishReason === "SAFETY") {
+        wasSafetyBlocked = true;
+        console.warn(`[IMAGE GEN] Model ${model} returned SAFETY finishReason.`);
+      }
+
+    } catch (err: any) {
+      console.warn(`[IMAGE GEN] Model ${model} failed:`, err.message || err);
+      lastError = err;
+      const errUpper = String(err.message || "").toUpperCase();
+      if (errUpper.includes("SAFETY")) {
+        wasSafetyBlocked = true;
+      }
+    }
+  }
+
+  if (wasSafetyBlocked) {
+    throw new Error("구글 안전성 필터(Safety Filter)에 의해 이미지가 차단되었습니다. 프롬프트에 포함된 선혈(blood), 고문(torture) 등 극단적 표현 단어를 수정한 후 다시 [생성] 단추를 눌러주세요.");
+  }
+
+  if (lastError) {
+    const errStr = String(lastError.message || lastError).toUpperCase();
+    if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("429") || errStr.includes("QUOTA")) {
+      throw new Error("Gemini 이미지 생성 속도 제한(Quota)이 초과되었습니다 (429 RESOURCE_EXHAUSTED). 구글 등급 정책에 따라 무료 키는 물론, 유료(Pay-as-you-go) API 키 환경이더라도 큐 대기열에서 짧은 간격으로 이미지를 초고속 대량 요청하면 분당 허용 호출 횟수(QPM)가 일시 소모되어 제한될 수 있습니다. 약 15초~30초 후에 아래 개별 [다시 생성 / 다시 렌더 시도] 단추를 누르면 이어서 정상 발급됩니다.");
+    }
+    if (errStr.includes("DEADLINE") || errStr.includes("504") || errStr.includes("EXPIRED")) {
+      throw new Error("구글 제미나이 이미지 생성 서버의 일시적인 혼잡으로 타임아웃(DEADLINE_EXCEEDED)이 계속 유발되었습니다. 잠시 후 실패한 장면에 비축된 [다시 생성] 단추를 클릭해 개별 발급을 진행해 주세요.");
+    }
+    throw lastError;
+  }
+
+  throw new Error("Gemini 이미지 생성 모델에서 이미지를 반환하지 않았습니다 (No image returned). 약 15초 후 [다시 생성] 단추를 눌러주시거나 프롬프트를 약간 다르게 수정해 시도해 주세요.");
+}
+
+/**
  * Endpoint to generate a highly consistent Character Portrait (portrait/concept sheet)
  */
 app.post("/api/generate-character-image", async (req, res): Promise<void> => {
@@ -906,68 +1170,19 @@ app.post("/api/generate-character-image", async (req, res): Promise<void> => {
     }
 
     const ai = getGenAI(req);
-    
-    // Auto-translate any accidental Korean words/names to English to avoid text overlays
-    const translatedPrompt = await translateKoreanToEnglishIfNeeded(prompt, ai);
 
-    // STRICT PORTRAIT MODIFIERS to avoid multiple people appearing in the frame
-    const basePortraitModifiers = "Only ONE person, isolated portrait, single character, no secondary character, no group, no background people, strictly single shot, solo view, plain flat background";
-    
-    // Stitch modifiers together
-    const finalPrompt = injectArtStyle(`${translatedPrompt}, ${basePortraitModifiers}`, artStyle || "claymation");
-    const activeModel = modelName || "gemini-3.1-flash-image";
-
-    console.log(`Generating character sheet. Model: ${activeModel}, Prompt: "${finalPrompt}"`);
-
-    const targetRatio = aspectRatio || "1:1";
-    let resolvedImageSize: string | undefined = undefined;
-    if (activeModel === "gemini-3.1-flash-image") {
-      resolvedImageSize = "1K";
-    }
-
-    const imageResponse = await callGoogleGenWithRetry(
-      () => ai.models.generateContent({
-        model: activeModel,
-        contents: {
-          parts: [{ text: finalPrompt }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: targetRatio,
-            imageSize: resolvedImageSize,
-          },
-        },
-      }),
-      5,
-      3000
-    );
-
-    let base64Image = "";
-    if (imageResponse.candidates?.[0]?.content?.parts) {
-      for (const part of imageResponse.candidates[0].content.parts) {
-        if (part.inlineData?.data) {
-          base64Image = part.inlineData.data;
-          break;
-        }
-      }
-    }
-
-    if (!base64Image) {
-      throw new Error("No image was returned from the Gemini Image model.");
-    }
+    const base64Image = await generateImageWithFallback(ai, prompt, {
+      modelName,
+      aspectRatio,
+      artStyle,
+      isPortrait: true,
+    });
 
     res.json({ imageUrl: `data:image/png;base64,${base64Image}` });
 
   } catch (error: any) {
     console.error("Error generating character portrait:", error);
-    let errMsg = error.message || "Failed to generate character sheet image.";
-    const errStr = String(errMsg).toUpperCase();
-    if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("429") || errStr.includes("QUOTA")) {
-      errMsg = "Gemini 이미지 생성 속도 제한(Quota)이 초과되었습니다 (429 RESOURCE_EXHAUSTED). 구글 등급 정책에 따라 무료 키는 물론, 유료(Pay-as-you-go) API 키 환경이더라도 큐 대기열에서 짧은 간격으로 이미지를 초고속 대량 요청하면 분당 허용 호출 횟수(QPM)가 일시 소모되어 제한될 수 있습니다. 약 15초~30초 후에 아래 개별 [다시 생성 / 다시 렌더 시도] 단추를 누르면 이어서 정상 발급됩니다.";
-    } else if (errStr.includes("DEADLINE") || errStr.includes("504") || errStr.includes("EXPIRED")) {
-      errMsg = "구글 제미나이 이미지 생성 서버의 일시적인 혼잡으로 타임아웃(DEADLINE_EXCEEDED)이 계속 유발되었습니다. 잠시 후 실패한 장면에 비축된 [다시 생성] 단추를 클릭해 개별 발급을 진행해 주세요.";
-    }
-    res.status(500).json({ error: errMsg });
+    res.status(500).json({ error: error.message || "Failed to generate character sheet image." });
   }
 });
 
@@ -983,69 +1198,20 @@ app.post("/api/generate-scene-image", async (req, res): Promise<void> => {
     }
 
     const ai = getGenAI(req);
-    
-    // Auto-translate any accidental Korean words/names to English to avoid text overlays
-    const translatedPrompt = await translateKoreanToEnglishIfNeeded(prompt, ai);
-    
-    let basePrompt = translatedPrompt;
-    if (isWanIntro) {
-      basePrompt = `${translatedPrompt}, high-integrity LTX video dynamic motion starter frame, capturing the precise tense instant immediately before physical action begins, high energy potential, action-ready static tension pose, crisp clear hair and cloth boundaries, perfect reference starting pose for image-to-video animation generators`;
-    }
-    
-    const finalPrompt = injectArtStyle(basePrompt, artStyle || "claymation");
-    const activeModel = modelName || "gemini-3.1-flash-image";
 
-    console.log(`Generating scene image. Model: ${activeModel}, LTX-Video-Motion: ${!!isWanIntro}, Prompt: "${finalPrompt}"`);
-
-    const targetRatio = aspectRatio || "16:9";
-    let resolvedImageSize: string | undefined = undefined;
-    if (activeModel === "gemini-3.1-flash-image") {
-      resolvedImageSize = "1K";
-    }
-
-    const imageResponse = await callGoogleGenWithRetry(
-      () => ai.models.generateContent({
-        model: activeModel,
-        contents: {
-          parts: [{ text: finalPrompt }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: targetRatio,
-            imageSize: resolvedImageSize,
-          },
-        },
-      }),
-      5,
-      3000
-    );
-
-    let base64Image = "";
-    if (imageResponse.candidates?.[0]?.content?.parts) {
-      for (const part of imageResponse.candidates[0].content.parts) {
-        if (part.inlineData?.data) {
-          base64Image = part.inlineData.data;
-          break;
-        }
-      }
-    }
-
-    if (!base64Image) {
-      throw new Error("No image was returned from the Gemini Image model.");
-    }
+    const base64Image = await generateImageWithFallback(ai, prompt, {
+      modelName,
+      aspectRatio,
+      artStyle,
+      isWanIntro,
+      isPortrait: false,
+    });
 
     res.json({ imageUrl: `data:image/png;base64,${base64Image}` });
 
   } catch (error: any) {
     console.error("Error generating scene image:", error);
-    let errMsg = error.message || "Failed to generate scene image.";
-    const errStr = String(errMsg).toUpperCase();
-    if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("429") || errStr.includes("QUOTA")) {
-      errMsg = "Gemini 이미지 생성 속도 제한(Quota)이 초과되었습니다 (429 RESOURCE_EXHAUSTED). 구글 등급 정책에 따라 무료 키는 물론, 유료(Pay-as-you-go) API 키 환경이더라도 큐 대기열에서 짧은 간격으로 이미지를 초고속 대량 요청하면 분당 허용 호출 횟수(QPM)가 일시 소모되어 제한될 수 있습니다. 약 15초~30초 후에 아래 개별 [다시 생성 / 다시 렌더 시도] 단추를 누르면 이어서 정상 발급됩니다.";
-    } else if (errStr.includes("DEADLINE") || errStr.includes("504") || errStr.includes("EXPIRED")) {
-      errMsg = "구글 제미나이 이미지 생성 서버의 일시적인 혼잡으로 타임아웃(DEADLINE_EXCEEDED)이 계속 유발되었습니다. 잠시 후 실패한 장면에 비축된 [다시 생성] 단추를 클릭해 개별 발급을 진행해 주세요.";
-    }
-    res.status(500).json({ error: errMsg });
+    res.status(500).json({ error: error.message || "Failed to generate scene image." });
   }
 });
 
@@ -1735,7 +1901,11 @@ function parseStructuredScript(script: string) {
       let characterSheetPrompt = "";
       let appearanceEnglish = "";
       let clothingEnglish = "";
-      if (charId.includes("Yeongjo") || charId === "Ch_B") {
+      if (charId.includes("YiSunsin") || script.includes("이순신")) {
+        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 50-year old Korean Joseon Dynasty Admiral Yi Sun-sin, wearing ornate traditional Joseon general helmet with gold dragon brass ornaments and red ear flaps with brass studs, red and navy Dujeonggap scale armor, neat grey beard, intense hero gaze, clean studio light grey background, solo card portrait focus";
+        appearanceEnglish = "heroic 50-year-old Joseon Admiral, intense resolute gaze, neat grey beard and mustache, authentic Korean facial features";
+        clothingEnglish = "ornate traditional Joseon general helmet with red flap, red and dark blue Dujeonggap military scale armor";
+      } else if (charId.includes("Yeongjo") || charId === "Ch_B") {
         characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single elderly Joseon king, red royal dragon robe, ikseongwan royal crown, looking silent and stern, traditional grey long beard, clean studio light grey background, solo card portrait focus";
         appearanceEnglish = "stern, deeply wrinkled elderly Joseon king, traditional grey long beard";
         clothingEnglish = "majestic red royal dragon robe, black royal crown hat ikseongwan";
@@ -1817,9 +1987,16 @@ function parseStructuredScript(script: string) {
         appearanceEnglish = "stern, deeply wrinkled elderly Joseon king, traditional grey long beard";
         clothingEnglish = "majestic red royal dragon robe, black royal crown hat ikseongwan";
       } else if (charId === "Ch_A") {
-        characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single young Joseon prince, disheveled royal blue robe, pale tragic face, no beard, clean studio light grey background, solo card portrait focus";
-        appearanceEnglish = "tragic young Joseon crown prince, pale face, emotional eyes, no beard";
-        clothingEnglish = "disheveled royal blue silk robe";
+        if (script.includes("이순신") || script.includes("YiSunsin")) {
+          displayName = "이순신";
+          characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single 50-year old Korean Joseon Dynasty Admiral Yi Sun-sin, wearing ornate traditional Joseon general helmet with gold dragon brass ornaments and red ear flaps with brass studs, red and navy Dujeonggap scale armor, neat grey beard, intense hero gaze, clean studio light grey background, solo card portrait focus";
+          appearanceEnglish = "heroic 50-year-old Joseon Admiral, intense resolute gaze, neat grey beard and mustache, authentic Korean facial features";
+          clothingEnglish = "ornate traditional Joseon general helmet with red flap, red and dark blue Dujeonggap military scale armor";
+        } else {
+          characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single young Joseon prince, disheveled royal blue robe, pale tragic face, no beard, clean studio light grey background, solo card portrait focus";
+          appearanceEnglish = "tragic young Joseon crown prince, pale face, emotional eyes, no beard";
+          clothingEnglish = "disheveled royal blue silk robe";
+        }
       } else if (charId === "Ch_C") {
         characterSheetPrompt = "masterpiece, best quality, year 2024, artistic rendering, rich texture, dramatic lighting, detailed character design, a single young beautiful Joseon noblewoman, elegant complex traditional hair ornament with binyeo hairpin, green silk Hanbok dress, clean studio light grey background, solo card portrait focus";
         appearanceEnglish = "young beautiful Joseon princess, elegant complex traditional hair ornament";

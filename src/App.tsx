@@ -4774,7 +4774,7 @@ export default function App() {
                       <input
                         type="range"
                         min="3"
-                        max="100"
+                        max="150"
                         value={quantityValue}
                         onChange={(e) =>
                           setQuantityValue(parseInt(e.target.value))
@@ -4786,8 +4786,8 @@ export default function App() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-white/40 font-mono italic">
-                      기본 흐름 분석 분량 (5~12장)
+                    <span className="text-xs text-emerald-400 font-mono text-[11px] font-medium">
+                      ✓ [S1.]~[S72.] 씬 번호 대본 입력 시 100% 무손실 일대일 렌더
                     </span>
                   )}
 
@@ -8361,7 +8361,7 @@ export default function App() {
                       <input
                         type="range"
                         min="3"
-                        max="100"
+                        max="150"
                         value={quantityValue}
                         onChange={(e) =>
                           setQuantityValue(parseInt(e.target.value))
