@@ -801,8 +801,8 @@ Output ONLY the translated English prompt itself:`,
  */
 async function callGoogleGenWithRetry<T>(
   fn: () => Promise<T>,
-  retries = 5,
-  delayMs = 3000
+  retries = 3,
+  delayMs = 2000
 ): Promise<T> {
   let lastError: any;
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -812,6 +812,20 @@ async function callGoogleGenWithRetry<T>(
       lastError = error;
       const errorMsg = String(error.message || error.status || JSON.stringify(error) || "");
       const errorStr = errorMsg.toUpperCase();
+
+      // Permanent errors should fail immediately without useless retries
+      const isPermanentError =
+        errorStr.includes("NOT_FOUND") ||
+        errorStr.includes("404") ||
+        errorStr.includes("INVALID_ARGUMENT") ||
+        errorStr.includes("NOT_SUPPORTED") ||
+        errorStr.includes("API_KEY_INVALID") ||
+        errorStr.includes("PERMISSION_DENIED");
+
+      if (isPermanentError) {
+        throw error;
+      }
+
       const isQuotaError =
         errorStr.includes("RESOURCE_EXHAUSTED") ||
         errorStr.includes("429") ||
@@ -824,6 +838,7 @@ async function callGoogleGenWithRetry<T>(
         errorStr.includes("EXPIRED") ||
         errorStr.includes("504") ||
         errorStr.includes("503") ||
+        errorStr.includes("500") ||
         errorStr.includes("TIMEOUT") ||
         errorStr.includes("UNAVAILABLE") ||
         errorStr.includes("INTERNAL") ||
@@ -833,10 +848,10 @@ async function callGoogleGenWithRetry<T>(
         errorStr.includes("CONGESTED");
 
       if (isRetryable && attempt < retries) {
-        let currentDelay = delayMs * Math.pow(1.8, attempt - 1);
+        let currentDelay = delayMs * Math.pow(1.5, attempt - 1);
 
         if (isQuotaError) {
-          let retryInSec = 12;
+          let retryInSec = 10;
           const match = errorMsg.match(/retry in ([0-9]+(?:\.[0-9]+)?)s/i);
           if (match && match[1]) {
             retryInSec = Math.ceil(parseFloat(match[1])) + 1;
@@ -844,7 +859,7 @@ async function callGoogleGenWithRetry<T>(
           currentDelay = Math.max(currentDelay, retryInSec * 1000);
         }
 
-        const jitter = Math.floor(Math.random() * 1000);
+        const jitter = Math.floor(Math.random() * 500);
         currentDelay += jitter;
 
         console.warn(`[GEMINI RETRY] Attempt ${attempt}/${retries} failed (${isQuotaError ? "Quota/429" : "Transient"}: ${error.message || error}). Retrying in ${Math.round(currentDelay)}ms...`);
@@ -1137,13 +1152,13 @@ async function generateImageWithFallback(
   const fullPrompt = injectArtStyle(basePrompt, (options.artStyle as any) || "claymation");
   const sanitizedPrompt = sanitizePromptForSafety(fullPrompt);
 
-  // 4. Fallback chain of image models
+  // 4. Fallback chain of image models (Only official Gemini image models)
   const primaryModel = options.modelName || "gemini-3.1-flash-image";
   const modelCandidates = Array.from(new Set([
     primaryModel,
     "gemini-3.1-flash-image",
-    "gemini-2.5-flash-image",
-    "gemini-3.1-flash-lite-image"
+    "gemini-3.1-flash-lite-image",
+    "gemini-3-pro-image",
   ]));
 
   const targetRatio = options.aspectRatio || (options.isPortrait ? "1:1" : "16:9");
@@ -1153,12 +1168,18 @@ async function generateImageWithFallback(
 
   for (const model of modelCandidates) {
     try {
-      let resolvedImageSize: string | undefined = undefined;
-      if (model.includes("gemini-3")) {
-        resolvedImageSize = "1K";
-      }
+      // imageSize is supported only for gemini-3.1-flash-image and gemini-3-pro-image
+      const supportsImageSize = model === "gemini-3.1-flash-image" || model === "gemini-3-pro-image";
+      const resolvedImageSize = supportsImageSize ? "1K" : undefined;
 
-      console.log(`[IMAGE GEN] Requesting image. Model: ${model}, Ratio: ${targetRatio}, Prompt: "${sanitizedPrompt.substring(0, 80)}..."`);
+      console.log(`[IMAGE GEN] Requesting image. Model: ${model}, Ratio: ${targetRatio}, Size: ${resolvedImageSize || "default"}, Prompt: "${sanitizedPrompt.substring(0, 80)}..."`);
+
+      const imageConfig: Record<string, any> = {
+        aspectRatio: targetRatio,
+      };
+      if (resolvedImageSize) {
+        imageConfig.imageSize = resolvedImageSize;
+      }
 
       const imageResponse: any = await callGoogleGenWithRetry(
         () => ai.models.generateContent({
@@ -1167,14 +1188,11 @@ async function generateImageWithFallback(
             parts: [{ text: sanitizedPrompt }],
           },
           config: {
-            imageConfig: {
-              aspectRatio: targetRatio,
-              imageSize: resolvedImageSize,
-            },
+            imageConfig,
           },
         }),
-        3,
-        2500
+        2,
+        2000
       );
 
       let base64Image = "";
@@ -1208,6 +1226,30 @@ async function generateImageWithFallback(
     }
   }
 
+  // 5. Ultimate Fallback: Try Imagen 3 (imagen-3.0-generate-002)
+  try {
+    console.log(`[IMAGE GEN] Attempting Imagen 3 fallback (imagen-3.0-generate-002)...`);
+    const imagenResp: any = await callGoogleGenWithRetry(
+      () => ai.models.generateImages({
+        model: "imagen-3.0-generate-002",
+        prompt: sanitizedPrompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: targetRatio,
+          outputMimeType: "image/png",
+        },
+      }),
+      2,
+      2000
+    );
+    if (imagenResp.generatedImages?.[0]?.image?.imageBytes) {
+      console.log(`[IMAGE GEN] Successfully generated image with Imagen 3!`);
+      return imagenResp.generatedImages[0].image.imageBytes;
+    }
+  } catch (imagenErr: any) {
+    console.warn(`[IMAGE GEN] Imagen 3 fallback also failed:`, imagenErr.message || imagenErr);
+  }
+
   if (wasSafetyBlocked) {
     throw new Error("구글 안전성 필터(Safety Filter)에 의해 이미지가 차단되었습니다. 프롬프트에 포함된 선혈(blood), 고문(torture) 등 극단적 표현 단어를 수정한 후 다시 [생성] 단추를 눌러주세요.");
   }
@@ -1217,8 +1259,8 @@ async function generateImageWithFallback(
     if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("429") || errStr.includes("QUOTA")) {
       throw new Error("Gemini 이미지 생성 속도 제한(Quota)이 초과되었습니다 (429 RESOURCE_EXHAUSTED). 구글 등급 정책에 따라 무료 키는 물론, 유료(Pay-as-you-go) API 키 환경이더라도 큐 대기열에서 짧은 간격으로 이미지를 초고속 대량 요청하면 분당 허용 호출 횟수(QPM)가 일시 소모되어 제한될 수 있습니다. 약 15초~30초 후에 아래 개별 [다시 생성 / 다시 렌더 시도] 단추를 누르면 이어서 정상 발급됩니다.");
     }
-    if (errStr.includes("DEADLINE") || errStr.includes("504") || errStr.includes("EXPIRED")) {
-      throw new Error("구글 제미나이 이미지 생성 서버의 일시적인 혼잡으로 타임아웃(DEADLINE_EXCEEDED)이 계속 유발되었습니다. 잠시 후 실패한 장면에 비축된 [다시 생성] 단추를 클릭해 개별 발급을 진행해 주세요.");
+    if (errStr.includes("DEADLINE") || errStr.includes("504") || errStr.includes("EXPIRED") || errStr.includes("ABORT")) {
+      throw new Error("구글 제미나이 이미지 생성 서버의 일시적인 혼잡으로 응답 지연(Timeout)이 발생했습니다. 잠시 후 실패한 장면에 비축된 [다시 생성] 단추를 클릭해 개별 발급을 진행해 주세요.");
     }
     throw lastError;
   }
@@ -1756,6 +1798,99 @@ ${sanitizedThumbnailData ? JSON.stringify(sanitizedThumbnailData) : "None (No th
   } catch (error: any) {
     console.error("Error during safety audit:", error);
     res.status(500).json({ error: error.message || "An unexpected error occurred during safety compliance check." });
+  }
+});
+
+/**
+ * Endpoint for Script Planner Script Text & Vocabulary Similarity Diagnosis
+ * Evaluates script for AI repetitive clichés, formulaic transitions, and vocabulary duplication.
+ * Returns sentence-level rewrite suggestions and a non-destructive paraphrased full script.
+ */
+app.post("/api/analyze-script-similarity", async (req, res): Promise<void> => {
+  try {
+    const { script } = req.body;
+    if (!script || typeof script !== "string" || script.trim().length === 0) {
+      res.status(400).json({ error: "Script text is required for similarity analysis." });
+      return;
+    }
+
+    const ai = getGenAI(req);
+
+    const systemInstruction = `
+You are a master Korean historical storyteller and YouTube Monetization Compliance Officer specializing in Korean Yadam and historical narrative channels.
+Your job is to diagnose the script for:
+1. Script Text Similarity & AI Formulaic Clichés (e.g. "하지만 이것은 단순한 ~가 아니었습니다", "그러나 진짜 이야기는 지금부터였습니다", "놀랍게도 ~였습니다", "바로 그 순간 ~", "결국 ~하게 됩니다", "과연 ~였을까요?").
+2. Monotonous Paragraph/Sentence Starters & Vocabulary Repetition.
+3. Overly sensational or cliché buzzwords that trigger YouTube's "Reused Content" or "Repetitive Content" demonetization flags.
+
+=== ABSOLUTE NON-DESTRUCTIVE STRUCTURAL PRESERVATION RULE ===
+- YOU MUST NEVER DELETE, MERGE, OR ALTER SCENE MARKERS (e.g. [S1.], [S2.], ... or [Scene 1]...).
+- YOU MUST NEVER CHANGE THE NARRATION DURATION, TOTAL SCENE COUNT, OR OVERALL STORY STRUCTURE.
+- EVERY FLAGGED PHRASE MUST INCLUDE 2 TO 3 NATURAL, HIGH-RETENTION KOREAN ALTERNATIVE SUGGESTIONS THAT FIT THE EXACT SAME SENTENCE LENGTH AND CONTEXT.
+- THE 'suggestedFullScript' FIELD MUST CONTAIN A COMPLETE, SAFE PARAPHRASED VERSION OF THE SCRIPT WHERE ALL FLAGGED CLICHÉS ARE REPLACED WITH NATURAL KOREAN HISTORICAL NARATION EXPRESSIONS WHILE PRESERVING ALL SCENE MARKERS ([S1.], [S2.]...) EXACTLY INTACT.
+`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      description: "Script text similarity and AI cliché diagnosis report for Script Planner.",
+      properties: {
+        overallSafetyScore: { type: Type.INTEGER, description: "Safety score from 0 to 100 (where 100 is highly unique / safe from reused text)." },
+        riskLevel: { type: Type.STRING, enum: ["SAFE", "CAUTION", "HIGH_RISK"], description: "Overall text similarity risk level." },
+        summary: { type: Type.STRING, description: "Comprehensive Korean summary of text similarity analysis, AI cliché flags, and vocabulary diversity." },
+        flaggedPhrases: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.INTEGER },
+              originalText: { type: Type.STRING, description: "Exact flagged sentence or phrase from the script." },
+              reason: { type: Type.STRING, description: "Korean explanation of why this phrase is flagged (e.g., AI 상투적 클리셰, 어휘 자가 복제)." },
+              riskType: { type: Type.STRING, enum: ["ai_cliche", "repetitive_vocab", "high_similarity"] },
+              suggestions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "2 to 3 natural Korean alternative phrasings matching sentence length and tone."
+              }
+            },
+            required: ["id", "originalText", "reason", "riskType", "suggestions"]
+          }
+        },
+        suggestedFullScript: { type: Type.STRING, description: "Complete revised script with scene markers ([S1.], [S2.]...) and narration length 100% preserved." }
+      },
+      required: ["overallSafetyScore", "riskLevel", "summary", "flaggedPhrases", "suggestedFullScript"]
+    };
+
+    const sanitizedScript = safeTruncateText(script, 250000);
+
+    const userPrompt = `
+Perform a non-destructive script text similarity and AI cliché compliance check for the following script:
+
+--- SCRIPT TO ANALYZE ---
+${sanitizedScript}
+`;
+
+    const modelResponse = await callGoogleGenWithRetry(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.2,
+        },
+      }),
+      3,
+      2000
+    );
+
+    const text = modelResponse.text?.trim() || "{}";
+    const parsed = JSON.parse(text);
+    res.json(parsed);
+
+  } catch (error: any) {
+    console.error("Error during script similarity analysis:", error);
+    res.status(500).json({ error: error.message || "An error occurred during script similarity analysis." });
   }
 });
 

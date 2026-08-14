@@ -70,7 +70,7 @@ export interface StoryboardAnalysisResponse {
 }
 
 export interface GenerationConfig {
-  model: "gemini-2.5-flash-image" | "gemini-3.1-flash-image";
+  model: "gemini-3.1-flash-image" | "gemini-3.1-flash-lite-image" | "gemini-3-pro-image";
   aspectRatio: "1:1" | "9:16" | "16:9" | "3:4" | "4:3";
   artStyle: "realistic" | "3d" | "anime" | "yadam" | "claymation";
   quantityOverride: boolean;

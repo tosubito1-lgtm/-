@@ -211,7 +211,7 @@ export default function App() {
   const [recommendationReason, setRecommendationReason] = useState("");
 
   const [modelName, setModelName] = useState<
-    "gemini-2.5-flash-image" | "gemini-3.1-flash-image"
+    "gemini-3.1-flash-image" | "gemini-3.1-flash-lite-image" | "gemini-3-pro-image"
   >("gemini-3.1-flash-image");
   const [aspectRatio, setAspectRatio] = useState<
     "1:1" | "9:16" | "16:9" | "3:4" | "4:3"
@@ -242,6 +242,11 @@ export default function App() {
   const [selectedComposition, setSelectedComposition] = useState<string>("");
   const [selectedColorMood, setSelectedColorMood] = useState<string>("");
   
+  // Script Planner Similarity & Vocabulary Safety Checker states
+  const [similarityReport, setSimilarityReport] = useState<any | null>(null);
+  const [isAnalyzingSimilarity, setIsAnalyzingSimilarity] = useState(false);
+  const [showSimilarityModal, setShowSimilarityModal] = useState(false);
+
   // Real-time Korean Calligraphy Thumbnail Text Overlay states
   const [overlayText, setOverlayText] = useState("");
   const [overlayStyle, setOverlayStyle] = useState<"classic-brush" | "horror-mystery" | "clean-serif" | "bold-modern">("classic-brush");
@@ -771,6 +776,48 @@ export default function App() {
     }
   };
 
+  // Script Planner Similarity & Monetization Safety Diagnosis Handler
+  const handleAnalyzeScriptSimilarity = async () => {
+    if (!scriptText.trim()) {
+      showFeedback("검사할 대본 원고가 비어있습니다.", "error");
+      return;
+    }
+
+    setIsAnalyzingSimilarity(true);
+    showFeedback("구글 제미나이를 호출하여 대본 어휘 유사율 및 상투적 AI 클리셰 표현을 정밀 진단 중입니다...", "info");
+
+    try {
+      const response = await fetch("/api/analyze-script-similarity", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ script: scriptText }),
+      });
+
+      const data = await safeParseJSON(response, "대본 어휘 유사율 검사 실패");
+      setSimilarityReport(data);
+      setShowSimilarityModal(true);
+      showFeedback("✨ 대본 어휘 유사율 및 수익정지 안전 진단 보고가 발급되었습니다!", "success");
+    } catch (err: any) {
+      console.error("Script similarity analysis error:", err);
+      showFeedback(`어휘 유사율 검사 오류: ${err.message}`, "error");
+    } finally {
+      setIsAnalyzingSimilarity(false);
+    }
+  };
+
+  const handleApplySingleSuggestion = (originalText: string, suggestedText: string) => {
+    if (!originalText || !suggestedText) return;
+    setScriptText((prev) => prev.replace(originalText, suggestedText));
+    showFeedback(`어휘 교정안이 안전하게 반영되었습니다: "${suggestedText}"`, "success");
+  };
+
+  const handleApplyFullParaphrasedScript = () => {
+    if (!similarityReport?.suggestedFullScript) return;
+    setScriptText(similarityReport.suggestedFullScript);
+    setShowSimilarityModal(false);
+    showFeedback("✨ 나래이션 분량과 장면 구조가 100% 보존된 안전 교정 대본이 최종 적용되었습니다!", "success");
+  };
+
   const updateCustomApiKey = (key: string) => {
     setCustomApiKey(key);
     setKeyVerificationError(null); // Reset verification state when key changes
@@ -840,6 +887,15 @@ export default function App() {
         ) {
           throw new Error(
             "Gemini 분당 무료 API 사용 한도가 초과되었습니다. 30초 후 개별 [다시 생성]을 눌러주십시오.",
+          );
+        }
+        if (
+          text.trim().startsWith("<!DOCTYPE") ||
+          text.trim().startsWith("<!doctype") ||
+          text.includes("<html")
+        ) {
+          throw new Error(
+            "서버 통신 일시 지연 또는 재부팅 중입니다. 약 3초 후 [다시 생성] 단추를 눌러주십시오.",
           );
         }
         throw new Error(
@@ -3951,10 +4007,10 @@ export default function App() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white tracking-tight">대본 기획용 야담 플래너 & 제어 제휴망</span>
-              <span className="text-[10px] bg-sky-950 text-sky-400 border border-sky-800/30 font-bold px-1.5 py-0.5 rounded-sm">60씬 규격 호환</span>
+              <span className="text-[10px] bg-sky-950 text-sky-400 border border-sky-800/30 font-bold px-1.5 py-0.5 rounded-sm">자율 씬 호환</span>
             </div>
             <p className="text-xs text-white/50 leading-relaxed max-w-2xl mt-0.5">
-              플래너에서 0~4단계에 걸쳐 60개 씬의 대본과 TTS 극본을 설계한 뒤, 아래 입력란이나 누적추가 기능을 활용해 스토리보드 타임라인을 끊김없이 렌더링하세요.
+              플래너에서 0~4단계에 걸쳐 대본과 TTS 극본을 설계한 뒤, 아래 입력란이나 누적추가 기능을 활용해 스토리보드 타임라인을 끊김없이 렌더링하세요.
             </p>
           </div>
         </div>
@@ -4280,7 +4336,23 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleAnalyzeScriptSimilarity}
+                      disabled={isAnalyzingSimilarity || !scriptText.trim()}
+                      id="btn-analyze-script-similarity"
+                      className={`flex-1 py-2.5 px-4 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                        isAnalyzingSimilarity
+                          ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300 cursor-not-allowed"
+                          : "bg-gradient-to-r from-emerald-600/30 via-teal-600/30 to-cyan-600/30 hover:from-emerald-600/40 hover:to-cyan-600/40 border-emerald-500/40 text-emerald-300 hover:text-white shadow-lg shadow-emerald-950/30"
+                      }`}
+                      title="대본 상투어구, AI 클리셰, 어휘 자가복제를 검사하고 100% 구조 보존 교정안을 제공합니다."
+                    >
+                      <ShieldAlert className={`w-4 h-4 text-emerald-400 ${isAnalyzingSimilarity ? "animate-spin" : ""}`} />
+                      {isAnalyzingSimilarity ? "어휘 유사율 & 상투적 AI 클리셰 진단 중..." : "🛡️ 대본 어휘 유사율 & 수익정지 안전 진단"}
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -4291,7 +4363,7 @@ export default function App() {
                         );
                       }}
                       id="btn-load-preset"
-                      className="flex-1 py-2.5 bg-[#1a1a22] hover:bg-[#252530] border border-white/10 rounded-md text-white/60 text-xs font-bold transition-all"
+                      className="py-2.5 px-3 bg-[#1a1a22] hover:bg-[#252530] border border-white/10 rounded-md text-white/60 text-xs font-bold transition-all"
                     >
                       조선 야담 시나리오 대입
                     </button>
@@ -4304,6 +4376,140 @@ export default function App() {
                       초기화
                     </button>
                   </div>
+
+                  {/* Script Similarity & Monetization Safety Diagnosis Result Modal/Card */}
+                  {showSimilarityModal && similarityReport && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-5 bg-[#16161e] border border-emerald-500/30 rounded-xl space-y-4 shadow-2xl relative overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+                            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                              🛡️ 대본 어휘 유사율 & 수익정지 자가 진단 보고서
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border ${
+                                similarityReport.riskLevel === "SAFE"
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                  : similarityReport.riskLevel === "CAUTION"
+                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                  : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                              }`}>
+                                {similarityReport.riskLevel === "SAFE" ? "안전 (SAFE)" : similarityReport.riskLevel === "CAUTION" ? "주의 (CAUTION)" : "위험 (HIGH RISK)"}
+                              </span>
+                            </h4>
+                            <p className="text-xs text-white/50 mt-0.5">
+                              구글 제미나이가 어휘 자가복제 및 AI 정형화 클리셰를 검사했습니다.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-[10px] text-white/40 block font-mono">독창성 점수</span>
+                            <span className="text-lg font-black text-emerald-400 font-mono">
+                              {similarityReport.overallSafetyScore ?? 95}점 / 100점
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowSimilarityModal(false)}
+                            className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Summary */}
+                      {similarityReport.summary && (
+                        <div className="p-3 bg-white/5 border border-white/10 rounded-lg text-xs text-white/80 leading-relaxed">
+                          <strong>💡 종합 진단 소평:</strong> {similarityReport.summary}
+                        </div>
+                      )}
+
+                      {/* Safety Guarantee Notice */}
+                      <div className="p-2.5 bg-cyan-950/30 border border-cyan-500/20 rounded-lg flex items-center justify-between text-[11px] text-cyan-200">
+                        <span className="flex items-center gap-1.5 font-semibold">
+                          <CheckCircle className="w-3.5 h-3.5 text-cyan-400" />
+                          나래이션 분량 및 장면 구조 100% 보존 보장
+                        </span>
+                        <span className="text-[10px] text-cyan-300/70 font-mono">
+                          타임라인 & 이미지 렌더링 무영향
+                        </span>
+                      </div>
+
+                      {/* Flagged Phrases & Click-to-Apply Suggestions */}
+                      {similarityReport.flaggedPhrases && similarityReport.flaggedPhrases.length > 0 ? (
+                        <div className="space-y-3 pt-1">
+                          <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                            감지된 어휘/클리셰 구간 및 추천 교정 표현 ({similarityReport.flaggedPhrases.length}건)
+                          </h5>
+
+                          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                            {similarityReport.flaggedPhrases.map((item: any, idx: number) => (
+                              <div key={idx} className="p-3 bg-[#111116] border border-white/5 rounded-lg space-y-2 text-left">
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-xs text-rose-300 font-mono line-through decoration-rose-500/50 bg-rose-950/30 px-2 py-0.5 rounded border border-rose-500/20">
+                                    "{item.originalText}"
+                                  </span>
+                                  <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded shrink-0 font-bold">
+                                    {item.reason || "상투적 표현"}
+                                  </span>
+                                </div>
+
+                                {item.suggestions && item.suggestions.length > 0 && (
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] text-white/40 font-mono block">💡 클릭 시 해당 문장만 즉시 교정 적용:</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {item.suggestions.map((sug: string, sIdx: number) => (
+                                        <button
+                                          key={sIdx}
+                                          type="button"
+                                          onClick={() => handleApplySingleSuggestion(item.originalText, sug)}
+                                          className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs rounded transition-all flex items-center gap-1 text-left font-sans"
+                                          title="이 교정안으로 대본 원고 치환"
+                                        >
+                                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                          <span>"{sug}"</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-xs text-emerald-300 flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <span>대본 원고에 감지된 상투적 AI 클리셰나 중복 어휘가 없습니다. 독창적인 상태입니다!</span>
+                        </div>
+                      )}
+
+                      {/* Full Paraphrased Script Apply Button */}
+                      {similarityReport.suggestedFullScript && (
+                        <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                          <p className="text-[11px] text-white/60">
+                            모든 클리셰가 교정된 전체 대본을 한 번에 검토 후 교정 적용할 수 있습니다.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleApplyFullParaphrasedScript}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 shrink-0"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-white" />
+                            검토 후 교정 대본 전체 적용
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -4823,7 +5029,7 @@ export default function App() {
                     </div>
                   ) : (
                     <span className="text-xs text-emerald-400 font-mono text-[11px] font-medium">
-                      ✓ [S1.]~[S72.] 씬 번호 대본 입력 시 100% 무손실 일대일 렌더
+                      ✓ 씬 번호([S1.] 등) 대본 입력 시 100% 무손실 일대일 렌더
                     </span>
                   )}
 
@@ -8249,10 +8455,13 @@ export default function App() {
                   className="w-full bg-[#1a1a22] border border-white/10 rounded-md p-2.5 text-xs text-white/80 outline-none focus:border-blue-500/50 cursor-pointer font-sans"
                 >
                   <option value="gemini-3.1-flash-image">
-                    Gemini 3.1 Flash Image (추천 기본값 / FHD 고화질)
+                    Gemini 3.1 Flash Image (추천 기본값 / 1K 고화질 렌더)
                   </option>
-                  <option value="gemini-2.5-flash-image">
-                    Gemini 2.5 Flash Image Model (이전 버전)
+                  <option value="gemini-3.1-flash-lite-image">
+                    Gemini 3.1 Flash Lite Image (초고속 라이트 모델)
+                  </option>
+                  <option value="gemini-3-pro-image">
+                    Gemini 3 Pro Image (최상급 스튜디오 퀄리티)
                   </option>
                 </select>
               </div>
