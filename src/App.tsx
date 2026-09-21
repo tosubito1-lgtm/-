@@ -48,6 +48,7 @@ import {
   Cpu,
   CheckSquare,
   Brain,
+  FileCode,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import JSZip from "jszip";
@@ -63,71 +64,30 @@ import {
   GrowthPatternItem,
   GrowthAnalysisResult,
 } from "./types";
+import {
+  saveOptimizedSession,
+  loadOptimizedSession,
+  clearOptimizedSession,
+  getFromStore,
+  setToStore,
+} from "./utils/storage";
+import { QaDirectorModal } from "./components/QaDirectorModal";
+import { DavinciExportModal } from "./components/DavinciExportModal";
+import { ComfyUIModal } from "./components/ComfyUIModal";
+import { generateDavinciScript } from "./utils/davinciScriptGenerator";
 
-// Simple, high-reliability IndexedDB wrapper to bypass 5MB LocalStorage limit
-const DB_NAME = "YadamStoryboardDB";
-const STORE_NAME = "sessionStore";
+// IndexedDB Helper mappings for backward compatibility
 const SESSION_KEY = "yadam_storyboard_session";
-
-const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-};
-
 const getIndexedDBValue = async (key: string): Promise<any> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-    });
-  } catch (e) {
-    console.error("IndexedDB read error:", e);
-    return null;
-  }
+  return getFromStore("sessionStore", key);
 };
-
 const setIndexedDBValue = async (key: string, value: any): Promise<void> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(value, key);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
-  } catch (e) {
-    console.error("IndexedDB write error:", e);
-  }
+  return setToStore("sessionStore", key, value);
+};
+const deleteIndexedDBValue = async (key: string): Promise<void> => {
+  return setToStore("sessionStore", key, null);
 };
 
-const deleteIndexedDBValue = async (key: string): Promise<void> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(key);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
-  } catch (e) {
-    console.error("IndexedDB delete error:", e);
-  }
-};
 
 // Helper to format seconds to SRT timecode HH:MM:SS,mmm
 function formatSecondsToSRTTimecode(totalSec: number): string {
@@ -468,7 +428,23 @@ export default function App() {
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showSfxGuideModal, setShowSfxGuideModal] = useState(false);
   const [showFullUserManualModal, setShowFullUserManualModal] = useState(false);
-  const [manualActiveTab, setManualActiveTab] = useState<"overview" | "script" | "image" | "davinci" | "thumbnail" | "safety">("overview");
+  const [manualActiveTab, setManualActiveTab] = useState<"overview" | "script" | "image" | "qa" | "comfyui" | "davinci" | "thumbnail" | "safety" | "storage">("overview");
+
+  // DaVinci Script Export & One-Click Copy Modal
+  const [showDavinciExportModal, setShowDavinciExportModal] = useState(false);
+  const [davinciCopied, setDavinciCopied] = useState(false);
+  const [davinciScriptData, setDavinciScriptData] = useState<{
+    code: string;
+    timestamp: string;
+    sceneCount: number;
+    title: string;
+    davinciSrtContent?: string;
+    standardSrtContent?: string;
+  } | null>(null);
+
+  // V2 4-Stage QA Loop and ComfyUI Dual Mode Modals
+  const [showQaDirectorModal, setShowQaDirectorModal] = useState(false);
+  const [showComfyUIModal, setShowComfyUIModal] = useState(false);
 
   // UI Compaction Accordion States for Clean UX
   const [showThumbnailFineTune, setShowThumbnailFineTune] = useState(false);
@@ -489,13 +465,30 @@ export default function App() {
 
   const stopRequestedRef = useRef<boolean>(false);
 
-  // Safe & Smart Character Match Helper (handles full names with parens like "세종대왕 (이도)", aliases like "세종", "이도")
+  // Safe & Smart Character Match Helper with Title/Honorifics Normalization
   const findMatchingCharacter = (charName: string, charList: CharacterItem[]): CharacterItem | null => {
-    if (!charName || !charName.trim()) return null;
     if (!charName || typeof charName !== "string" || !charList || !Array.isArray(charList)) return null;
     const rawTarget = charName.trim().toLowerCase();
+    if (!rawTarget) return null;
+
+    // Helper: strip parentheses (e.g. "세종대왕 (이도)" -> "세종대왕")
     const stripParens = (s: string) => (s || "").replace(/\([^)]*\)/g, "").trim().toLowerCase();
+    // Helper: strip common Korean historical titles/honorifics for robust identity matching
+    const stripHonorifics = (s: string) => {
+      let cleaned = stripParens(s);
+      const titles = [
+        "장군", "통제사", "충무공", "대왕", "임금", "전하", "저하", "대감", "영감", "세자",
+        "장수", "선생", "판서", "좌의정", "우의정", "영의정", "정승", "공", "마마", "부사",
+        "수사", "어사", "아씨", "부인", "대비", "중전", "황제", "폐하", "승지", "참판"
+      ];
+      for (const t of titles) {
+        cleaned = cleaned.replace(new RegExp(`\\s*${t}\\s*`, "g"), " ").trim();
+      }
+      return cleaned;
+    };
+
     const cleanTarget = stripParens(rawTarget);
+    const rootTarget = stripHonorifics(rawTarget);
 
     // 1. Exact full match
     let match = charList.find((c) => c && c.name && c.name.trim().toLowerCase() === rawTarget);
@@ -505,7 +498,17 @@ export default function App() {
     match = charList.find((c) => c && c.name && stripParens(c.name) === cleanTarget);
     if (match) return match;
 
-    // 3. Smart historical alias / substring match (min length 2)
+    // 3. Root name match without titles (e.g. "이순신 장군" <-> "이순신", "선조 임금" <-> "선조")
+    if (rootTarget && rootTarget.length >= 2) {
+      match = charList.find((c) => {
+        if (!c || !c.name) return false;
+        const cRoot = stripHonorifics(c.name);
+        return cRoot === rootTarget || cRoot.includes(rootTarget) || rootTarget.includes(cRoot);
+      });
+      if (match) return match;
+    }
+
+    // 4. Substring containment fallback (min length 2)
     if (cleanTarget.length >= 2) {
       match = charList.find((c) => {
         if (!c || !c.name) return false;
@@ -518,60 +521,102 @@ export default function App() {
     return null;
   };
 
-  // Helper definition to inject character clothing & appearance with Smart Compact Lock (Safe & Balanced)
+  // Helper definition to inject structured character anchors with Hair/Beard, Attire, and Dynamic Scene State
   const getConsistentlyInjectedPrompt = (scene: SceneItem): string => {
-    let finalPrompt = scene.refinedImagePrompt;
+    let finalPrompt = scene.refinedImagePrompt || "";
 
     if (!strictConsistencyMode) {
       return finalPrompt;
     }
 
-    // 1. Smart Compact Character Lock Tags (Ultra-Safe Balance to prevent feature bleed)
+    // Helper: Clean generic AI buzzwords from character descriptions
+    const cleanFluff = (text: string): string => {
+      if (!text) return "";
+      return text
+        .replace(/masterpiece|best quality|year 2024|artistic rendering|rich texture|dramatic lighting|detailed character design|clean studio light grey background|solo card portrait focus|centered portrait|photorealistic|hyperrealistic|high resolution/gi, "")
+        .replace(/\s+/g, " ")
+        .replace(/,\s*,/g, ",")
+        .trim()
+        .replace(/^,|,$/g, "")
+        .trim();
+    };
+
+    // Helper: Detect contextual states (Youth, Sickness, Prison/Injury, Grief, Battle) from scene context
+    const getContextualStateCue = (sceneContext: string): string | null => {
+      const lower = sceneContext.toLowerCase();
+      if (/청년|어린 시절|소년 시절|젊은 시절|과거 급제|유년|학동|youth|younger days|early years/.test(lower)) {
+        return "youthful phase, clean-shaven face, neat topknot hair";
+      }
+      if (/병상|병색|창백|앓는|기침|위독|병환|독살|피로|sick|bedridden|pale face|weakened/.test(lower)) {
+        return "sickly pale complexion, fatigued weak posture";
+      }
+      if (/옥사|옥고|고문|포박|투옥|피투성이|상처|추국|형틀|밧줄|소옷|prison|torture|injured|bruised|disheveled/.test(lower)) {
+        return "disheveled loose hair, plain white undergarment, bruised exhausted face";
+      }
+      if (/통곡|눈물|비통|오열|슬픔|애통|weeping|crying|grief|tears/.test(lower)) {
+        return "sorrowful tear-filled expression, grief-stricken gaze";
+      }
+      if (/출전|호통|격노|왜적|해전|백병전|전투|진격|battle|commanding|furious/.test(lower)) {
+        return "intense commanding battle gaze, resolute posture";
+      }
+      return null;
+    };
+
+    const combinedSceneContext = `${scene.narrationText || ""} ${scene.visualDescription || ""} ${scene.refinedImagePrompt || ""}`;
+    const stateCue = getContextualStateCue(combinedSceneContext);
+
+    // 1. Structured Character Consistency Anchors
     if (scene.characterNames && scene.characterNames.length > 0) {
-      // Limit to top 2 main characters in focus to avoid multi-character feature contamination
+      // Focus on top 2 characters in scene to strictly prevent feature bleed
       const activeCharNames = scene.characterNames.slice(0, 2);
 
-      const compactCharTags = activeCharNames
+      const structuredCharTags = activeCharNames
         .map((charName) => {
           if (!charName) return null;
           const found = findMatchingCharacter(charName, characters);
           if (found && found.name) {
             const baseName = (found.name || "").replace(/\([^)]*\)/g, "").trim() || found.name;
 
-            // Collect clothing and headwear details
-            const parts: string[] = [];
-            if (found.clothingEnglish) parts.push(found.clothingEnglish);
-            else if (found.clothing) parts.push(found.clothing);
+            const cleanClothing = cleanFluff(found.clothingEnglish || found.clothing || "");
+            const cleanAppearance = cleanFluff(found.appearanceEnglish || found.appearance || "");
 
-            if (found.appearanceEnglish) parts.push(found.appearanceEnglish);
-            else if (found.appearance) parts.push(found.appearance);
+            // Build key anchor tokens
+            const tokens: string[] = [];
 
-            const rawDetail = parts.length > 0 ? parts.join(", ") : `${found.gender || ''} ${found.age || ''}`;
-
-            // Check if the scene prompt already contains key clothing/headwear words to avoid redundant duplication
-            const promptLower = finalPrompt.toLowerCase();
-            const detailLower = rawDetail.toLowerCase();
-            if (
-              (found.clothingEnglish && promptLower.includes(found.clothingEnglish.toLowerCase().substring(0, 15))) ||
-              (found.appearanceEnglish && promptLower.includes(found.appearanceEnglish.toLowerCase().substring(0, 15)))
-            ) {
-              // Details are already nicely embedded in the main scene prompt!
-              return null;
+            // If a special youth/flashback state is detected, override aging/beard traits
+            if (stateCue && stateCue.includes("youthful phase")) {
+              tokens.push("youthful phase, clean-shaven, neat topknot");
+              if (cleanClothing) tokens.push(cleanClothing);
+            } else {
+              // Standard identity: Appearance (Face/Beard/Hair) + Attire (Robe/Armor/Hat)
+              if (cleanAppearance) tokens.push(cleanAppearance);
+              if (cleanClothing) tokens.push(cleanClothing);
+              // Append dynamic state cue if detected (e.g. sickness, battle intensity, prison)
+              if (stateCue) tokens.push(stateCue);
             }
 
-            // Compact summary (80 chars max per character to prevent prompt dilution/bleed)
-            const conciseDetail = rawDetail.length > 80 ? rawDetail.substring(0, 80) + "..." : rawDetail;
-            return `${baseName}: ${conciseDetail}`;
+            const rawAnchor = tokens.filter(Boolean).join(", ");
+            if (!rawAnchor) return null;
+
+            // Check if key traits are already fully embedded in the prompt to prevent redundant text
+            const promptLower = finalPrompt.toLowerCase();
+            const anchorWords = rawAnchor.toLowerCase().split(/[,\s]+/).filter((w) => w.length > 4);
+            const duplicateCount = anchorWords.filter((w) => promptLower.includes(w)).length;
+            if (anchorWords.length > 0 && duplicateCount >= Math.min(3, anchorWords.length)) {
+              return null; // Already richly described in scene prompt
+            }
+
+            // Compact anchor size (max 90 chars per character) to maintain 100% prompt balance
+            const conciseAnchor = rawAnchor.length > 90 ? rawAnchor.substring(0, 90) + "..." : rawAnchor;
+            return `[Character ${baseName}: ${conciseAnchor}]`;
           }
           return null;
         })
         .filter(Boolean);
 
-      if (compactCharTags.length > 0) {
-        const fullTagBlock = compactCharTags.join(" | ");
-        // Ensure total injected tag length doesn't overwhelm the scene description (Max 160 chars total)
-        const safeBlock = fullTagBlock.length > 160 ? fullTagBlock.substring(0, 160) + "..." : fullTagBlock;
-        finalPrompt += ` . [Char Attire: ${safeBlock}]`;
+      if (structuredCharTags.length > 0) {
+        const fullTagBlock = structuredCharTags.join(" ");
+        finalPrompt += ` . ${fullTagBlock}`;
       }
     }
 
@@ -586,9 +631,11 @@ export default function App() {
             targetLoc.includes(l.name.trim().toLowerCase()))
       );
       if (locFound && locFound.name) {
-        const locDetail = locFound.descriptionEnglish || locFound.description || "";
-        const shortLoc = locDetail.length > 60 ? locDetail.substring(0, 60) + "..." : locDetail;
-        finalPrompt += ` . [Env: ${locFound.name} (${shortLoc})]`;
+        const cleanLoc = cleanFluff(locFound.descriptionEnglish || locFound.description || "");
+        if (cleanLoc && !finalPrompt.toLowerCase().includes(locFound.name.toLowerCase())) {
+          const shortLoc = cleanLoc.length > 60 ? cleanLoc.substring(0, 60) + "..." : cleanLoc;
+          finalPrompt += ` . [Setting: ${locFound.name} (${shortLoc})]`;
+        }
       }
     }
 
@@ -909,34 +956,11 @@ export default function App() {
     }
   };
 
-  // Automatically load saved session on mount
+  // Automatically load saved session on mount using Optimized Chunked/Blob Storage
   useEffect(() => {
     const loadSession = async () => {
       try {
-        let savedDataStr = await getIndexedDBValue(SESSION_KEY);
-        let parsed = null;
-
-        if (savedDataStr) {
-          try {
-            parsed = JSON.parse(savedDataStr);
-          } catch (e) {
-            console.error("Failed to parse session from IndexedDB", e);
-          }
-        }
-
-        // Backward-compatible fallback to LocalStorage
-        if (!parsed) {
-          const savedLocal = localStorage.getItem("yadam_storyboard_session");
-          if (savedLocal) {
-            try {
-              parsed = JSON.parse(savedLocal);
-              // Migrate to IndexedDB
-              await setIndexedDBValue(SESSION_KEY, savedLocal);
-            } catch (e) {
-              console.error("Failed to parse session from LocalStorage", e);
-            }
-          }
-        }
+        const parsed = await loadOptimizedSession();
 
         if (parsed) {
           // Robust granular recovery instead of all-or-nothing check
@@ -1141,7 +1165,7 @@ export default function App() {
     showFeedback("선택한 흥행 패턴 항목이 삭제되었습니다.", "info");
   };
 
-  // Save session state helper with IndexedDB primary storage and LocalStorage backup
+  // Save session state helper with High-Performance Chunked IndexedDB Storage (Bypasses all quota limitations)
   const saveSession = (
     currentAnalysis = analysis,
     currentCh = characters,
@@ -1154,7 +1178,7 @@ export default function App() {
     currentSafetyReport = safetyReport,
     currentLtxMotions = sceneLtxMotions,
   ) => {
-    const sessionData = JSON.stringify({
+    const payload = {
       analysis: currentAnalysis,
       characters: currentCh,
       locations: currentLoc,
@@ -1175,33 +1199,74 @@ export default function App() {
       thumbnailAspectRatio: currentThumbnailRatio,
       safetyReport: currentSafetyReport,
       sceneLtxMotions: currentLtxMotions,
-    });
+    };
 
-    // 1. Save to high-capacity IndexedDB (No quota limits)
-    setIndexedDBValue(SESSION_KEY, sessionData).catch((e) => {
-      console.error("Failed to save to IndexedDB", e);
+    saveOptimizedSession(payload).catch((e) => {
+      console.error("Failed to save optimized session", e);
     });
+  };
 
-    // 2. Try to save to LocalStorage as a fallback, but catch QuotaExceededError
-    try {
-      localStorage.setItem("yadam_storyboard_session", sessionData);
-      if (scriptText) {
-        localStorage.setItem("yadam_planner_script", scriptText);
-      }
-    } catch (e: any) {
-      if (e.name === "QuotaExceededError" || e.code === 22) {
-        console.warn("LocalStorage quota exceeded, relying on IndexedDB for primary storage.");
-        try {
-          // Remove the full session key from local storage since IndexedDB has it fully saved safely
-          localStorage.removeItem("yadam_storyboard_session");
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        console.error("LocalStorage save error:", e);
+  // 4-Stage QA Targeted Re-generation Handler (Regenerates specific failed scenes only)
+  const handleRegenerateSpecificScenes = async (sceneIds: number[]) => {
+    if (!sceneIds || sceneIds.length === 0) return;
+    setIsGeneratingScenes(true);
+    stopRequestedRef.current = false;
+
+    const updatedScenes = [...scenes];
+
+    for (const targetId of sceneIds) {
+      if (stopRequestedRef.current) break;
+
+      const idx = updatedScenes.findIndex((s) => s.id === targetId);
+      if (idx === -1) continue;
+
+      setCurrentSceneIndex(idx);
+      updatedScenes[idx].isGenerating = true;
+      updatedScenes[idx].error = undefined;
+      setScenes([...updatedScenes]);
+
+      try {
+        const isVideoScene = updatedScenes[idx].ltxRecommended || (updatedScenes[idx] as any).mediaType === "video" || updatedScenes[idx].id <= 8;
+        const response = await fetch("/api/generate-scene-image", {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            prompt: getConsistentlyInjectedPrompt(updatedScenes[idx]),
+            artStyle,
+            modelName,
+            aspectRatio,
+            isWanIntro: wanIntroOptimized && isVideoScene,
+          }),
+        });
+
+        const data = await safeParseJSON(response, "장면 재생성 오류");
+        updatedScenes[idx].imageUrl = data.imageUrl;
+      } catch (err: any) {
+        console.error(`Targeted regen scene ${targetId} failed:`, err);
+        updatedScenes[idx].error = err.message || "생성 실패";
+      } finally {
+        updatedScenes[idx].isGenerating = false;
+        setScenes([...updatedScenes]);
+        saveSession(analysis, characters, locations, updatedScenes, batchSavedTokens, batchConsoleLogs);
+
+        if (stopRequestedRef.current) break;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
+
+    setCurrentSceneIndex(null);
+    setIsGeneratingScenes(false);
+    if (!stopRequestedRef.current) {
+      showFeedback(`선별된 ${sceneIds.length}개 장면의 스마트 재생성이 완료되었습니다.`, "success");
+    }
   };
+
+  const handleUpdateSceneDirectly = (sceneId: number, updated: Partial<SceneItem>) => {
+    const updatedScenes = scenes.map((s) => (s.id === sceneId ? { ...s, ...updated } : s));
+    setScenes(updatedScenes);
+    saveSession(analysis, characters, locations, updatedScenes);
+  };
+
 
   const showFeedback = (
     text: string,
@@ -1221,8 +1286,8 @@ export default function App() {
     try {
       localStorage.removeItem("yadam_storyboard_session");
       localStorage.removeItem("yadam_planner_script");
-      deleteIndexedDBValue(SESSION_KEY).catch((e) => {
-        console.error("Failed to delete session from IndexedDB", e);
+      clearOptimizedSession().catch((e) => {
+        console.error("Failed to clear optimized session", e);
       });
       setAnalysis(null);
       setCharacters([]);
@@ -2777,15 +2842,15 @@ export default function App() {
     }
 
     const motionMap: Record<string, string> = {
-      none: "",
-      dolly_in: "slow cinematic dolly in, focusing closely on internal details, dramatic traditional atmosphere, masterpiece, 24fps",
-      dolly_out: "slow cinematic dolly out, revealing more of the traditional Joseon background, deep space, masterpiece, 24fps",
-      pan_left: "slow smooth camera pan left, sweeping traditional scenery perspective, cinematic depth, masterpiece, 24fps",
-      pan_right: "slow smooth camera pan right, sweeping landscape perspective, cinematic depth, masterpiece, 24fps",
-      tilt_up: "slow vertical camera tilt up, majestic revealing shot of traditional structure, dramatic lighting, masterpiece, 24fps",
-      tilt_down: "slow vertical camera tilt down, focusing down onto character facial expressions, intense look, masterpiece, 24fps",
-      orbit: "majestic 360-degree slow rotational orbit panning, cinematic 3D parallax depth, masterpiece, 24fps",
-      slow_zoom: "steady constant slow camera zoom-in, amplifying the emotional tension, dramatic look, masterpiece, 24fps"
+      none: "static locked-off camera, subtle micro-movements, flickering candlelight and gentle ambient breeze, 24fps cinematic fluid pacing, no jitter",
+      dolly_in: "slow controlled dolly push-in, subtle facial micro-expression, silk robes gently swaying in soft breeze, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      dolly_out: "slow controlled dolly out, revealing traditional architectural depth, gentle ambient smoke, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      pan_left: "gentle horizontal slider pan left, subtle parallax depth, steady cinematic pacing, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      pan_right: "gentle horizontal slider pan right, subtle parallax depth, steady cinematic pacing, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      tilt_up: "slow vertical tilt up, majestic revealing shot of traditional structure, soft atmospheric lighting, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      tilt_down: "slow vertical tilt down, focusing down onto character subtle emotional gaze, calm breathing, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      orbit: "gentle slow curved tracking with subtle parallax, smooth stable gimbal motion, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion",
+      slow_zoom: "subtle steady camera push, amplifying emotional tension without sudden jumps, calm fluid motion, smooth motion, steady camera, 24fps cinematic fluid pacing, no jitter, no distortion"
     };
 
     let textResult = "=== 야담 LTX 2.3 I2V(Image-to-Video) 모션 전용 프롬프트 일괄 추출 ===\n";
@@ -2979,407 +3044,26 @@ export default function App() {
     }
   };
 
-  // Generate and download DaVinci Resolve Master Automation Python Script (.py)
+    // Export DaVinci Resolve Python Integration Script (v2.6 Master Automation)
   const handleExportDavinciPythonScript = () => {
     if (!scenes || scenes.length === 0) {
       showFeedback("내보낼 스토리보드 씬이 존재하지 않습니다.", "error");
       return;
     }
 
-    let pyScript = `# -*- coding: utf-8 -*-\n`;
-    pyScript += `# DaVinci Resolve Pro Auto-Batch Master Integration Script\n`;
-    pyScript += `# Generated by Yadam Storyboard Engine on ${new Date().toISOString()}\n\n`;
-    pyScript += `import os\nimport sys\nimport time\nimport re\n\n`;
-    pyScript += `print("[YADAM-DAVINCI] Starting DaVinci Resolve Master Script Execution...")\n\n`;
-    pyScript += `def get_resolve_instance():\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        if 'resolve' in globals() and globals()['resolve'] is not None:\n`;
-    pyScript += `            return globals()['resolve']\n`;
-    pyScript += `    except Exception:\n`;
-    pyScript += `        pass\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        if 'resolve' in __builtins__ and __builtins__['resolve'] is not None:\n`;
-    pyScript += `            return __builtins__['resolve']\n`;
-    pyScript += `    except Exception:\n`;
-    pyScript += `        pass\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        if 'GetResolve' in globals():\n`;
-    pyScript += `            res = GetResolve()\n`;
-    pyScript += `            if res: return res\n`;
-    pyScript += `    except Exception:\n`;
-    pyScript += `        pass\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        if 'bmd' in globals() and hasattr(bmd, 'scriptapp'):\n`;
-    pyScript += `            res = bmd.scriptapp("Resolve")\n`;
-    pyScript += `            if res: return res\n`;
-    pyScript += `    except Exception:\n`;
-    pyScript += `        pass\n`;
-    pyScript += `    script_paths = []\n`;
-    pyScript += `    if sys.platform.startswith("win"):\n`;
-    pyScript += `        script_paths.extend([\n`;
-    pyScript += `            r"C:\\Program Files\\Blackmagic Design\\DaVinci Resolve\\Developer\\Scripting\\Modules",\n`;
-    pyScript += `            os.path.expandvars(r"%PROGRAMFILES%\\Blackmagic Design\\DaVinci Resolve\\Developer\\Scripting\\Modules"),\n`;
-    pyScript += `            os.path.expandvars(r"%PROGRAMDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Scripting\\Modules")\n`;
-    pyScript += `        ])\n`;
-    pyScript += `    elif sys.platform == "darwin":\n`;
-    pyScript += `        script_paths.append("/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules")\n`;
-    pyScript += `    else:\n`;
-    pyScript += `        script_paths.append("/opt/resolve/Developer/Scripting/Modules")\n`;
-    pyScript += `    for path in script_paths:\n`;
-    pyScript += `        if os.path.exists(path) and path not in sys.path:\n`;
-    pyScript += `            sys.path.append(path)\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        import DaVinciResolveScript as dvr_script\n`;
-    pyScript += `        res = dvr_script.scriptapp("Resolve")\n`;
-    pyScript += `        if res: return res\n`;
-    pyScript += `    except Exception:\n`;
-    pyScript += `        pass\n`;
-    pyScript += `    return None\n\n`;
-    pyScript += `resolve = get_resolve_instance()\n\n`;
-    pyScript += `if not resolve:\n`;
-    pyScript += `    print("[ERROR] Could not connect to DaVinci Resolve.")\n`;
-    pyScript += `    print("💡 연결 실패 원인 및 해결 방법:")\n`;
-    pyScript += `    print("1) DaVinci Resolve 프로그램이 실행되어 있는지 확인해주세요.")\n`;
-    pyScript += `    print("2) [Preferences] -> [System] -> [General] -> [External scripting using] -> 'Local' 선택 후 저장")\n`;
-    pyScript += `    print("3) 또는 DaVinci [Workspace] -> [Console] -> [Py3] 탭에서 직접 스크립트 실행")\n`;
-    pyScript += `    sys.exit(1)\n\n`;
-    pyScript += `pm = resolve.GetProjectManager()\n`;
-    pyScript += `proj = pm.GetCurrentProject()\n`;
-    pyScript += `if not proj:\n`;
-    pyScript += `    proj = pm.CreateProject("Yadam_Auto_Timeline_${new Date().toISOString().slice(0, 10)}")\n`;
-    pyScript += `    print("[INFO] Created new DaVinci project")\n\n`;
-    pyScript += `mediaPool = proj.GetMediaPool()\n`;
-    pyScript += `rootFolder = mediaPool.GetRootFolder()\n\n`;
-    pyScript += `script_dir = None\n`;
-    pyScript += `try:\n`;
-    pyScript += `    if '__file__' in globals() and globals()['__file__']:\n`;
-    pyScript += `        script_dir = os.path.abspath(os.path.dirname(globals()['__file__']))\n`;
-    pyScript += `    elif len(sys.argv) > 0 and sys.argv[0] and os.path.exists(sys.argv[0]) and os.path.basename(sys.argv[0]).lower() != "resolve":\n`;
-    pyScript += `        script_dir = os.path.abspath(os.path.dirname(sys.argv[0]))\n`;
-    pyScript += `except Exception: pass\n`;
-    pyScript += `if not script_dir: script_dir = os.path.abspath(os.getcwd())\n`;
-    pyScript += `ASSET_DIR = script_dir\n`;
-    pyScript += `print(f"[INFO] Asset search directory: {ASSET_DIR}")\n\n`;
+    const result = generateDavinciScript(scenes, analysis);
 
-    pyScript += `# Storyboard Scenes Metadata\n`;
-    pyScript += `SCENES = [\n`;
-    scenes.forEach((sc) => {
-      const selectedMotion = sceneLtxMotions[sc.id] || "dolly_in";
-      const rawNarr = sc.narrationText || "";
-      const isPlaceholder = rawNarr.includes("이곳에 들어올") || rawNarr.includes("작성해 주세요");
-      const sanitizedNarr = isPlaceholder ? "" : rawNarr.replace(/"/g, '\\"').replace(/\n/g, ' ');
-      const dur = (sc as any).srtDuration || sc.durationSeconds || (scenes.length <= 15 ? 10 : (sc.id <= 8 || sc.id > scenes.length - 2 ? 10 : 15));
-      const srtStart = (sc as any).srtStart !== undefined ? (sc as any).srtStart : -1;
-      const srtEnd = (sc as any).srtEnd !== undefined ? (sc as any).srtEnd : -1;
-      pyScript += `    {\n`;
-      pyScript += `        "id": ${sc.id},\n`;
-      pyScript += `        "num_str": "${sc.id.toString().padStart(3, "0")}",\n`;
-      pyScript += `        "num_short": "${sc.id.toString().padStart(2, "0")}",\n`;
-      pyScript += `        "narration": "${sanitizedNarr}",\n`;
-      pyScript += `        "motion": "${selectedMotion}",\n`;
-      pyScript += `        "duration": ${dur},\n`;
-      pyScript += `        "srt_start": ${srtStart},\n`;
-      pyScript += `        "srt_end": ${srtEnd}\n`;
-      pyScript += `    },\n`;
-    });
-    pyScript += `]\n\n`;
-
-    pyScript += `timeline = proj.GetCurrentTimeline()\n`;
-    pyScript += `if not timeline:\n`;
-    pyScript += `    timeline = mediaPool.CreateEmptyTimeline("Yadam_Master_Timeline")\n`;
-    pyScript += `if timeline: proj.SetCurrentTimeline(timeline)\n\n`;
-
-    pyScript += `# Force 1920x1080 (16:9 Landscape) & 24 FPS\n`;
-    pyScript += `try:\n`;
-    pyScript += `    proj.SetSetting("timelineResolutionWidth", "1920")\n`;
-    pyScript += `    proj.SetSetting("timelineResolutionHeight", "1080")\n`;
-    pyScript += `    proj.SetSetting("timelineFrameRate", "24.0")\n`;
-    pyScript += `    proj.SetSetting("timelinePlaybackFrameRate", "24.0")\n`;
-    pyScript += `except Exception: pass\n\n`;
-
-    pyScript += `fps_val = 24.0\n`;
-    pyScript += `try:\n`;
-    pyScript += `    fps_setting = float(proj.GetSetting("timelineFrameRate") or 24.0)\n`;
-    pyScript += `    if fps_setting > 0: fps_val = fps_setting\n`;
-    pyScript += `except Exception: pass\n\n`;
-
-    pyScript += `# Step 1: Import Media Items (PNG / MP4) from ASSET_DIR into MediaPool\n`;
-    pyScript += `imported_count = 0\n`;
-    pyScript += `for sc in SCENES:\n`;
-    pyScript += `    s_id = sc["id"]\n`;
-    pyScript += `    s_3 = sc["num_str"]\n`;
-    pyScript += `    s_2 = sc["num_short"]\n`;
-    pyScript += `    candidates = [\n`;
-    pyScript += `        f"scene_{s_3}.mp4", f"scene_{s_3}.webm", f"scene_{s_2}.mp4", f"scene_{s_2}.webm",\n`;
-    pyScript += `        f"scene_{s_3}.png", f"scene_{s_3}.jpg", f"scene_{s_2}.png", f"scene_{s_2}.jpg"\n`;
-    pyScript += `    ]\n`;
-    pyScript += `    found_m = None\n`;
-    pyScript += `    for cand in candidates:\n`;
-    pyScript += `        cpath = os.path.join(ASSET_DIR, cand)\n`;
-    pyScript += `        if os.path.exists(cpath):\n`;
-    pyScript += `            found_m = cpath\n`;
-    pyScript += `            break\n`;
-    pyScript += `    if found_m:\n`;
-    pyScript += `        m_items = mediaPool.ImportMedia([found_m])\n`;
-    pyScript += `        if m_items and len(m_items) > 0:\n`;
-    pyScript += `            sc["media_item"] = m_items[0]\n`;
-    pyScript += `            imported_count += 1\n`;
-    pyScript += `            print(f"[SUCCESS] Scene #{s_id} media imported: {os.path.basename(found_m)}")\n\n`;
-
-    pyScript += `# Step 2: Import Master Audio (yadam_tts_audio.wav) onto Audio Track 2 (A2)\n`;
-    pyScript += `audio_candidates = ["yadam_tts_audio.wav", "yadam_tts_audio.mp3", "yadam_narration.wav", "yadam_narration.mp3", "voiceover.wav", "voiceover.mp3"]\n`;
-    pyScript += `found_master_audio = None\n`;
-    pyScript += `for acand in audio_candidates:\n`;
-    pyScript += `    apath = os.path.join(ASSET_DIR, acand)\n`;
-    pyScript += `    if os.path.exists(apath):\n`;
-    pyScript += `        found_master_audio = apath\n`;
-    pyScript += `        break\n\n`;
-
-    pyScript += `master_audio_item = None\n`;
-    pyScript += `if found_master_audio:\n`;
-    pyScript += `    a_items = mediaPool.ImportMedia([found_master_audio])\n`;
-    pyScript += `    if a_items and len(a_items) > 0:\n`;
-    pyScript += `        master_audio_item = a_items[0]\n`;
-    pyScript += `        try:\n`;
-    pyScript += `            # Ensure Audio Track 2 exists for TTS Narration\n`;
-    pyScript += `            a_track_cnt = timeline.GetTrackCount("audio")\n`;
-    pyScript += `            while a_track_cnt < 2:\n`;
-    pyScript += `                timeline.AddTrack("audio")\n`;
-    pyScript += `                a_track_cnt += 1\n`;
-    pyScript += `        except Exception: pass\n`;
-    pyScript += `        try:\n`;
-    pyScript += `            mediaPool.AppendToTimeline([{"mediaPoolItem": master_audio_item, "trackIndex": 2, "recordFrame": 0}])\n`;
-    pyScript += `            print(f"[SUCCESS] Master TTS Audio placed on A2 track starting at 00:00:00: {os.path.basename(found_master_audio)}")\n`;
-    pyScript += `        except Exception as err:\n`;
-    pyScript += `            print(f"[NOTICE] Audio placement note: {err}")\n\n`;
-
-    pyScript += `# Step 3: Calculate Precise Scene Frame Durations (Synced 100% to Narration Length & Master Audio)\n`;
-    pyScript += `scene_durations_frames = []\n`;
-    pyScript += `scene_durations_sec = []\n`;
-    pyScript += `scene_start_frames = []\n`;
-    pyScript += `total_audio_frames = 0\n`;
-    pyScript += `if master_audio_item:\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        a2_clips = timeline.GetItemListInTrack("audio", 2) or []\n`;
-    pyScript += `        if a2_clips:\n`;
-    pyScript += `            total_audio_frames = a2_clips[0].GetEnd() - a2_clips[0].GetStart()\n`;
-    pyScript += `    except Exception: pass\n\n`;
-
-    pyScript += `has_srt_timestamps = any(sc.get("srt_start", -1) >= 0 for sc in SCENES)\n`;
-    pyScript += `if has_srt_timestamps:\n`;
-    pyScript += `    c_f = 0\n`;
-    pyScript += `    for sc in SCENES:\n`;
-    pyScript += `        s_sec = sc.get("srt_start", -1)\n`;
-    pyScript += `        e_sec = sc.get("srt_end", -1)\n`;
-    pyScript += `        if s_sec >= 0 and e_sec > s_sec:\n`;
-    pyScript += `            s_frame = int(s_sec * fps_val)\n`;
-    pyScript += `            f_len = max(int((e_sec - s_sec) * fps_val), int(1.0 * fps_val))\n`;
-    pyScript += `        else:\n`;
-    pyScript += `            s_frame = c_f\n`;
-    pyScript += `            f_len = int(float(sc.get("duration", 10.0)) * fps_val)\n`;
-    pyScript += `        scene_start_frames.append(s_frame)\n`;
-    pyScript += `        scene_durations_frames.append(f_len)\n`;
-    pyScript += `        scene_durations_sec.append(f_len / fps_val)\n`;
-    pyScript += `        c_f = s_frame + f_len\n`;
-    pyScript += `    print(f"[INFO] Applied exact imported SRT timecodes for {len(SCENES)} scenes!")\n`;
-    pyScript += `elif total_audio_frames > 0 and len(SCENES) > 0:\n`;
-    pyScript += `    weights = [max(len(sc.get("narration", "").strip()), 10) for sc in SCENES]\n`;
-    pyScript += `    total_w = sum(weights) or 1.0\n`;
-    pyScript += `    allocated = 0\n`;
-    pyScript += `    c_f = 0\n`;
-    pyScript += `    for w in weights[:-1]:\n`;
-    pyScript += `        f_len = int((w / total_w) * total_audio_frames)\n`;
-    pyScript += `        f_len = max(f_len, int(2.0 * fps_val))\n`;
-    pyScript += `        scene_durations_frames.append(f_len)\n`;
-    pyScript += `        scene_start_frames.append(c_f)\n`;
-    pyScript += `        c_f += f_len\n`;
-    pyScript += `        allocated += f_len\n`;
-    pyScript += `    last_f = max(total_audio_frames - allocated, int(2.0 * fps_val))\n`;
-    pyScript += `    scene_durations_frames.append(last_f)\n`;
-    pyScript += `    scene_start_frames.append(c_f)\n`;
-    pyScript += `    scene_durations_sec = [f / fps_val for f in scene_durations_frames]\n`;
-    pyScript += `    print(f"[INFO] Audio character-proportional sync applied: {total_audio_frames} frames ({total_audio_frames/fps_val:.1f}s) across {len(SCENES)} scenes.")\n`;
-    pyScript += `else:\n`;
-    pyScript += `    c_f = 0\n`;
-    pyScript += `    for sc in SCENES:\n`;
-    pyScript += `        f_len = int(float(sc.get("duration", 10.0)) * fps_val)\n`;
-    pyScript += `        scene_durations_frames.append(f_len)\n`;
-    pyScript += `        scene_start_frames.append(c_f)\n`;
-    pyScript += `        c_f += f_len\n`;
-    pyScript += `        scene_durations_sec.append(f_len / fps_val)\n\n`;
-
-    pyScript += `# Step 4: Build Frame-Accurate Timeline on V1 & Add Markers with MP4 Retiming Stretch\n`;
-    pyScript += `if timeline:\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        for m_col in ["Blue", "Green", "Yellow", "Cyan", "Red", "Pink", "Purple"]:\n`;
-    pyScript += `            try: timeline.DeleteMarkersByColor(m_col)\n`;
-    pyScript += `            except Exception: pass\n\n`;
-
-    pyScript += `        v_clip_infos = []\n`;
-    pyScript += `        clip_scene_indices = []\n`;
-    pyScript += `        for idx, sc in enumerate(SCENES):\n`;
-    pyScript += `            d_f = scene_durations_frames[idx] if idx < len(scene_durations_frames) else int(10.0 * fps_val)\n`;
-    pyScript += `            s_f = scene_start_frames[idx] if idx < len(scene_start_frames) else int(idx * 10.0 * fps_val)\n`;
-    pyScript += `            if "media_item" in sc:\n`;
-    pyScript += `                v_clip_infos.append({\n`;
-    pyScript += `                    "mediaPoolItem": sc["media_item"],\n`;
-    pyScript += `                    "startFrame": 0,\n`;
-    pyScript += `                    "endFrame": d_f,\n`;
-    pyScript += `                    "recordFrame": s_f,\n`;
-    pyScript += `                    "trackIndex": 1\n`;
-    pyScript += `                })\n`;
-    pyScript += `                clip_scene_indices.append(idx)\n`;
-    pyScript += `            try:\n`;
-    pyScript += `                m_title = f"Scene #{sc['id']}"\n`;
-    pyScript += `                m_note = sc.get("narration", "")\n`;
-    pyScript += `                timeline.AddMarker(s_f, "Blue", m_title, m_note, d_f)\n`;
-    pyScript += `            except Exception: pass\n\n`;
-
-    pyScript += `        if v_clip_infos:\n`;
-    pyScript += `            try:\n`;
-    pyScript += `                mediaPool.AppendToTimeline(v_clip_infos)\n`;
-    pyScript += `                # Adjust V1 timeline clip durations & apply SpeedRatio retiming for short MP4 clips\n`;
-    pyScript += `                v_clips = timeline.GetItemListInTrack("video", 1) or []\n`;
-    pyScript += `                if v_clips:\n`;
-    pyScript += `                    for i, vc in enumerate(v_clips):\n`;
-    pyScript += `                        sc_i = clip_scene_indices[i] if i < len(clip_scene_indices) else i\n`;
-    pyScript += `                        target_f = scene_durations_frames[sc_i] if sc_i < len(scene_durations_frames) else int(10.0 * fps_val)\n`;
-    pyScript += `                        s_f = scene_start_frames[sc_i] if sc_i < len(scene_start_frames) else int(sc_i * 10.0 * fps_val)\n`;
-    pyScript += `                        try: vc.SetProperty("Pan", 0)\n`;
-    pyScript += `                        except Exception: pass\n`;
-    pyScript += `                        try: vc.SetStart(s_f)\n`;
-    pyScript += `                        except Exception: pass\n`;
-    pyScript += `                        try: vc.SetEnd(s_f + target_f)\n`;
-    pyScript += `                        except Exception: pass\n`;
-    pyScript += `                        actual_len = 0\n`;
-    pyScript += `                        try: actual_len = vc.GetEnd() - vc.GetStart()\n`;
-    pyScript += `                        except Exception: pass\n`;
-    pyScript += `                        if actual_len > 0 and actual_len < target_f:\n`;
-    pyScript += `                            speed_ratio = (float(actual_len) / float(target_f)) * 100.0\n`;
-    pyScript += `                            try: vc.SetProperty("SpeedRatio", speed_ratio)\n`;
-    pyScript += `                            except Exception: pass\n`;
-    pyScript += `                            try: vc.SetProperty("ChangeSpeed", speed_ratio)\n`;
-    pyScript += `                            except Exception: pass\n`;
-    pyScript += `                            try: vc.SetProperty("RetimeProcess", 1)\n`;
-    pyScript += `                            except Exception: pass\n`;
-    pyScript += `                            try: vc.SetEnd(s_f + target_f)\n`;
-    pyScript += `                            except Exception: pass\n`;
-    pyScript += `                print(f"[SUCCESS] Appended {len(v_clip_infos)} video clips to V1 with retiming & 100% audio sync!")\n`;
-    pyScript += `            except Exception as app_err:\n`;
-    pyScript += `                print(f"[NOTICE] Direct append notice: {app_err}")\n`;
-    pyScript += `    except Exception as build_err:\n`;
-    pyScript += `        print(f"[NOTICE] Timeline build notice: {build_err}")\n\n`;
-
-    pyScript += `# Step 5: Audio Tracks Verification (A1: LTX Video Sound, A2: TTS Master Narration)\n`;
-    pyScript += `if timeline:\n`;
-    pyScript += `    try:\n`;
-    pyScript += `        try: timeline.SetTrackEnable("audio", 1, True)\n`;
-    pyScript += `        except Exception: pass\n`;
-    pyScript += `        try: timeline.SetTrackEnable("audio", 2, True)\n`;
-    pyScript += `        except Exception: pass\n`;
-    pyScript += `        print("[SUCCESS] Audio Track 1 (LTX Video Sound) & Audio Track 2 (TTS Narration) verified active.")\n`;
-    pyScript += `    except Exception: pass\n\n`;
-
-    pyScript += `# Step 6: Smart Clause/Sentence Subtitle Generator (Max 14-18 Chars/Line, 1-2 Lines, 2-3 Subtitle Chunks per Scene)\n`;
-    pyScript += `auto_srt_path = os.path.join(ASSET_DIR, "yadam_davinci_auto_subtitles.srt")\n`;
-    pyScript += `try:\n`;
-    pyScript += `    with open(auto_srt_path, "w", encoding="utf-8") as f:\n`;
-    pyScript += `        curr_sec = 0.0\n`;
-    pyScript += `        sub_idx = 1\n`;
-    pyScript += `        def fmt_srt(s):\n`;
-    pyScript += `            h, m, sec = int(s // 3600), int((s % 3600) // 60), int(s % 60)\n`;
-    pyScript += `            ms = int(round((s % 1) * 1000))\n`;
-    pyScript += `            if ms >= 1000: sec += 1; ms = 0\n`;
-    pyScript += `            return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"\n\n`;
-
-    pyScript += `        for idx, sc in enumerate(SCENES):\n`;
-    pyScript += `            narr = sc.get("narration", "").strip()\n`;
-    pyScript += `            dur = scene_durations_sec[idx] if idx < len(scene_durations_sec) else float(sc.get("duration", 10.0))\n`;
-    pyScript += `            if not narr:\n`;
-    pyScript += `                curr_sec += dur\n`;
-    pyScript += `                continue\n\n`;
-
-    pyScript += `            # Split narration by punctuation (. , ? ! ~) or every 18-22 chars into short clauses\n`;
-    pyScript += `            raw_parts = re.split(r'([.?!,~]+)', narr)\n`;
-    pyScript += `            sentences = []\n`;
-    pyScript += `            temp_s = ""\n`;
-    pyScript += `            for p in raw_parts:\n`;
-    pyScript += `                temp_s += p\n`;
-    pyScript += `                if re.match(r'[.?!,~]+', p):\n`;
-    pyScript += `                    if temp_s.strip(): sentences.append(temp_s.strip())\n`;
-    pyScript += `                    temp_s = ""\n`;
-    pyScript += `            if temp_s.strip(): sentences.append(temp_s.strip())\n`;
-    pyScript += `            if not sentences: sentences = [narr]\n\n`;
-
-    pyScript += `            # Further break down any long sentence into sub-chunks of max 20 chars\n`;
-    pyScript += `            chunks = []\n`;
-    pyScript += `            for st in sentences:\n`;
-    pyScript += `                words = st.split()\n`;
-    pyScript += `                curr_w = []\n`;
-    pyScript += `                curr_l = 0\n`;
-    pyScript += `                for w in words:\n`;
-    pyScript += `                    if curr_l + len(w) + (1 if curr_w else 0) <= 20:\n`;
-    pyScript += `                        curr_w.append(w)\n`;
-    pyScript += `                        curr_l += len(w) + (1 if len(curr_w) > 1 else 0)\n`;
-    pyScript += `                    else:\n`;
-    pyScript += `                        if curr_w: chunks.append(" ".join(curr_w))\n`;
-    pyScript += `                        curr_w = [w]\n`;
-    pyScript += `                        curr_l = len(w)\n`;
-    pyScript += `                if curr_w: chunks.append(" ".join(curr_w))\n`;
-    pyScript += `            if not chunks: chunks = [narr]\n\n`;
-
-    pyScript += `            # Distribute scene duration among chunks proportionally by text length\n`;
-    pyScript += `            total_c_len = sum(len(c) for c in chunks) or 1\n`;
-    pyScript += `            s_start = curr_sec\n`;
-    pyScript += `            c_time = s_start\n`;
-    pyScript += `            for c_i, chk in enumerate(chunks):\n`;
-    pyScript += `                c_dur = dur * (len(chk) / total_c_len)\n`;
-    pyScript += `                e_time = s_start + dur if c_i == len(chunks) - 1 else c_time + c_dur\n`;
-    pyScript += `                # Format chunk into 1-2 lines (max 15 chars/line)\n`;
-    pyScript += `                chk_words = chk.split()\n`;
-    pyScript += `                lines = []\n`;
-    pyScript += `                cur_l = ""\n`;
-    pyScript += `                for cw in chk_words:\n`;
-    pyScript += `                    if len(cur_l) + len(cw) + (1 if cur_l else 0) <= 15:\n`;
-    pyScript += `                        cur_l = (cur_l + " " + cw).strip()\n`;
-    pyScript += `                    else:\n`;
-    pyScript += `                        if cur_l: lines.append(cur_l)\n`;
-    pyScript += `                        cur_l = cw\n`;
-    pyScript += `                if cur_l: lines.append(cur_l)\n`;
-    pyScript += `                final_sub = "\\n".join(lines[:2])\n`;
-    pyScript += `                if len(lines) > 2: final_sub += " " + " ".join(lines[2:])\n`;
-    pyScript += `                f.write(f"{sub_idx}\\n")\n`;
-    pyScript += `                f.write(f"{fmt_srt(c_time)} --> {fmt_srt(e_time)}\\n")\n`;
-    pyScript += `                f.write(f"{final_sub}\\n\\n")\n`;
-    pyScript += `                sub_idx += 1\n`;
-    pyScript += `                c_time = e_time\n`;
-    pyScript += `            curr_sec = s_start + dur\n`;
-    pyScript += `    print(f"[SUCCESS] Auto-generated Smart 1-2 Line Subtitle file (100% Synced): {auto_srt_path}")\n`;
-    pyScript += `except Exception as srt_err:\n`;
-    pyScript += `    print(f"[WARNING] Subtitle file generation warning: {srt_err}")\n\n`;
-
-    pyScript += `target_srt = auto_srt_path if os.path.exists(auto_srt_path) else None\n`;
-    pyScript += `if target_srt:\n`;
-    pyScript += `    if hasattr(timeline, "ImportSubtitle"):\n`;
-    pyScript += `        try: timeline.ImportSubtitle(target_srt)\n`;
-    pyScript += `        except Exception: pass\n\n`;
-
-    pyScript += `    print("\\n=======================================================")\n`;
-    pyScript += `    print("💬 [100% 싱크 자동자막(ST1) 연결 안내]")\n`;
-    pyScript += `    print(f"오디오 싱크가 100% 정밀 연동된 스마트 자막 파일이 준비되었습니다: yadam_davinci_auto_subtitles.srt")\n`;
-    pyScript += `    print("👉 자막을 1초 만에 불러오는 방법:")\n`;
-    pyScript += `    print("   DaVinci 상단 메뉴: [File (파일)] -> [Import (가져오기)] -> [Subtitle... (자막)] 선택 후")\n`;
-    pyScript += `    print("   폴더 안에 생성된 'yadam_davinci_auto_subtitles.srt'를 선택하시면 ST1 자막 트랙이 바로 완성됩니다!")\n`;
-    pyScript += `    print("=======================================================\\n")\n\n`;
-
-    pyScript += `print(f"[SUCCESS] DaVinci Resolve Master Automation Script completed! Imported {imported_count} assets.")\n`;
-
-    const blob = new Blob([pyScript], { type: "text/x-python;charset=utf-8" });
+    // Auto-trigger direct .py file download
+    const blob = new Blob([result.code], { type: "text/x-python;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `yadam_davinci_auto_batch_${new Date().toISOString().slice(0, 10)}.py`;
+    link.download = `yadam_davinci_auto_batch_${Date.now()}.py`;
     link.click();
-    showFeedback("다빈치 리졸브 원클릭 배치 자동화 마스터 스크립트(.py)가 다운로드되었습니다!", "success");
+
+    setDavinciScriptData(result);
+    setDavinciCopied(false);
+    setShowDavinciExportModal(true);
+    showFeedback("다빈치 리졸브 파이썬 스크립트(.py)가 다운로드되고 마스터 창이 열렸습니다!", "success");
   };
 
   // Export narration as SRT subtitles and clean text file for external TTS tools
@@ -3532,11 +3216,41 @@ export default function App() {
       }
     });
 
+    // 표준 00:00:00 기반 SRT
     const srtBlob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
     const srtLink = document.createElement("a");
     srtLink.href = URL.createObjectURL(srtBlob);
-    srtLink.download = `yadam_subtitles_${new Date().toISOString().slice(0, 10)}.srt`;
+    srtLink.download = `yadam_subtitles_00_standard_${new Date().toISOString().slice(0, 10)}.srt`;
     srtLink.click();
+
+    // 다빈치 리졸브 01:00:00:00 타임라인 전용 (+3600초 오프셋 적용 SRT)
+    let davinciSrtContent = "";
+    const srtBlocks = srtContent.trim().split(/\n\s*\n/);
+    srtBlocks.forEach((block) => {
+      const bLines = block.trim().split('\n');
+      if (bLines.length >= 2) {
+        const idxLine = bLines[0];
+        const tcLine = bLines[1];
+        const textLines = bLines.slice(2).join('\n');
+        const m = tcLine.match(/(\d{2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[.,]\d{3})/);
+        if (m) {
+          const shiftSec = (tStr: string) => {
+            const cleanT = tStr.replace(',', '.');
+            const parts = cleanT.split(':');
+            const sec = parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]) + 3600.0;
+            return formatSrtTime(sec);
+          };
+          davinciSrtContent += `${idxLine}\n${shiftSec(m[1])} --> ${shiftSec(m[2])}\n${textLines}\n\n`;
+        }
+      }
+    });
+    if (davinciSrtContent.trim()) {
+      const dSrtBlob = new Blob([davinciSrtContent], { type: "text/plain;charset=utf-8" });
+      const dSrtLink = document.createElement("a");
+      dSrtLink.href = URL.createObjectURL(dSrtBlob);
+      dSrtLink.download = `yadam_subtitles_01_davinci_${new Date().toISOString().slice(0, 10)}.srt`;
+      dSrtLink.click();
+    }
 
     const txtBlob = new Blob([cleanTxtContent.trim()], { type: "text/plain;charset=utf-8" });
     const txtLink = document.createElement("a");
@@ -4276,7 +3990,7 @@ export default function App() {
                         <span>💡 대본 입력 및 AI 문체/역사성/하이브리드 비디오 가이드</span>
                       </div>
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-mono">
-                        30~40% 비디오 (10~11초) & 고정댓글 자동생성
+                        30~40% 비디오 (60~75자) & 고정댓글 자동생성
                       </span>
                     </div>
                     <div className="text-[11px] text-white/80 space-y-1.5 pl-6 leading-relaxed">
@@ -4284,7 +3998,7 @@ export default function App() {
                         • <strong className="text-amber-300">권장 입력 원고</strong>: 나레이션/대사뿐만 아니라 <strong className="text-white">상황, 지문, 인물 행동, 배경 묘사</strong>가 포함된 <strong>전체 이야기 스토리 원고</strong>를 입력해 주세요. (인물/장소/씬 자동 파싱)
                       </p>
                       <p>
-                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 60~75자 / 7~9초 2문장 규격)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 110~137자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
+                        • <strong className="text-cyan-300">하이브리드 30~40% 비디오 & 호흡별 낭독 규격</strong>: 오프닝 인트로(S1~8, 100% 비디오) 및 본문 클라이맥스 씬에는 <strong className="text-amber-300">[TYPE: VIDEO] (약 60~75자 / 7.5~9.5초 1~2문장 규격)</strong>, 일반 풍경/설명 씬에는 <strong className="text-blue-300">[TYPE: IMAGE] (약 115~140자 / 15초(13~18초))</strong>로 집필하여 타임라인 및 TTS에 완벽하게 동기화됩니다.
                       </p>
                       <p>
                         • <strong className="text-emerald-300">AI 문체 및 고정댓글 지침 내장</strong>: 상단 <strong className="text-amber-300">[대본 플래너]</strong>의 AI 집필 도구는 <strong>"하지만 이것은 단순한 ~가 아니었습니다"</strong> 같은 AI 정형 클리셰를 배제하고, <strong className="text-cyan-300">[1. 최종 대본], [2. 역사성 검수 요약], [3. 📌 유튜브 고정댓글]</strong>까지 한번에 집필합니다. (출처 날조 엄금)
@@ -5148,6 +4862,30 @@ export default function App() {
                         예약 배치 생성 (50% 토큰 할인!)
                       </>
                     )}
+                  </button>
+
+                  {/* V2: 4-Stage Automated QA Director Button */}
+                  <button
+                    onClick={() => setShowQaDirectorModal(true)}
+                    disabled={scenes.length === 0}
+                    id="btn-qa-director-trigger"
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 shadow-md shadow-amber-950/40 border border-amber-400/30"
+                    title="대본 70씬 규격 QA → 일괄 생성 → Gemini Vision 품질/일관성 QA → 문제 장면 선별 재생성 4단계 루프"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-200" />
+                    <span>🛡️ 4단계 자동 QA 디렉터</span>
+                  </button>
+
+                  {/* V2: ComfyUI Dual Mode (API Automation + Manual Copy) */}
+                  <button
+                    onClick={() => setShowComfyUIModal(true)}
+                    disabled={scenes.length === 0}
+                    id="btn-comfyui-dual-modal-trigger"
+                    className="px-3.5 py-1.5 bg-[#1e1b4b] hover:bg-[#312e81] text-indigo-200 hover:text-white border border-indigo-500/40 font-bold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
+                    title="ComfyUI 일괄 렌더링 파이썬 스크립트(.py) 생성 및 수동 프롬프트 복사 듀얼 모드"
+                  >
+                    <Cpu className="w-4 h-4 text-indigo-400" />
+                    <span>🎬 ComfyUI 듀얼 모드</span>
                   </button>
 
                   {scenes.length > 0 && (
@@ -8909,36 +8647,36 @@ export default function App() {
               <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
                 {/* Highlights of Core Engine Upgrades */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+                  <div className="bg-[#121620] border border-amber-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                      🛡️ 4단계 자동 QA 디렉터
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      대본 70씬 규격 검수 ➔ 일괄 렌더링 ➔ Gemini Vision 품질/일관성 전수 심사 ➔ 결함 장면 선별 스마트 재생성을 1클릭 루프로 완결합니다.
+                    </p>
+                  </div>
+                  <div className="bg-[#121620] border border-indigo-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-indigo-300 font-bold flex items-center gap-1.5">
+                      🎬 ComfyUI 듀얼 모드
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      비디오 씬만 자동 필터링하여 로컬 ComfyUI 대기열로 직접 전송하는 원클릭 배치 파이썬 스크립트(.py) 및 수동 프롬프트 복사를 지원합니다.
+                    </p>
+                  </div>
+                  <div className="bg-[#121620] border border-cyan-500/30 rounded-xl p-3 space-y-1">
+                    <span className="text-cyan-300 font-bold flex items-center gap-1.5">
+                      💾 대용량 분할 IndexedDB 스토리지
+                    </span>
+                    <p className="text-white/70 font-sans text-[10.5px]">
+                      브라우저 5MB 용량 제한을 원천 극복! 70개 이상의 초고화질 이미지 Blob과 세션 메타데이터를 분리 저장하여 끊김 없이 자동 복원합니다.
+                    </p>
+                  </div>
                   <div className="bg-[#121620] border border-emerald-500/30 rounded-xl p-3 space-y-1">
                     <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                       📦 1-Click 전체 에셋 패키지
                     </span>
                     <p className="text-white/70 font-sans text-[10.5px]">
-                      메인 상단 <code className="text-emerald-300 bg-black/40 px-1 rounded">[📦 1-Click 전체 패키지]</code> 버튼 한 번으로 대본, 인물 DB, 타임라인 영문 프롬프트, LTX 카메라 모션, 마케팅 에셋, 흥행 패턴을 단일 TXT 번들로 즉시 내보냅니다.
-                    </p>
-                  </div>
-                  <div className="bg-[#121620] border border-purple-500/30 rounded-xl p-3 space-y-1">
-                    <span className="text-purple-300 font-bold flex items-center gap-1.5">
-                      🎬 하이브리드 비디오 & 호흡별 낭독 규격
-                    </span>
-                    <p className="text-white/70 font-sans text-[10.5px]">
-                      "하지만 이것은 단순한 ~가 아니었습니다" 등 AI 정형 문체를 억제하고, [TYPE: VIDEO] (7~9초/60~75자 2문장 규격) 및 [TYPE: IMAGE] (15초(13~18초)/110~137자)로 나래이션 길이를 최적화하여 TTS와 완벽히 동기화합니다.
-                    </p>
-                  </div>
-                  <div className="bg-[#121620] border border-blue-500/30 rounded-xl p-3 space-y-1">
-                    <span className="text-blue-300 font-bold flex items-center gap-1.5">
-                      🔒 스마트 컴팩트 비주얼 잠금
-                    </span>
-                    <p className="text-white/70 font-sans text-[10.5px]">
-                      <code className="text-blue-300 bg-black/40 px-1 rounded">[Char Lock: Name (Attr)]</code> 태그로 프롬프트 길이를 대폭 단축하여 Imagen 3 토큰 과부하를 막고 100% 외모/의복 고증을 유지합니다.
-                    </p>
-                  </div>
-                  <div className="bg-[#121620] border border-amber-500/30 rounded-xl p-3 space-y-1">
-                    <span className="text-amber-300 font-bold flex items-center gap-1.5">
-                      ⚡ 선택한 씬만 일괄 재생성 (Re-roll)
-                    </span>
-                    <p className="text-white/70 font-sans text-[10.5px]">
-                      카드의 체크박스나 <code className="text-amber-300 bg-black/40 px-1 rounded">[미생성 씬]</code>, <code className="text-amber-300 bg-black/40 px-1 rounded">[실패 씬]</code> 버튼으로 문제가 있는 씬만 선택하여 일괄 재렌더링할 수 있습니다.
+                      대본, 인물 DB, 타임라인 영문 프롬프트, LTX 카메라 모션, 마케팅 에셋, 흥행 패턴을 단일 TXT 번들로 1초 만에 즉시 내보냅니다.
                     </p>
                   </div>
                 </div>
@@ -9029,212 +8767,56 @@ export default function App() {
                       <strong className="text-white">선택 씬 일괄 재생성 (Re-roll):</strong> 타임라인 상단의 <span className="text-amber-300 font-bold">[⏳ 미생성 씬 선택]</span> 또는 <span className="text-rose-300 font-bold">[⚠️ 실패 씬 선택]</span> 버튼을 누른 후, <span className="text-blue-300 font-bold">[⚡ 선택한 N개 씬만 일괄 재생성]</span>을 누르면 문제가 발생한 카드만 선별적으로 재생성합니다.
                     </li>
                     <li>
-                      <strong className="text-white">LTX 2.3 카메라 모션:</strong> 주요 절정 씬 카드 하단에서 <span className="text-indigo-300 font-bold">🔍 Zoom In</span>, <span className="text-indigo-300 font-bold">🚀 Dolly Push</span>, <span className="text-indigo-300 font-bold">🔄 Orbit</span> 등 카메라 연출 프리셋을 클릭하면 비디오 생성 프롬프트가 자동 세팅됩니다.
+                      <strong className="text-white">LTX 2.3 카메라 모션:</strong> 주요 절정 씬 카드 하단에서 <span className="text-indigo-300 font-bold">🔍 Zoom In</span>, <span className="text-indigo-300 font-bold">🚀 Dolly Push</span>, <span className="text-indigo-300 font-bold">🔄 Orbit</span> 등 카메라 연출 프리셋을 클릭하면 비디오 생성 프롬프트에 전문 시네마틱 카메라 워크가 자동 반영됩니다.
                     </li>
                   </ul>
                 </div>
 
                 {/* Step 3 */}
-                <div className="bg-[#181820] border border-amber-500/20 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xs">3</span>
-                    다빈치 리졸브 원클릭 배치 자동화 실행
+                <div className="bg-[#181820] border border-purple-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+                    <span className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xs">3</span>
+                    오프라인 야담 TTS 스튜디오 & 0ms 완전 동기화
                   </div>
                   <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
                     <li>
-                      <strong className="text-white">스크립트 추출:</strong> 스토리보드 패널 상단의 <span className="text-amber-300 font-bold">[다빈치 스크립트 (.py)]</span> 버튼을 누르면 마스터 파이썬 스크립트가 다운로드됩니다.
+                      <strong className="text-white">오프라인 TTS 생성:</strong> 프로젝트 폴더의 <code className="text-amber-300 bg-black/40 px-1 rounded">yadam_tts_studio.html</code>을 열고, 내보낸 대본을 붙여넣어 고품질 성우 나레이션 오디오 파일(<code className="text-purple-200 bg-purple-950/60 px-1 rounded">audio.mp3</code>)을 생성합니다.
                     </li>
                     <li>
-                      <strong className="text-white">작업 폴더에 배치:</strong> 다운받은 파이썬 스크립트(<code className="text-amber-200 bg-amber-950/60 px-1 rounded">.py</code>)를 비디오 영상 파일들과 MP3 음성이 들어있는 폴더에 넣습니다.
+                      <strong className="text-white">무오차 자막 추출:</strong> TTS 완료 후 생성되는 정확한 오디오 길이 기반의 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">yadam_davinci_resolve.srt</code> 자막을 다운로드합니다.
                     </li>
                     <li>
-                      <strong className="text-white">다빈치 콘솔 실행:</strong> 다빈치 리졸브 프로그램 상단 메뉴에서 <span className="text-white font-bold">Workspace ➔ Console ➔ Py3</span> 탭을 열고 다운받은 스크립트(.py) 내용을 복사해 붙여넣거나 드래그해 실행하면 비디오 트랙 배치, 자막 마커, 오디오 타임라인이 1초 만에 완성됩니다!
+                      <strong className="text-white">웹 타임코드 동기화:</strong> 웹 상단의 <span className="text-purple-300 font-bold">[2. SRT 타임코드 동기화]</span>를 눌러 다운로드한 SRT 파일을 업로드하면 0.001초 단위로 모든 씬의 시작/종료 시간이 오디오에 맞춰 1:1 완벽 정렬됩니다.
                     </li>
                   </ul>
                 </div>
 
                 {/* Step 4 */}
-                <div className="bg-[#181820] border border-rose-500/30 rounded-xl p-4 space-y-2.5">
-                  <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xs">4</span>
-                    주제선정부터 수익정지 진단기까지: 양산형 제재 회피 4대 전략
-                  </div>
-                  <div className="pl-8 space-y-2 text-white/80">
-                    <p>
-                      유튜브 2026 알고리즘은 <strong>"동일한 템플릿의 무한 반복"</strong> 및 <strong>"정적인 고정 자막 레이아웃"</strong>을 양산형 AI 컨텐츠로 감지하여 수익화를 정지시킵니다.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
-                      <div className="p-2.5 bg-black/40 border border-rose-500/20 rounded">
-                        <strong className="text-rose-300 block mb-1">🎭 4가지 서사 템플릿 전환</strong>
-                        기승전결(classic), 결말 선공개(in_media_res), 다중 시점(multi_perspective), 질문-검증 다큐(docu_investigation)를 번갈아 채택하여 오프닝 서사를 다변화하세요.
-                      </div>
-                      <div className="p-2.5 bg-black/40 border border-amber-500/20 rounded">
-                        <strong className="text-amber-300 block mb-1">⏱️ 가변 씬 호흡 (Cadence)</strong>
-                        긴장 구간은 Fast(3~6초), 표준 구간은 Normal(8~12초), 감정 몰입은 Slow(15~18초)로 씬 호흡을 무작위 믹스하여 오디오/영상 박자 변화율을 확보합니다.
-                      </div>
-                      <div className="p-2.5 bg-black/40 border border-emerald-500/20 rounded">
-                        <strong className="text-emerald-300 block mb-1">🎬 LTX 비디오 10~15% 적용</strong>
-                        12초 이하의 극적 절정 씬에 LTX 2.3 모션을 10~15% 비중으로 적용하여 정적 일러스트 연속 구도를 탈피합니다.
-                      </div>
-                      <div className="p-2.5 bg-black/40 border border-blue-500/20 rounded">
-                        <strong className="text-blue-300 block mb-1">🛡️ 수익정지 진단기 정밀 검수</strong>
-                        대본 생성 직후 4번째 탭 [수익정지 진단기]에서 독창성 점수 및 잔혹/선정/재사용 위험 키워드를 즉시 대조해 최종 인코딩 전 100% 안전을 확인하세요.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subtitle Style Track Preset Tip */}
-                <div className="bg-[#181820] border border-purple-500/30 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xs">🎨</span>
-                    다빈치 리졸브 자막 스타일(Track Style) 10초 적용법
-                  </div>
-                  <ol className="space-y-1.5 text-white/80 pl-5 list-decimal text-[11px] leading-relaxed">
-                    <li>
-                      파이썬 스크립트가 타임라인에 <code className="text-purple-200 bg-purple-950/60 px-1 rounded">Subtitle 1</code> 자막 트랙을 자동 생성하면, 아무 자막 클립이나 1개 클릭합니다.
-                    </li>
-                    <li>
-                      우측 상단 <strong className="text-amber-300">Inspector ➔ Caption</strong> 패널에서 <strong className="text-purple-200">Track</strong> 탭 선택
-                    </li>
-                    <li>
-                      <strong className="text-white">폰트:</strong> <code className="text-amber-200">KoPubWorld바탕체 Bold</code> / <strong className="text-white">크기:</strong> <code className="text-amber-200">62~68 pt</code>
-                    </li>
-                    <li>
-                      <strong className="text-white">Stroke(테두리):</strong> Color <code className="text-amber-200">#000000</code> / Size <code className="text-amber-200">3.0 pt</code>
-                    </li>
-                    <li>
-                      <strong className="text-white">정렬:</strong> 하단 중앙 (Bottom Center)
-                    </li>
-                  </ol>
-                  <p className="text-[10.5px] text-purple-300/80 pt-1 border-t border-purple-500/20 font-sans">
-                    ✨ <strong>핵심:</strong> <code className="text-white">Track</code> 탭에서 스타일을 바꾸면 타임라인 상의 <strong>모든 씬 자막 전체에 100% 일괄 자동 반영</strong>되어 손으로 일일이 수정할 필요가 없습니다!
-                  </p>
-                </div>
-
-                <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 text-emerald-300 font-mono text-[11px] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  <span>💡 <strong>Tip:</strong> 동일한 씬 번호에 <code className="text-emerald-200 bg-black/40 px-1 rounded">.mp4</code> 동영상과 <code className="text-emerald-200 bg-black/40 px-1 rounded">.png</code> 이미지가 같이 있으면, 다빈치 파이썬 배치 스크립트가 <strong>.mp4 동영상을 최우선 선택</strong>하여 정밀 트랙에 올려놓습니다.</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-white/10 flex justify-end">
-                <button
-                  onClick={() => setShowGuideModal(false)}
-                  className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-amber-950/40"
-                >
-                  가이드 확인 완료 (닫기)
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Free SFX Guide Modal */}
-      <AnimatePresence>
-        {showSfxGuideModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
-            onClick={() => setShowSfxGuideModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[#10131a] border border-emerald-500/30 w-full max-w-3xl rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 text-white/90 relative my-8"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-start border-b border-white/10 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                    <Volume2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      유튜브 100% 저작권 무료 효과음(SFX) 조달 마스터 가이드
-                    </h2>
-                    <p className="text-xs text-emerald-400/80 font-mono">
-                      효과음 파일이 전혀 없어도 OK! 클릭 한 번에 100% 상업용 무료 SFX 조달법 3가지
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowSfxGuideModal(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
-                {/* Method 1: Built-in Search (No Download Required) */}
-                <div className="bg-[#141b24] border border-emerald-500/25 rounded-xl p-4 space-y-2.5">
+                <div className="bg-[#181820] border border-emerald-500/20 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs">1</span>
-                    가장 쉬운 방법: 편집 프로그램 내장 효과음 키워드 검색 (다운로드 X)
+                    <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs">4</span>
+                    다빈치 리졸브 원클릭 마스터 타임라인 자동 완성
                   </div>
-                  <p className="text-white/70 pl-8">
-                    Vrew, DaVinci Resolve(Sound Library), Premiere Pro 등 거의 모든 영상 편집기에는 자체 무료 SFX 라이브러리가 기본 탑재되어 있습니다. 별도로 파일을 다운받지 말고, 검색창에 아래 한글 키워드를 입력해 타임라인에 바로 끌어다 놓으세요:
-                  </p>
-                  <div className="pl-8 grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🍃 바람 / 산울림 / 산길</div>
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🚪 한옥 문 / 삐걱이는 나무문</div>
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🥁 저음 쿵 / 긴장감 심장소리</div>
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🌧️ 빗소리 / 초막 지붕 비</div>
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">⚔️ 검 / 칼 스릉 마찰음</div>
-                    <div className="bg-black/40 border border-emerald-500/20 p-2 rounded text-emerald-300">🦗 밤벌레 / 풀벌레 / 부엉이</div>
-                  </div>
-                </div>
-
-                {/* Method 2: Top 4 Free SFX Sites */}
-                <div className="bg-[#141b24] border border-sky-500/25 rounded-xl p-4 space-y-2.5">
-                  <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-xs">2</span>
-                    100% 저작권 안전! 무료 상업용 효과음 웹사이트 4선 (수익창출 Safe)
-                  </div>
-                  <ul className="space-y-2 text-white/80 pl-8">
-                    <li className="bg-black/30 p-2 rounded border border-white/5">
-                      <strong className="text-sky-300">1. YouTube Audio Library (구글 공식)</strong>
-                      <p className="text-white/60 text-[11px] mt-0.5">studio.youtube.com 접속 ➔ 왼쪽 [오디오 보관함] ➔ [효과음] 탭. 구글이 직접 검증한 100% 안전한 수익창출 무료 음원만 모여 있습니다.</p>
+                  <ul className="space-y-1.5 text-white/70 pl-8 list-disc">
+                    <li>
+                      <strong className="text-white">에셋 한 폴더 준비:</strong> 다운로드받은 이미지/비디오 파일들과 <code className="text-emerald-200 bg-emerald-950/60 px-1 rounded">audio.mp3</code>, <code className="text-emerald-200 bg-emerald-950/60 px-1 rounded">subtitles.srt</code>를 하나의 작업 폴더에 모아둡니다.
                     </li>
-                    <li className="bg-black/30 p-2 rounded border border-white/5">
-                      <strong className="text-sky-300">2. Pixabay Sound Effects (pixabay.com/sound-effects)</strong>
-                      <p className="text-white/60 text-[11px] mt-0.5">회원가입 필요 없이 'wind', 'door creak', 'sword', 'rain' 검색 시 즉시 MP3 무료 다운로드 가능.</p>
+                    <li>
+                      <strong className="text-white">스크립트 복사:</strong> 상단의 <span className="text-emerald-300 font-bold">[3. 다빈치 스크립트 (.py)]</span>를 클릭하여 파이썬 코드를 다운로드하거나 복사합니다.
                     </li>
-                    <li className="bg-black/30 p-2 rounded border border-white/5">
-                      <strong className="text-sky-300">3. Mixkit (mixkit.co/free-sound-effects)</strong>
-                      <p className="text-white/60 text-[11px] mt-0.5">영화 및 사극에 어울리는 고품질 Foley(발소리, 옷깃 쓸리는 소리, 바람소리) 효과음 무료 제공.</p>
-                    </li>
-                    <li className="bg-black/30 p-2 rounded border border-white/5">
-                      <strong className="text-sky-300">4. Freesound (freesound.org)</strong>
-                      <p className="text-white/60 text-[11px] mt-0.5">세계 최대 사운드 DB. 검색 후 라이선스 필터에서 'Creative Commons 0 (CC0)' 선택 시 자유 사용 가능.</p>
+                    <li>
+                      <strong className="text-white">다빈치 콘솔 1초 실행:</strong> 다빈치 리졸브 메뉴 <code className="text-amber-300 bg-black/40 px-1 rounded">Workspace &gt; Console</code> 창을 열고 언어를 <strong>Py3</strong>로 선택한 뒤 복사한 코드를 붙여넣고 Enter를 누르면 V1 트랙(영상/이미지), A2 트랙(성우 오디오), 씬별 마커가 0.00초 오차 없이 즉시 자동 생성됩니다!
                     </li>
                   </ul>
                 </div>
-
-                {/* Method 3: AI Sound Generation via Text */}
-                <div className="bg-[#141b24] border border-purple-500/25 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
-                    <span className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xs">3</span>
-                    야담 시스템이 씬별로 자동 추천해주는 영문 사운드 키워드 활용
-                  </div>
-                  <p className="text-white/70 pl-8">
-                    야담 스토리보드의 각 씬 카드를 보시면 <span className="text-emerald-400 font-mono font-bold">🔊 LTX 사운드 디자인 추천</span> 칸에 해당 장면 분위기에 딱 맞는 영어 프롬프트(예: <code className="text-emerald-200 bg-emerald-950/60 px-1 rounded">haunting mountain wind, creaking door</code>)가 들어있습니다.
-                    해당 문구를 클릭해 복사한 뒤, ElevenLabs Sound Effects 또는 Suno/LTX Audio에 붙여넣으면 3초 만에 나만의 오리지널 SFX가 생성됩니다!
-                  </p>
-                </div>
               </div>
 
-              <div className="pt-2 border-t border-white/10 flex justify-end">
+              <div className="pt-3 border-t border-white/10 flex justify-end">
                 <button
-                  onClick={() => setShowSfxGuideModal(false)}
-                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-emerald-950/40"
+                  onClick={() => setShowGuideModal(false)}
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-bold rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20"
                 >
-                  가이드 확인 완료 (닫기)
+                  확인 및 닫기
                 </button>
               </div>
             </motion.div>
@@ -9242,371 +8824,46 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Full Deployable Workflow User Manual Modal */}
-      <AnimatePresence>
-        {showFullUserManualModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 overflow-y-auto"
-            onClick={() => setShowFullUserManualModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.92, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.92, opacity: 0, y: 20 }}
-              className="bg-[#0f1117] border border-cyan-500/40 w-full max-w-4xl rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 text-white/90 relative my-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-start border-b border-white/10 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 shadow-inner">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      야담 스토리보드 제어 엔진 — 전체 워크플로우 사용자 매뉴얼
-                    </h2>
-                    <p className="text-xs text-cyan-400/90 font-mono">
-                      주제 선정부터 썸네일 합성 & 2026년 유튜브 수익정지 안전 진단기까지 배포형 종합 가이드
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowFullUserManualModal(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* DaVinci Resolve Script Export & 3-Issue Troubleshooter Modal */}
+      <DavinciExportModal
+        isOpen={showDavinciExportModal}
+        onClose={() => setShowDavinciExportModal(false)}
+        scriptData={davinciScriptData}
+        scenes={scenes}
+        analysis={analysis}
+        onShowFeedback={showFeedback}
+      />
 
-              {/* Internal Tab Bar */}
-              <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3 font-mono text-xs">
-                <button
-                  onClick={() => setManualActiveTab("overview")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "overview"
-                      ? "bg-cyan-500/20 border-cyan-400 text-cyan-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  🌐 1. 시스템 개요
-                </button>
-                <button
-                  onClick={() => setManualActiveTab("script")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "script"
-                      ? "bg-blue-500/20 border-blue-400 text-blue-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  📜 2. 주제 & 대본 플래닝
-                </button>
-                <button
-                  onClick={() => setManualActiveTab("image")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "image"
-                      ? "bg-purple-500/20 border-purple-400 text-purple-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  🎨 3. 캐릭터/장소 & LTX 비디오
-                </button>
-                <button
-                  onClick={() => setManualActiveTab("davinci")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "davinci"
-                      ? "bg-amber-500/20 border-amber-400 text-amber-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  🎬 4. 자막, TTS & 다빈치 배치
-                </button>
-                <button
-                  onClick={() => setManualActiveTab("thumbnail")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "thumbnail"
-                      ? "bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  🖼️ 5. 썸네일 & 타이틀 레이어
-                </button>
-                <button
-                  onClick={() => setManualActiveTab("safety")}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    manualActiveTab === "safety"
-                      ? "bg-rose-500/20 border-rose-400 text-rose-200 font-bold"
-                      : "bg-[#161922] border-white/5 text-white/60 hover:text-white"
-                  }`}
-                >
-                  🛡️ 6. 수익정지 안전 진단기
-                </button>
-              </div>
+      {/* 4-Stage QA Loop Director Modal */}
+      <QaDirectorModal
+        isOpen={showQaDirectorModal}
+        onClose={() => setShowQaDirectorModal(false)}
+        scenes={scenes}
+        characters={characters}
+        onUpdateScene={(sceneId, updated) => {
+          setScenes((prev) =>
+            prev.map((s) => (s.id === sceneId ? { ...s, ...updated } : s))
+          );
+        }}
+        onRegenerateScenes={(sceneIds) => {
+          setSelectedSceneIds(sceneIds);
+          setTimeout(() => {
+            handleGenerateSelectedScenes();
+          }, 100);
+        }}
+        onBatchGenerateImages={handleGenerateAllScenesBatch}
+        isGeneratingImages={isGeneratingScenes}
+        getHeaders={getHeaders}
+        showFeedback={showFeedback}
+      />
 
-              {/* Tab Content Panels */}
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar text-xs leading-relaxed">
-                {manualActiveTab === "overview" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-cyan-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-cyan-300 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-cyan-400" />
-                        배포 아키텍처 및 7대 핵심 기능 통합 워크플로우
-                      </h3>
-                      <p className="text-white/80">
-                        본 시스템은 유튜브 역사·야담 전문 채널의 콘텐츠 제작 시간을 기존 8시간에서 <strong className="text-cyan-300">15분 내외로 단축</strong>하는 풀스택 스토리보드 제어 엔진입니다. Cloud Run 웹 애플리케이션 및 오프라인 도구(HTML/Python) 하이브리드로 작동합니다.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-cyan-400 font-bold font-mono">STEP 1. 주제 선정 및 원고 기획</span>
-                        <p className="text-white/70 text-[11px]">조선왕조실록·고려사·삼국유사 등 시대별 사료 기반 0~15초 후킹 대본 구성.</p>
-                      </div>
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-blue-400 font-bold font-mono">STEP 2. AI 대본 정밀 스캔</span>
-                        <p className="text-white/70 text-[11px]">Gemini Flash 엔진이 캐릭터 DB, 장소 DB, 스토리보드 타임라인 블루프린트 파싱.</p>
-                      </div>
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-purple-400 font-bold font-mono">STEP 3. 비주얼 일관성 유지</span>
-                        <p className="text-white/70 text-[11px]">Strict Consistency 모드로 캐릭터 의상/얼굴과 시대별 배경 고증 완벽 인지.</p>
-                      </div>
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-amber-400 font-bold font-mono">STEP 4. Imagen 3 & LTX 비디오</span>
-                        <p className="text-white/70 text-[11px]">Imagen 3 고화질 일러스트 및 LTX 2.3/WAN 2.1 호환 비디오 카메라 모션 렌더링.</p>
-                      </div>
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-emerald-400 font-bold font-mono">STEP 5. TTS & 다빈치 오토배치</span>
-                        <p className="text-white/70 text-[11px]">Google Cloud TTS 고음질 성우 생성 및 파이썬 원클릭 타임라인 마스터 연동.</p>
-                      </div>
-                      <div className="bg-[#141822] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-rose-400 font-bold font-mono">STEP 6. 썸네일 & 안전 진단</span>
-                        <p className="text-white/70 text-[11px]">고CTR 캘리그라피 타이틀 오버레이 및 2026년 유튜브 수익정지 자가 진단기 리포트.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {manualActiveTab === "script" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-blue-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-blue-300">1~2단계: 대본 작성, 시청 지속률 3단계 구조 및 AI 정밀 스캔</h3>
-                      <p className="text-white/80">
-                        유튜브 알고리즘이 중시하는 <strong className="text-blue-300">시청 지속률(Retention Rate)</strong>을 최대화하기 위해 스토리보드가 3단계 극적 구조로 자동 배정됩니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">📌 retention 3-Stage 스토리보드 규격</h4>
-                      <ul className="space-y-1.5 text-white/70 list-disc pl-5">
-                        <li><strong className="text-blue-300">1단계 오프닝 후킹 (인트로 파트):</strong> 0~15초 강렬한 의문 제시 (씬당 10초 내외). 이탈률 원천 차단.</li>
-                        <li><strong className="text-blue-300">2단계 본문 몰입 및 복선 (서사 본론):</strong> 사건 전개, 갈등 고조 및 복선 배치 (씬당 15초 내외).</li>
-                        <li><strong className="text-blue-300">3단계 반전 결말 & 역사 출처 검증 (피날레 결말 파트):</strong> 사료 출처 명시(실록/야사) 및 채널 구독 유도.</li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🏛️ 시대별 사료 및 고증 자동 인지 기능</h4>
-                      <p className="text-white/70">
-                        입력된 대본을 분석하여 <strong className="text-cyan-300 font-mono">삼국시대(고구려/백제/신라/가야)</strong>, <strong className="text-cyan-300 font-mono">고려시대</strong>, <strong className="text-cyan-300 font-mono">조선시대</strong>를 자동 감지합니다. 삼국시대의 조우관과 금동관, 고려시대의 복두와 청자, 조선시대의 갓과 도포 등 복식과 건축 기물을 정확하게 분류해 프롬프트에 자동 반영합니다.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {manualActiveTab === "image" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-purple-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-purple-300">3~4단계: 일관성 캐릭터 DB 구축 및 Imagen 3 & LTX 비디오 프롬프트</h3>
-                      <p className="text-white/80">
-                        컷마다 캐릭터의 얼굴이나 옷차림이 바뀌는 AI 영상의 고질적 문제를 해결하는 완벽한 솔루션을 제공합니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🎭 캐릭터 비주얼 일관성 유지 (Strict Consistency Mode)</h4>
-                      <p className="text-white/70">
-                        [캐릭터 시트] 탭에서 정의된 인물의 영문 외모 키 태그(피부, 이목구비, 헤어스타일)와 의상 디테일(한복 색상, 갓/관복)이 모든 씬의 프롬프트에 자동 동기화 주입됩니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🎨 5가지 시각 아트 스타일 선택</h4>
-                      <p className="text-white/70">
-                        클레이 애니메이션(Stop-Motion Claymation), 정통 야담 웹툰(Korean Historical Manhwa), 영화 실사 극화(Joseon Historical Film Still), 3D Render, 복고풍 2D 등 원하는 비주얼 분위기를 클릭 한 번으로 통일할 수 있습니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🎥 카메라 앵글 다변화 & LTX 2.3 비디오 모션</h4>
-                      <p className="text-white/70">
-                        단조로운 이미지를 방지하기 위해 Extreme Close-Up, Low-Angle, Wide-Angle, Dutch Angle 등 씬별로 다양한 구도를 배정합니다. 또한 LTX Video 2.3 호환 카메라 모션(Dolly In, Pan Right, Orbit, Slow Zoom)과 대화가 필요 없는 사운드 SFX 큐를 자동 생성합니다.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {manualActiveTab === "davinci" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-amber-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-amber-300">5단계: 자막/SRT, Google Cloud TTS & 다빈치 리졸브 21 원클릭 오토배치</h3>
-                      <p className="text-white/80">
-                        외부 편집 프로그램에서 타임라인을 일일이 맞추는 수작업을 파이썬 스크립트 한 줄로 완전 자동화합니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🎙️ 오프라인 Yadam TTS & 자막 스튜디오 (`yadam_tts_studio.html`)</h4>
-                      <p className="text-white/70">
-                        [TTS/SRT 대본] 내보내기 버튼으로 추출된 원고를 오프라인 TTS 스튜디오에 넣으면 Google Cloud TTS 성우 음성(ko-KR-Neural2)과 exact SRT 타임코드 자막이 생성됩니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">⚡ 다빈치 리졸브 21 마스터 자동화 스크립트 (`.py`)</h4>
-                      <p className="text-white/70">
-                        [다빈치 스크립트 (.py)] 버튼으로 다운로드받은 파이썬 파일을 영상/이미지/음성 폴더에 넣고 다빈치 콘솔에서 실행하면, 비디오 트랙 배치, 자막 타임라인, 오디오 트랙 및 켄번즈(Ken Burns) 모션이 1초 만에 완성됩니다.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {manualActiveTab === "thumbnail" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-emerald-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-emerald-300">6단계: 유튜브 클릭률(CTR) 극대화 썸네일 디렉터 & 캘리그라피 타이틀 레이어</h3>
-                      <p className="text-white/80">
-                        유튜브 알고리즘 노출 시 클릭률(CTR)을 15% 이상으로 끌어올리는 AI 디렉터 및 한글 타이틀 오버레이 엔진입니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🎯 썸네일 디렉터 AI 연출 제안</h4>
-                      <p className="text-white/70">
-                        대본 전체 시나리오 중 가장 호기심을 유발하는 클라이맥스 씬을 자동 탐색하고, 구도 및 색상 분위기와 함께 초고속 클릭을 유도하는 타이틀 카피 문구를 추천합니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🖌️ 5대 캘리그라피 한글 타이틀 템플릿</h4>
-                      <ul className="space-y-1 text-white/70 list-disc pl-5">
-                        <li><strong className="text-emerald-300">👑 궁중 미스터리:</strong> 황금 붓글씨 캘리그라피 + 발광 글로우</li>
-                        <li><strong className="text-emerald-300">🩸 잔혹 서스펜스:</strong> 혈색 독도체 + 중앙 고대비 각도</li>
-                        <li><strong className="text-emerald-300">🔥 하이라이트 킹고딕:</strong> 반투명 블랙 리본 플레이트 오버레이</li>
-                        <li><strong className="text-emerald-300">📜 정통 궁중 명조:</strong> 상단 우아한 명조 고증 레이어</li>
-                        <li><strong className="text-emerald-300">⚡ Shorts 모바일 최적화:</strong> 모바일 작은 화면 전용 고시독성 고딕</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {manualActiveTab === "safety" && (
-                  <div className="space-y-4">
-                    <div className="bg-[#141822] border border-rose-500/30 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-rose-300">7단계: 2026년 최신 구글 정책 대응 — 유튜브 수익정지 자가 진단기</h3>
-                      <p className="text-white/80">
-                        유튜브 수익창출 승인 박탈(재사용된 콘텐츠 및 자극적 폭력 묘사) 위험 요소를 사전에 정밀 진단하는 자가 감사 시스템입니다.
-                      </p>
-                    </div>
-
-                    <div className="bg-[#141822] border border-white/10 rounded-xl p-4 space-y-2">
-                      <h4 className="font-bold text-white text-xs">🛡️ 4대 정밀 진단 영역</h4>
-                      <ul className="space-y-1.5 text-white/70 list-disc pl-5">
-                        <li><strong className="text-rose-300">재사용된 콘텐츠 (Reused Content Risk):</strong> 단순 자동 생성 텍스트 판정 방지 및 대본 독창성 검증.</li>
-                        <li><strong className="text-rose-300">자극적/선정적 묘사 (Sensual Risk):</strong> 유튜브 커뮤니티 가이드라인 연령 제한 조항 위반 여부 점검.</li>
-                        <li><strong className="text-rose-300">잔혹한 폭력성 (Violent Risk):</strong> 유혈/잔혹 물리적 묘사를 어두운 조명, 붉은 번개, 깨진 도자기 등 시각적 은유(메타포)로 치환했는지 정밀 검수.</li>
-                        <li><strong className="text-rose-300">메타데이터 정책 (Metadata Risk):</strong> 제목 및 태그 어뷰징 진단.</li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-3 text-rose-300 font-mono text-[11px] flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                      <span>💡 <strong>안전성 보장:</strong> 종합 안전 점수가 80점 이상일 경우 유튜브 파트너 프로그램(YPP) 수익창출 심사를 안심하고 진행하실 수 있습니다.</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 border-t border-white/10 flex justify-between items-center">
-                <span className="text-[11px] font-mono text-cyan-400/80">
-                  yadam_storyboard_control_engine_manual_v3.5.pdf
-                </span>
-                <button
-                  onClick={() => setShowFullUserManualModal(false)}
-                  className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-950/50"
-                >
-                  매뉴얼 확인 완료 (닫기)
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Reset Confirmation Modal */}
-      <AnimatePresence>
-        {showResetConfirmModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 10 }}
-              className="bg-[#121218] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl"
-            >
-              <div className="flex items-center gap-3 text-rose-400">
-                <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                  <Trash2 className="w-6 h-6 text-rose-400" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">프로젝트 영구 초기화</h3>
-                  <p className="text-xs text-rose-400/80 font-mono">RESET ALL SESSION DATA</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-white/70 leading-relaxed bg-black/40 p-3.5 rounded-xl border border-white/5">
-                현재 작업 중인 대본 원고, 캐릭터 시트, 장소 DB, 스토리보드 씬 및 모든 이미지/데이터가 <strong>영구히 초기화</strong>됩니다.<br /><br />
-                진짜로 새로운 대본 작업을 위해 초기화하시겠습니까?
-              </p>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowResetConfirmModal(false)}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white/80 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
-                >
-                  취소 (유지하기)
-                </button>
-                <button
-                  onClick={executeClearSession}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-950/50 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  네, 모두 초기화합니다
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Styled Footer aligned with Bento parameters */}
-      <footer
-        className="mt-6 border-t border-white/10 pt-4 flex flex-col sm:flex-row justify-between items-center text-[10px] font-mono text-white/30 gap-3"
-        id="app-footer"
-      >
-        <div className="flex gap-4">
-          <span>EXPONENTIAL_BACKOFF: ACTIVE</span>
-          <span>JITTER: 4-6s</span>
-        </div>
-        <div className="text-center sm:text-right">
-          <span>SYSTEM_UPTIME: 14:23:01</span>
-        </div>
-      </footer>
+      {/* ComfyUI Automation & Dual Mode Modal */}
+      <ComfyUIModal
+        isOpen={showComfyUIModal}
+        onClose={() => setShowComfyUIModal(false)}
+        scenes={scenes}
+        showFeedback={showFeedback}
+      />
     </div>
   );
 }

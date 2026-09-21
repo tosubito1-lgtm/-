@@ -29,7 +29,13 @@ export type StoryFormat =
   | "in_media_res" 
   | "multi_perspective" 
   | "omnibus_3part" 
-  | "investigation";
+  | "investigation"
+  | "fairy_adventure"
+  | "fairy_growth"
+  | "fairy_bedtime"
+  | "fairy_fable";
+
+export type ProductionMode = "history" | "fairytale";
 
 export type LengthPreset = 
   | "shorts"      // 최대 2분 (8~15장면)
@@ -66,17 +72,19 @@ export interface StoryboardAnalysisResponse {
   scenes: SceneItem[];
   storyFormat?: StoryFormat;
   lengthPreset?: LengthPreset;
+  productionMode?: ProductionMode;
   estimatedTotalDurationMinutes?: number;
 }
 
 export interface GenerationConfig {
   model: "gemini-3.1-flash-image" | "gemini-3.1-flash-lite-image" | "gemini-3-pro-image";
   aspectRatio: "1:1" | "9:16" | "16:9" | "3:4" | "4:3";
-  artStyle: "realistic" | "3d" | "anime" | "yadam" | "claymation";
+  artStyle: "realistic" | "3d" | "anime" | "yadam" | "claymation" | "fairy_watercolor" | "fairy_3d" | "fairy_crayon" | "fairy_clay" | "fairy_anime" | string;
   quantityOverride: boolean;
   quantityValue: number;
   storyFormat?: StoryFormat;
   lengthPreset?: LengthPreset;
+  productionMode?: ProductionMode;
 }
 
 export interface ThumbnailDirectorCandidateCategory {
@@ -185,6 +193,63 @@ export interface GrowthAnalysisResult {
     thumbnailAnalysis: string;
   };
   extractedPatterns: GrowthPatternItem[];
+}
+
+export interface ScriptQACheckItem {
+  sceneId: number;
+  charCount: number;
+  estimatedDurationSec: number;
+  mediaType: "video" | "image";
+  hasCharacterTag: boolean;
+  hasVisualDescription: boolean;
+  status: "pass" | "warning" | "error";
+  issues: string[];
+  suggestedNarration?: string;
+  suggestedPrompt?: string;
+}
+
+export interface ScriptQAResult {
+  totalScenes: number;
+  totalDurationSec: number;
+  totalDurationMin: number;
+  videoSceneCount: number;
+  videoRatioPercent: number;
+  warningCount: number;
+  errorCount: number;
+  overallHealthScore: number;
+  summary: string;
+  items: ScriptQACheckItem[];
+}
+
+export interface VisionQACheckItem {
+  sceneId: number;
+  overallScore: number; // 0 ~ 100
+  verdict: "PASS" | "NEEDS_REGENERATE" | "EXCELLENT";
+  facialQualityScore: number; // 0 ~ 100
+  clothingConsistencyScore: number; // 0 ~ 100
+  noTextArtifactsScore: number; // 0 ~ 100
+  atmosphereScore: number; // 0 ~ 100
+  detectedIssues: string[];
+  fixPromptTip?: string;
+}
+
+export interface VisionQAResult {
+  auditedCount: number;
+  passedCount: number;
+  needsRegenCount: number;
+  averageScore: number;
+  items: Record<number, VisionQACheckItem>;
+}
+
+export interface ComfyUIWorkflowConfig {
+  comfyUrl: string; // default http://127.0.0.1:8188
+  imageFolder: string; // default ./images
+  outputFolder: string; // default ./output_videos
+  targetScenes: "all_video_scenes" | "selected_scenes";
+  steps: number;
+  cfg: number;
+  fps: number;
+  motionStrength: number;
 }
 
 
